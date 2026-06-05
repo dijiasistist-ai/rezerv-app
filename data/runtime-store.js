@@ -84,7 +84,7 @@ function ensureSeedUser(email, overrides = {}) {
 
   return upsertUser({
     id: crypto.randomUUID(),
-    name: overrides.name || "Rezerv App Demo",
+    name: overrides.name || "zuvu Demo",
     email: normalizedEmail,
     phone: overrides.phone || "",
     passwordHash: hashPassword(overrides.password || "123456"),

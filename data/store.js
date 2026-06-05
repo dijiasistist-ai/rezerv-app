@@ -238,7 +238,7 @@ const venueDashboard = {
       label: "Pzt 11 May",
       slots: [
         { time: "17:00", status: "booked", title: "Mehmet Bayer", meta: "Saha 1 · Nakit", phone: "0534 657 40 78", field: "Saha 1", payment: "Nakit", note: "Takım eksiksiz gelecek." },
-        { time: "18:00", status: "marketplace", title: "rezerv.app satışına açık", meta: "Saha 2 · Öne çıkar", field: "Saha 2", payment: "Platform satışı", note: "Dinamik fiyat aktif." },
+        { time: "18:00", status: "marketplace", title: "zuvu satışına açık", meta: "Saha 2 · Öne çıkar", field: "Saha 2", payment: "Platform satışı", note: "Dinamik fiyat aktif." },
         { time: "19:00", status: "subscription", title: "Birtan Sönmez", meta: "Abonelik · 12 hafta", phone: "0532 411 23 44", field: "Saha 1", payment: "Abonelik", note: "12 haftalık paket." },
         { time: "20:00", status: "booked", title: "Baran Babacan", meta: "Saha 1 · Online", phone: "0542 111 90 12", field: "Saha 1", payment: "Online", note: "Kapora alındı." },
       ],
@@ -246,7 +246,7 @@ const venueDashboard = {
     {
       label: "Sal 12 May",
       slots: [
-        { time: "17:00", status: "marketplace", title: "rezerv.app satışına açık", meta: "Saha 1 · Dinamik fiyat", field: "Saha 1", payment: "Platform satışı", note: "Akşam kampanyası açık." },
+        { time: "17:00", status: "marketplace", title: "zuvu satışına açık", meta: "Saha 1 · Dinamik fiyat", field: "Saha 1", payment: "Platform satışı", note: "Akşam kampanyası açık." },
         { time: "18:00", status: "subscription", title: "Tuna Tan Özmen", meta: "Saha 1 · Abonelik", phone: "0555 321 09 88", field: "Saha 1", payment: "Abonelik", note: "Aylık paket müşterisi." },
         { time: "19:00", status: "booked", title: "Çağatay Micik", meta: "Saha 2 · Online", phone: "0538 887 23 11", field: "Saha 2", payment: "Online", note: "Telefonla teyit edildi." },
         { time: "20:00", status: "maintenance", title: "Bakım / Temizlik", meta: "Saha 2 · 30 dk tampon", field: "Saha 2", payment: "Bloke", note: "Zemin bakımı planlı." },
@@ -257,7 +257,7 @@ const venueDashboard = {
       slots: [
         { time: "17:00", status: "booked", title: "Yusuf Cömert", meta: "Saha 1 · Kurumsal lig", phone: "0539 303 19 90", field: "Saha 1", payment: "Kurumsal", note: "Liga kaydı mevcut." },
         { time: "18:00", status: "booked", title: "Özel İşletme Satışı", meta: "Saha 2 · Kapora alındı", field: "Saha 2", payment: "İşletme", note: "Resepsiyondan manuel açıldı." },
-        { time: "19:00", status: "marketplace", title: "rezerv.app satışına açık", meta: "Son 3 slot", field: "Saha 2", payment: "Platform satışı", note: "Son dakika satış kurgusu." },
+        { time: "19:00", status: "marketplace", title: "zuvu satışına açık", meta: "Son 3 slot", field: "Saha 2", payment: "Platform satışı", note: "Son dakika satış kurgusu." },
         { time: "20:00", status: "booked", title: "Murat Bahadır", meta: "Saha 1 · EFT", phone: "0551 481 72 14", field: "Saha 1", payment: "EFT", note: "Dekont bekleniyor." },
       ],
     },
@@ -265,7 +265,7 @@ const venueDashboard = {
       label: "Per 14 May",
       slots: [
         { time: "17:00", status: "subscription", title: "Akif Tekin", meta: "Aylık paket", phone: "0536 222 67 10", field: "Saha 1", payment: "Aylık paket", note: "Her perşembe sabit slot." },
-        { time: "18:00", status: "marketplace", title: "rezerv.app satışına açık", meta: "Push kampanyası aktif", field: "Saha 1", payment: "Platform satışı", note: "Push bildirimi gönderildi." },
+        { time: "18:00", status: "marketplace", title: "zuvu satışına açık", meta: "Push kampanyası aktif", field: "Saha 1", payment: "Platform satışı", note: "Push bildirimi gönderildi." },
         { time: "19:00", status: "booked", title: "Samet Çetin", meta: "Saha 1 · Online", phone: "0546 510 00 09", field: "Saha 1", payment: "Online", note: "Kapora tamamlandı." },
         { time: "20:00", status: "booked", title: "Ozan Öğmen", meta: "Saha 2 · Kurumsal", phone: "0537 143 22 21", field: "Saha 2", payment: "Kurumsal", note: "Fatura kesilecek." },
       ],
@@ -275,7 +275,7 @@ const venueDashboard = {
       slots: [
         { time: "17:00", status: "booked", title: "Yavuz Burak", meta: "Saha 1 · İşletme", phone: "0535 002 90 45", field: "Saha 1", payment: "İşletme", note: "Telefon rezervasyonu." },
         { time: "18:00", status: "subscription", title: "Batuhan Özdemir", meta: "Paket satışı", phone: "0549 822 30 40", field: "Saha 1", payment: "Paket", note: "6 derslik paket." },
-        { time: "19:00", status: "marketplace", title: "rezerv.app satışına açık", meta: "Teal Badge", field: "Saha 2", payment: "Platform satışı", note: "Premium vitrin aktif." },
+        { time: "19:00", status: "marketplace", title: "zuvu satışına açık", meta: "Teal Badge", field: "Saha 2", payment: "Platform satışı", note: "Premium vitrin aktif." },
         { time: "20:00", status: "booked", title: "Emir Atik", meta: "Saha 1 · Online", phone: "0533 870 40 12", field: "Saha 1", payment: "Online", note: "Tam ödeme alındı." },
       ],
     },
@@ -283,7 +283,7 @@ const venueDashboard = {
       label: "Cts 16 May",
       slots: [
         { time: "17:00", status: "booked", title: "Samet Çetin", meta: "Saha 1 · Online", phone: "0531 905 12 65", field: "Saha 1", payment: "Online", note: "Hafta sonu yoğunluğu yüksek." },
-        { time: "18:00", status: "marketplace", title: "rezerv.app satışına açık", meta: "Saha 2 · Hafta sonu", field: "Saha 2", payment: "Platform satışı", note: "Son dakika talebi bekleniyor." },
+        { time: "18:00", status: "marketplace", title: "zuvu satışına açık", meta: "Saha 2 · Hafta sonu", field: "Saha 2", payment: "Platform satışı", note: "Son dakika talebi bekleniyor." },
         { time: "19:00", status: "booked", title: "Murat Bahadır", meta: "Saha 1 · EFT", phone: "0551 481 72 14", field: "Saha 1", payment: "EFT", note: "Dekont teyit edildi." },
         { time: "20:00", status: "subscription", title: "Akif Tekin", meta: "Aylık paket", phone: "0536 222 67 10", field: "Saha 2", payment: "Aylık paket", note: "Cumartesi sabit slot." },
       ],
@@ -291,7 +291,7 @@ const venueDashboard = {
     {
       label: "Paz 17 May",
       slots: [
-        { time: "17:00", status: "marketplace", title: "rezerv.app satışına açık", meta: "Saha 1 · Pazar", field: "Saha 1", payment: "Platform satışı", note: "Aile maçı paketi açık." },
+        { time: "17:00", status: "marketplace", title: "zuvu satışına açık", meta: "Saha 1 · Pazar", field: "Saha 1", payment: "Platform satışı", note: "Aile maçı paketi açık." },
         { time: "18:00", status: "booked", title: "Birtan Sönmez", meta: "Saha 2 · Manuel", phone: "0532 411 23 44", field: "Saha 2", payment: "Manuel", note: "Resepsiyondan alındı." },
         { time: "19:00", status: "maintenance", title: "Bakım / Temizlik", meta: "Saha 1 · Blokeli", field: "Saha 1", payment: "Bloke", note: "Ağ kontrolü yapılacak." },
         { time: "20:00", status: "booked", title: "Yusuf Cömert", meta: "Saha 2 · Lig", phone: "0539 303 19 90", field: "Saha 2", payment: "Kurumsal", note: "Pazar lig maçı." },
@@ -466,7 +466,7 @@ const venueDashboard = {
     ],
     businessName: "test",
     questions: [
-      { label: "rezerv.app takvimi kullanılacak mı?", value: true },
+      { label: "zuvu takvimi kullanılacak mı?", value: true },
       { label: "Rezervasyon yapılırken spor dalı seçilecek mi?", value: false },
       { label: "Online ders satışı yapılacak mı?", value: false },
       { label: "Paket satışı yapılacak mı?", value: false },
@@ -669,7 +669,7 @@ function getListingById(id) {
 function getBootstrapPayload() {
   return {
     brand: {
-      name: "rezerv.app",
+      name: "zuvu",
       tagline: "Venue booking marketplace",
     },
     cities,

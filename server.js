@@ -60,13 +60,13 @@ function publicBaseUrl(req) {
 
 function verificationEmailTemplate({ name, verifyUrl }) {
   return {
-    subject: "rezerv.app e-posta doğrulama",
-    text: `Merhaba ${name}, rezerv.app hesabını doğrulamak için bu bağlantıyı aç: ${verifyUrl}`,
+    subject: "zuvu e-posta doğrulama",
+    text: `Merhaba ${name}, zuvu hesabını doğrulamak için bu bağlantıyı aç: ${verifyUrl}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
-        <h1 style="margin:0 0 12px;font-size:24px">rezerv.app hesabını doğrula</h1>
+        <h1 style="margin:0 0 12px;font-size:24px">zuvu hesabını doğrula</h1>
         <p>Merhaba ${name}, hesabını tamamlamak için aşağıdaki bağlantıya tıkla.</p>
-        <a href="${verifyUrl}" style="display:inline-block;margin:18px 0;padding:12px 18px;border-radius:10px;background:#ff4d16;color:#fff;text-decoration:none;font-weight:700">E-postamı doğrula</a>
+        <a href="${verifyUrl}" style="display:inline-block;margin:18px 0;padding:12px 18px;border-radius:10px;background:#04a7f4;color:#fff;text-decoration:none;font-weight:700">E-postamı doğrula</a>
         <p style="font-size:13px;color:#667085">Bu e-posta geliştirme ortamında dev posta kutusuna kaydedilir. Gerçek gönderim için mail sağlayıcısı bağlanacak.</p>
       </div>
     `,
@@ -75,7 +75,7 @@ function verificationEmailTemplate({ name, verifyUrl }) {
 
 function passwordResetEmailTemplate({ name, resetToken }) {
   return {
-    subject: "rezerv.app şifre sıfırlama",
+    subject: "zuvu şifre sıfırlama",
     text: `Merhaba ${name}, şifre sıfırlama kodun: ${resetToken}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
@@ -104,19 +104,19 @@ function sendPhoneVerification(user) {
   return appendDevSms({
     to: user.phone,
     template: "phone-verification",
-    body: `rezerv.app doğrulama kodun: ${user.phoneVerificationCode}`,
+    body: `zuvu doğrulama kodun: ${user.phoneVerificationCode}`,
   });
 }
 
 function seedUsers() {
-  ensureSeedUser("demo@rezerv.app", { name: "Demo Kullanıcı", password: "123456" });
-  ensureSeedUser("firma@rezerv.app", {
+  ensureSeedUser("demo@zuvu.app", { name: "Demo Kullanıcı", password: "123456" });
+  ensureSeedUser("firma@zuvu.app", {
     name: "Zincirlikuyu Arena",
     password: "123456",
     canManageVenue: true,
   });
-  ensureSeedUser("admin@rezerv.app", {
-    name: "Rezerv App Admin",
+  ensureSeedUser("admin@zuvu.app", {
+    name: "zuvu Admin",
     password: "123456",
     canManageVenue: true,
     isAdmin: true,
@@ -154,7 +154,7 @@ function requireAuth(req, res, next) {
 
 function requireVenueAccess(req, res, next) {
   if (isLocalDemoRequest(req)) {
-    req.user = findUserByEmail("firma@rezerv.app");
+    req.user = findUserByEmail("firma@zuvu.app");
     next();
     return;
   }
@@ -174,7 +174,7 @@ function requireVenueAccess(req, res, next) {
 
 function requireAdmin(req, res, next) {
   if (isLocalDemoRequest(req)) {
-    req.user = findUserByEmail("admin@rezerv.app");
+    req.user = findUserByEmail("admin@zuvu.app");
     next();
     return;
   }
@@ -220,7 +220,7 @@ app.get("/api/bootstrap", (_req, res) => {
   res.json({
     ...payload,
     brand: {
-      name: "rezerv.app",
+      name: "zuvu",
       tagline: "Rezervasyon marketplace",
     },
   });
@@ -477,5 +477,5 @@ app.use((req, res, next) => {
 });
 
 app.listen(port, () => {
-  console.log(`rezerv.app local server: http://127.0.0.1:${port}`);
+  console.log(`zuvu local server: http://127.0.0.1:${port}`);
 });

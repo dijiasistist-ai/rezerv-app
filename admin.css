@@ -1,5 +1,5 @@
 :root {
-  --brand: #ff5a1f;
+  --brand: #04a7f4;
   --ink: #07102e;
   --muted: #667085;
   --line: #e6ebf2;
@@ -30,7 +30,8 @@ body {
 }
 
 .admin-brand img {
-  width: 170px;
+  width: 178px;
+  border-radius: 8px;
 }
 
 .admin-link {

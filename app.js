@@ -50,7 +50,7 @@ const state = {
   authEntry: "customer",
   authStep: "form",
   pendingRegistration: null,
-  token: localStorage.getItem("rezerv_token") || "",
+  token: localStorage.getItem("zuvu_token") || "",
   user: null,
 };
 
@@ -363,7 +363,7 @@ async function loadCurrentUser() {
     state.user = payload.user;
     updateAuthUi();
   } catch (error) {
-    localStorage.removeItem("rezerv_token");
+    localStorage.removeItem("zuvu_token");
     state.token = "";
     state.user = null;
     updateAuthUi();
@@ -457,7 +457,7 @@ accountEnableVenue.addEventListener("click", async () => {
 });
 
 accountLogout.addEventListener("click", () => {
-  localStorage.removeItem("rezerv_token");
+  localStorage.removeItem("zuvu_token");
   state.token = "";
   state.user = null;
   authForm.reset();
@@ -520,7 +520,7 @@ authRoleChoices.forEach((button) => {
 
       state.token = response.token;
       state.user = response.user;
-      localStorage.setItem("rezerv_token", response.token);
+      localStorage.setItem("zuvu_token", response.token);
       updateAuthUi();
       authFeedback.textContent = response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.";
       authFeedback.classList.add("is-success");
@@ -564,7 +564,7 @@ authForm.addEventListener("submit", async (event) => {
 
     state.token = response.token;
     state.user = response.user;
-    localStorage.setItem("rezerv_token", response.token);
+    localStorage.setItem("zuvu_token", response.token);
     updateAuthUi();
     authFeedback.textContent = "Giriş başarılı.";
     authFeedback.classList.add("is-success");

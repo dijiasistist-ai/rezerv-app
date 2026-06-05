@@ -1,6 +1,6 @@
-# rezerv.app
+# zuvu
 
-rezerv.app marketplace ve isletme paneli prototipi.
+zuvu marketplace ve isletme paneli prototipi.
 
 ## Local gelistirme
 
@@ -23,9 +23,9 @@ http://127.0.0.1:8091/venue.html
 
 Demo hesaplar:
 
-- `demo@rezerv.app` / `123456`
-- `firma@rezerv.app` / `123456`
-- `admin@rezerv.app` / `123456`
+- `demo@zuvu.app` / `123456`
+- `firma@zuvu.app` / `123456`
+- `admin@zuvu.app` / `123456`
 
 ## Render deploy
 

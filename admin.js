@@ -3,7 +3,7 @@ const alertList = document.querySelector("#alert-list");
 const venueList = document.querySelector("#venue-list");
 
 async function loadAdmin() {
-  const token = localStorage.getItem("rezerv_token") || "";
+  const token = localStorage.getItem("zuvu_token") || "";
   const response = await fetch("/api/admin/bootstrap", {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });

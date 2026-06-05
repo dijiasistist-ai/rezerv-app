@@ -69,7 +69,7 @@ const BASE_WEEK_START = new Date(2026, 4, 11);
 const DEFAULT_MANAGER_MENU = ["Takvim", "Haftalık Abonelik Satış", "İşlemler", "Raporlama", "Ayarlar", "Çıkış Yap"];
 
 function getToken() {
-  return localStorage.getItem("rezerv_token") || "";
+  return localStorage.getItem("zuvu_token") || "";
 }
 
 function isDemoHost() {
@@ -131,7 +131,7 @@ async function requireVenueAccess() {
 
   if (!response.ok) {
     authWall.classList.remove("hidden");
-    localStorage.removeItem("rezerv_token");
+    localStorage.removeItem("zuvu_token");
     setTimeout(() => {
       window.location.href = "/index.html";
     }, 1200);
@@ -355,9 +355,9 @@ function renderWeeklySchedule(board, days) {
 
           let modeLabel = "Açık";
           let modeMeta = "";
-          let modeClass = "is-hissingo";
-          let actionLabel = "rezerv.app satışına aç";
-          let badgeMarkup = buildSlotBadge("R", "is-hissingo");
+          let modeClass = "is-zuvu";
+          let actionLabel = "zuvu satışına aç";
+          let badgeMarkup = buildSlotBadge("R", "is-zuvu");
 
           if (mode === "closed") {
             modeLabel = "Kapalı";
@@ -389,7 +389,7 @@ function renderWeeklySchedule(board, days) {
           const popoverClass = `slot-popover${popoverEdgeClass}${popoverVerticalClass}`;
           const slotMainMarkup =
             mode === "rezerv"
-              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">rezerv.app</span>`
+              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">zuvu</span>`
               : `<strong>${modeLabel}</strong>${badgeMarkup}${modeMeta ? `<span>${modeMeta}</span>` : ""}`;
 
           return `
@@ -405,9 +405,9 @@ function renderWeeklySchedule(board, days) {
                           <span>${actionLabel}</span>
                         </div>
                         <div class="slot-options" aria-label="Slot durumu seç">
-                          <button class="slot-option slot-option-hissingo ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="rezerv.app">
+                          <button class="slot-option slot-option-zuvu ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="zuvu">
                             <span class="slot-option-icon">R</span>
-                            <span>rezerv.app</span>
+                            <span>zuvu</span>
                           </button>
                           <button class="slot-option slot-option-closed ${mode === "closed" ? "is-active" : ""}" type="button" data-mode="closed" data-slot-key="${slotKey}" aria-label="Kapalı">
                             <span class="slot-option-icon">K</span>
@@ -915,7 +915,7 @@ function bindVenueInteractions() {
     if (!button) return;
 
     if (button.dataset.action === "logout") {
-      localStorage.removeItem("rezerv_token");
+      localStorage.removeItem("zuvu_token");
       setManagerMenuOpen(false);
       window.location.href = "/index.html";
       return;

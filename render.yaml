@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: rezerv-app
+    name: zuvu-app
     runtime: node
     buildCommand: npm install
     startCommand: npm start
