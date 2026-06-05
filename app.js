@@ -24,11 +24,13 @@ const authTabs = document.querySelectorAll(".auth-tab");
 const authForm = document.querySelector("#auth-form");
 const authStepEntry = document.querySelector("#auth-step-entry");
 const authName = document.querySelector("#auth-name");
+const authPhone = document.querySelector("#auth-phone");
 const authEmail = document.querySelector("#auth-email");
 const authPassword = document.querySelector("#auth-password");
 const authSubmit = document.querySelector("#auth-submit");
 const authFeedback = document.querySelector("#auth-feedback");
 const nameField = document.querySelector("#name-field");
+const phoneField = document.querySelector("#phone-field");
 const authStepForm = document.querySelector("#auth-step-form");
 const authStepRole = document.querySelector("#auth-step-role");
 const authBackToForm = document.querySelector("#auth-back-to-form");
@@ -261,6 +263,7 @@ function setAuthMode(mode) {
   authTitle.textContent = isRegister ? "Kayıt ol" : "Giriş yap";
   authSubmit.textContent = isRegister ? "Devam Et" : "Giriş Yap";
   nameField.classList.toggle("hidden", !isRegister);
+  phoneField.classList.toggle("hidden", !isRegister);
   authStepEntry.classList.toggle("hidden", !(!isRegister && state.authStep === "entry"));
   authStepForm.classList.toggle("hidden", !isRegister && state.authStep === "entry");
   authStepRole.classList.add("hidden");
@@ -310,6 +313,7 @@ function toggleAccountMenu() {
 
 function updateAuthUi() {
   if (state.user) {
+    const needsVerification = !state.user.emailVerified || (state.user.phone && !state.user.phoneVerified);
     accountLabel.textContent = state.user.name;
     avatarMini.textContent = getInitials(state.user.name);
     loginTrigger.classList.add("is-authenticated");
@@ -320,6 +324,15 @@ function updateAuthUi() {
           ? "Bireysel rezervasyonlarını kullanabilir veya işletme paneline geçebilirsin."
           : "Hesabın bireysel kullanım için hazır. İstersen aynı hesapta işletme modunu da açabilirsin."
       }</span>
+      ${
+        needsVerification
+          ? `<em class="account-verify-note">Doğrulama bekliyor: ${
+              !state.user.emailVerified ? "e-posta" : ""
+            }${!state.user.emailVerified && state.user.phone && !state.user.phoneVerified ? " + " : ""}${
+              state.user.phone && !state.user.phoneVerified ? "SMS" : ""
+            }</em>`
+          : `<em class="account-verify-note is-ok">Hesap doğrulandı</em>`
+      }
     `;
     accountDashboard.classList.toggle("hidden", !state.user.canManageVenue);
     accountEnableVenue.classList.toggle("hidden", state.user.canManageVenue);
@@ -509,10 +522,10 @@ authRoleChoices.forEach((button) => {
       state.user = response.user;
       localStorage.setItem("rezerv_token", response.token);
       updateAuthUi();
-      authFeedback.textContent = "Hesap oluşturuldu. Giriş yapıldı.";
+      authFeedback.textContent = response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.";
       authFeedback.classList.add("is-success");
       authForm.reset();
-      setTimeout(closeAuthModal, 500);
+      setTimeout(closeAuthModal, 900);
     } catch (error) {
       authStepRole.classList.add("hidden");
       authStepForm.classList.remove("hidden");
@@ -535,6 +548,7 @@ authForm.addEventListener("submit", async (event) => {
 
   if (isRegister) {
     payload.name = authName.value.trim();
+    payload.phone = authPhone.value.trim();
     state.pendingRegistration = payload;
     state.authStep = "role";
     authStepForm.classList.add("hidden");
@@ -586,3 +600,14 @@ Promise.all([loadBootstrap(), loadCurrentUser()]).catch((error) => {
     </article>
   `;
 });
+
+const verifiedState = new URLSearchParams(window.location.search).get("verified");
+if (verifiedState) {
+  openAuthModal("login");
+  authFeedback.textContent =
+    verifiedState === "success"
+      ? "E-posta doğrulandı. Artık hesabına giriş yapabilirsin."
+      : "Doğrulama bağlantısı geçersiz veya süresi dolmuş.";
+  authFeedback.classList.toggle("is-success", verifiedState === "success");
+  window.history.replaceState({}, "", window.location.pathname);
+}

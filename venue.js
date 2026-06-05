@@ -30,6 +30,7 @@ const profileCard = document.querySelector("#profile-card");
 const profileFormGrid = document.querySelector("#profile-form-grid");
 const reviewsShell = document.querySelector("#reviews-shell");
 const billingBody = document.querySelector("#billing-body");
+const billingAddButton = document.querySelector(".billing-add-button");
 const managerMenuItems = document.querySelector("#manager-menu-items");
 const managerMenu = document.querySelector("#manager-menu");
 const managerMenuTrigger = document.querySelector("#manager-menu-trigger");
@@ -45,6 +46,7 @@ const venueState = {
   currentWeekOffset: 0,
   isManagerMenuOpen: false,
   salesDraftSlotKey: "",
+  venueId: "zincirlikuyu-arena",
   dashboard: null,
 };
 
@@ -71,7 +73,36 @@ function getToken() {
 }
 
 function isDemoHost() {
-  return ["127.0.0.1", "localhost", "rezerv-app.onrender.com"].includes(window.location.hostname);
+  return ["127.0.0.1", "localhost"].includes(window.location.hostname);
+}
+
+function getAuthHeaders() {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function venueApiRequest(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "İşlem tamamlanamadı.");
+  }
+  return payload;
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 async function requireVenueAccess() {
@@ -286,6 +317,20 @@ function openSalesModal(day, time, slotKey) {
 function closeSalesModal() {
   venueState.salesDraftSlotKey = "";
   salesModal.classList.add("hidden");
+}
+
+async function saveSlotState() {
+  const payload = await venueApiRequest("/api/venue/slot-state", {
+    method: "PATCH",
+    body: JSON.stringify({
+      venueId: venueState.venueId,
+      slotModes: venueState.slotModes,
+      manualEntries: venueState.manualEntries,
+    }),
+  });
+
+  venueState.slotModes = payload.slotState?.slotModes || venueState.slotModes;
+  venueState.manualEntries = payload.slotState?.manualEntries || venueState.manualEntries;
 }
 
 function renderWeeklySchedule(board, days) {
@@ -555,6 +600,7 @@ function renderSettingsTabs(items) {
 }
 
 function renderSettingsOnboarding(settings) {
+  const location = settings.location || {};
   const questionsMarkup = settings.questions
     .map(
       (item, index) => `
@@ -562,11 +608,11 @@ function renderSettingsOnboarding(settings) {
           <strong>${item.label}</strong>
           <div class="settings-radio-row">
             <label class="settings-radio">
-              <input type="radio" name="settings-q-${index}" ${item.value ? "checked" : ""} />
+              <input type="radio" name="settings-q-${index}" value="true" ${item.value ? "checked" : ""} />
               <span>Evet</span>
             </label>
             <label class="settings-radio">
-              <input type="radio" name="settings-q-${index}" ${!item.value ? "checked" : ""} />
+              <input type="radio" name="settings-q-${index}" value="false" ${!item.value ? "checked" : ""} />
               <span>Hayır</span>
             </label>
           </div>
@@ -577,12 +623,15 @@ function renderSettingsOnboarding(settings) {
 
   const selectsMarkup = settings.selects
     .map(
-      (item) => `
+      (item, index) => `
         <label class="settings-select-field">
           <span>${item.label}${item.info ? ' <em class="settings-info">i</em>' : ""}</span>
-          <select>
+          <select data-settings-select-index="${index}">
             ${item.options
-              .map((option) => `<option ${option === item.value ? "selected" : ""}>${option}</option>`)
+              .map(
+                (option) =>
+                  `<option ${option === item.value ? "selected" : ""}>${escapeHtml(option)}</option>`,
+              )
               .join("")}
           </select>
         </label>
@@ -593,7 +642,7 @@ function renderSettingsOnboarding(settings) {
   settingsOnboardingForm.innerHTML = `
     <label class="settings-input-field">
       <span>İşletme Adı</span>
-      <input type="text" value="${settings.businessName}" />
+      <input id="settings-business-name" type="text" value="${escapeHtml(settings.businessName)}" />
     </label>
 
     ${questionsMarkup}
@@ -602,10 +651,32 @@ function renderSettingsOnboarding(settings) {
 
     <div class="settings-location-block">
       <strong>İşletme Konumu</strong>
-      <div class="settings-location-status">${settings.locationStatus}</div>
-      <div class="settings-map-placeholder">
-        <span>Harita entegrasyonu burada konum akışıyla bağlanacak</span>
+      <div class="settings-location-status">${escapeHtml(settings.locationStatus)}</div>
+      <label class="settings-select-field">
+        <span>Açık adres</span>
+        <input id="settings-location-address" type="text" value="${escapeHtml(location.address || "")}" placeholder="Cadde, sokak, bina no" />
+      </label>
+      <div class="settings-form-grid">
+        <label class="settings-select-field">
+          <span>Enlem</span>
+          <input id="settings-location-lat" type="text" value="${escapeHtml(location.lat || "")}" placeholder="41.0082" />
+        </label>
+        <label class="settings-select-field">
+          <span>Boylam</span>
+          <input id="settings-location-lng" type="text" value="${escapeHtml(location.lng || "")}" placeholder="28.9784" />
+        </label>
       </div>
+      <label class="settings-select-field">
+        <span>Harita bağlantısı</span>
+        <input id="settings-location-map-url" type="url" value="${escapeHtml(location.mapUrl || "")}" placeholder="Google Maps bağlantısı" />
+      </label>
+      <div class="settings-map-placeholder">
+        <span>${location.mapUrl ? "Harita bağlantısı kaydedildi" : "Harita entegrasyonu burada konum akışıyla bağlanacak"}</span>
+      </div>
+    </div>
+    <div class="settings-save-row">
+      <button class="solid-button" data-settings-save type="button">Ayarları kaydet</button>
+      <span class="venue-save-status" data-settings-status></span>
     </div>
   `;
 }
@@ -625,24 +696,28 @@ function renderProfile(profile) {
   profileFormGrid.innerHTML = `
     <label class="profile-field">
       <span>Adınız ve Soyadınız</span>
-      <input type="text" value="${profile.fullName}" />
+      <input data-profile-field="fullName" type="text" value="${escapeHtml(profile.fullName)}" />
     </label>
     <label class="profile-field">
       <span>Cep Telefonu Numaranız</span>
-      <input type="text" value="${profile.phone}" />
+      <input data-profile-field="phone" type="text" value="${escapeHtml(profile.phone)}" />
     </label>
     <label class="profile-field">
       <span>Eposta Adresiniz</span>
-      <input type="email" value="${profile.email}" />
+      <input data-profile-field="email" type="email" value="${escapeHtml(profile.email)}" />
     </label>
     <label class="profile-field">
       <span>TC Kimlik Numaranız</span>
-      <input type="text" value="${profile.identityNumber}" />
+      <input data-profile-field="identityNumber" type="text" value="${escapeHtml(profile.identityNumber)}" />
     </label>
     <label class="profile-field profile-field-wide">
       <span>Doğum Tarihiniz</span>
-      <input type="text" value="${profile.birthDate}" />
+      <input data-profile-field="birthDate" type="text" value="${escapeHtml(profile.birthDate)}" />
     </label>
+    <div class="profile-save-row">
+      <button class="solid-button" data-profile-save type="button">Profili kaydet</button>
+      <span class="venue-save-status" data-profile-status></span>
+    </div>
   `;
 }
 
@@ -703,6 +778,45 @@ function renderBillingAddresses(items) {
     .join("");
 }
 
+function collectSettingsPayload() {
+  const current = venueState.dashboard.settings;
+  return {
+    ...current,
+    businessName: document.querySelector("#settings-business-name")?.value.trim() || "",
+    questions: (current.questions || []).map((item, index) => ({
+      ...item,
+      value: document.querySelector(`input[name="settings-q-${index}"]:checked`)?.value === "true",
+    })),
+    selects: (current.selects || []).map((item, index) => ({
+      ...item,
+      value: document.querySelector(`[data-settings-select-index="${index}"]`)?.value || item.value,
+    })),
+    locationStatus: document.querySelector("#settings-location-address")?.value.trim()
+      ? "Girilmiş"
+      : "Girilmemiş",
+    location: {
+      address: document.querySelector("#settings-location-address")?.value.trim() || "",
+      lat: document.querySelector("#settings-location-lat")?.value.trim() || "",
+      lng: document.querySelector("#settings-location-lng")?.value.trim() || "",
+      mapUrl: document.querySelector("#settings-location-map-url")?.value.trim() || "",
+    },
+  };
+}
+
+function collectProfilePayload() {
+  return Array.from(document.querySelectorAll("[data-profile-field]")).reduce((payload, input) => {
+    payload[input.dataset.profileField] = input.value.trim();
+    return payload;
+  }, {});
+}
+
+function setSaveStatus(selector, message, isError = false) {
+  const node = document.querySelector(selector);
+  if (!node) return;
+  node.textContent = message;
+  node.classList.toggle("is-error", isError);
+}
+
 function renderDropdown(container, items) {
   const viewMap = {
     "Profil Ayarları": "profile",
@@ -742,9 +856,18 @@ function setManagerMenuOpen(isOpen) {
 async function loadVenueDashboard() {
   await requireVenueAccess();
   const venueId = new URLSearchParams(window.location.search).get("venue") || "zincirlikuyu-arena";
-  const response = await fetch(`/api/venue/bootstrap?venue=${encodeURIComponent(venueId)}`);
+  const response = await fetch(`/api/venue/bootstrap?venue=${encodeURIComponent(venueId)}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    authWall.classList.remove("hidden");
+    throw new Error("İşletme paneli verisi yüklenemedi.");
+  }
   const payload = await response.json();
   venueState.dashboard = payload;
+  venueState.venueId = payload.id || venueId;
+  venueState.slotModes = payload.slotState?.slotModes || {};
+  venueState.manualEntries = payload.slotState?.manualEntries || {};
 
   venueTitle.textContent = `${payload.venue.name} yönetim paneli`;
   venueAvatar.textContent = payload.venue.avatarLabel;
@@ -824,11 +947,15 @@ function bindVenueInteractions() {
       if (nextMode === "manual") {
         const day = buildDisplayWeek(venueState.dashboard.weekDays)[Number(option.dataset.dayIndex)];
         openSalesModal(day, option.dataset.time, option.dataset.slotKey);
+        return;
       }
       venueState.slotModes[option.dataset.slotKey] =
         nextMode === "rezerv" ? "rezerv" : nextMode;
       venueState.selectedSlotKey = "";
       renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+      saveSlotState().catch((error) => {
+        console.error(error);
+      });
       return;
     }
 
@@ -899,7 +1026,76 @@ function bindVenueInteractions() {
     if (venueState.dashboard) {
       renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
     }
+    saveSlotState().catch((error) => {
+      console.error(error);
+    });
     closeSalesModal();
+  });
+
+  settingsOnboardingForm?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-settings-save]");
+    if (!button || !venueState.dashboard) return;
+
+    setSaveStatus("[data-settings-status]", "Kaydediliyor...");
+    try {
+      const settings = collectSettingsPayload();
+      const payload = await venueApiRequest("/api/venue/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ venueId: venueState.venueId, settings }),
+      });
+      venueState.dashboard.settings = payload.settings;
+      renderSettingsOnboarding(payload.settings);
+      setSaveStatus("[data-settings-status]", "Kaydedildi");
+    } catch (error) {
+      setSaveStatus("[data-settings-status]", error.message, true);
+    }
+  });
+
+  profileFormGrid?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-profile-save]");
+    if (!button || !venueState.dashboard) return;
+
+    setSaveStatus("[data-profile-status]", "Kaydediliyor...");
+    try {
+      const profile = collectProfilePayload();
+      const payload = await venueApiRequest("/api/venue/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ venueId: venueState.venueId, profile }),
+      });
+      venueState.dashboard.profile = payload.profile;
+      renderProfile(payload.profile);
+      setSaveStatus("[data-profile-status]", "Kaydedildi");
+    } catch (error) {
+      setSaveStatus("[data-profile-status]", error.message, true);
+    }
+  });
+
+  billingAddButton?.addEventListener("click", async () => {
+    if (!venueState.dashboard) return;
+
+    const label = window.prompt("Adres adı", "Merkez fatura adresi");
+    if (!label) return;
+
+    const address = window.prompt("Açık adres", "");
+    if (address === null) return;
+
+    try {
+      const payload = await venueApiRequest("/api/venue/billing-addresses", {
+        method: "POST",
+        body: JSON.stringify({
+          venueId: venueState.venueId,
+          label,
+          address,
+          type: "Kurumsal",
+          city: "İstanbul",
+          name: venueState.dashboard.venue?.name || "",
+        }),
+      });
+      venueState.dashboard.billingAddresses = payload.billingAddresses;
+      renderBillingAddresses(payload.billingAddresses);
+    } catch (error) {
+      window.alert(error.message);
+    }
   });
 }
 

@@ -872,6 +872,7 @@ button {
 }
 
 .settings-input-field input,
+.settings-select-field input,
 .settings-select-field select {
   min-height: 42px;
   border: 1px solid var(--line);
@@ -938,6 +939,24 @@ button {
 .settings-form-grid,
 .profile-form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-save-row,
+.profile-save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.venue-save-status {
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.venue-save-status.is-error {
+  color: #d92d20;
 }
 
 .settings-field,

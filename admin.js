@@ -3,7 +3,10 @@ const alertList = document.querySelector("#alert-list");
 const venueList = document.querySelector("#venue-list");
 
 async function loadAdmin() {
-  const response = await fetch("/api/admin/bootstrap");
+  const token = localStorage.getItem("rezerv_token") || "";
+  const response = await fetch("/api/admin/bootstrap", {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (!response.ok) throw new Error("Admin verisi yüklenemedi.");
   const data = await response.json();
 

@@ -261,6 +261,25 @@ button {
   line-height: 1.45;
 }
 
+.account-verify-note {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid #fedf89;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #fffaeb;
+  color: #b54708;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.account-verify-note.is-ok {
+  border-color: #abefc6;
+  background: #ecfdf3;
+  color: #067647;
+}
+
 .account-menu-item {
   width: 100%;
   border: 0;

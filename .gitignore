@@ -12,3 +12,4 @@ XXtbVVnp
 # Local user data from the old prototype. The current demo server seeds users in memory.
 data/users.json
 data/auth-store.js
+data/runtime/
