@@ -70,15 +70,15 @@ function getToken() {
   return localStorage.getItem("rezerv_token") || "";
 }
 
-function isLocalDevHost() {
-  return ["127.0.0.1", "localhost"].includes(window.location.hostname);
+function isDemoHost() {
+  return ["127.0.0.1", "localhost", "rezerv-app.onrender.com"].includes(window.location.hostname);
 }
 
 async function requireVenueAccess() {
   const token = getToken();
 
   if (!token) {
-    if (isLocalDevHost()) {
+    if (isDemoHost()) {
       return {
         name: "Demo Venue",
         canManageVenue: true,
@@ -306,18 +306,18 @@ function renderWeeklySchedule(board, days) {
           const mode = venueState.slotModes[slotKey] || getDefaultMode(slot);
           const manualEntry = venueState.manualEntries[slotKey];
 
-          let modeLabel = "rezerv.app satışına açık";
-          let modeMeta = "Yayında";
+          let modeLabel = "Açık";
+          let modeMeta = "";
           let modeClass = "is-hissingo";
           let actionLabel = "rezerv.app satışına aç";
-          let badgeMarkup = buildSlotBadge("rezerv.app", "is-hissingo");
+          let badgeMarkup = buildSlotBadge("R", "is-hissingo");
 
           if (mode === "closed") {
-            modeLabel = "Satışa kapalı";
-            modeMeta = "Bu saat kapalı";
+            modeLabel = "Kapalı";
+            modeMeta = "";
             modeClass = "is-closed";
             actionLabel = "Satışa kapalı tut";
-            badgeMarkup = buildSlotBadge("Kapalı", "is-closed");
+            badgeMarkup = buildSlotBadge("K", "is-closed");
           } else if (mode === "manual") {
             modeLabel = manualEntry?.name || "Manuel giriş";
             modeMeta = buildManualMeta(manualEntry);
@@ -337,7 +337,7 @@ function renderWeeklySchedule(board, days) {
             <td class="schedule-slot-cell${selectedClass}${todayClass}" data-slot-key="${slotKey}" data-day-index="${dayIndex}" data-time="${time}">
               <div class="schedule-choice ${modeClass}">
                 <strong>${modeLabel}</strong>${badgeMarkup}
-                <span>${modeMeta}</span>
+                ${modeMeta ? `<span>${modeMeta}</span>` : ""}
                 ${
                   venueState.selectedSlotKey === slotKey
                     ? `
