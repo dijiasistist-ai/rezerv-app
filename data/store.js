@@ -38,6 +38,12 @@ const listings = [
     mediaClass: "media-pet",
     featured: true,
     eveningTime: "19:30",
+    availability: { today: true, nextSlot: "19:30", openSlots: 8 },
+    profileScore: 94,
+    conversionScore: 88,
+    responseMinutes: 4,
+    boost: false,
+    serviceTypes: ["pet kuafor", "kopek tras", "kedi bakim", "pet grooming"],
   },
   {
     id: "moda-padel-club",
@@ -56,6 +62,12 @@ const listings = [
     mediaClass: "media-padel",
     featured: true,
     eveningTime: "19:00",
+    availability: { today: true, nextSlot: "19:00", openSlots: 10 },
+    profileScore: 91,
+    conversionScore: 84,
+    responseMinutes: 6,
+    boost: true,
+    serviceTypes: ["padel", "padel kort", "kort kiralama", "raket"],
   },
   {
     id: "luna-beauty-center",
@@ -74,6 +86,12 @@ const listings = [
     mediaClass: "media-beauty",
     featured: true,
     eveningTime: "20:00",
+    availability: { today: true, nextSlot: "20:00", openSlots: 6 },
+    profileScore: 97,
+    conversionScore: 91,
+    responseMinutes: 3,
+    boost: false,
+    serviceTypes: ["guzellik", "cilt bakimi", "lazer", "manikur", "makyaj"],
   },
   {
     id: "kadikoy-arena-hali-saha",
@@ -92,6 +110,12 @@ const listings = [
     mediaClass: "media-field",
     featured: true,
     eveningTime: "20:30",
+    availability: { today: true, nextSlot: "20:30", openSlots: 5 },
+    profileScore: 89,
+    conversionScore: 86,
+    responseMinutes: 8,
+    boost: true,
+    serviceTypes: ["hali saha", "futbol", "saha kiralama", "mac"],
   },
   {
     id: "ahmet-hoca-direksiyon",
@@ -110,6 +134,12 @@ const listings = [
     mediaClass: "media-driving",
     featured: true,
     eveningTime: "21:00",
+    availability: { today: true, nextSlot: "21:00", openSlots: 4 },
+    profileScore: 88,
+    conversionScore: 82,
+    responseMinutes: 9,
+    boost: false,
+    serviceTypes: ["direksiyon", "direksiyon dersi", "surus", "ehliyet"],
   },
   {
     id: "lotus-spa",
@@ -128,6 +158,12 @@ const listings = [
     mediaClass: "media-spa",
     featured: true,
     eveningTime: "21:30",
+    availability: { today: true, nextSlot: "21:30", openSlots: 7 },
+    profileScore: 93,
+    conversionScore: 87,
+    responseMinutes: 5,
+    boost: false,
+    serviceTypes: ["masaj", "spa", "thai masaj", "bakim"],
   },
   {
     id: "akademi-ozel-ders",
@@ -146,6 +182,12 @@ const listings = [
     mediaClass: "media-lesson",
     featured: false,
     eveningTime: "18:30",
+    availability: { today: true, nextSlot: "18:30", openSlots: 3 },
+    profileScore: 82,
+    conversionScore: 79,
+    responseMinutes: 12,
+    boost: false,
+    serviceTypes: ["ozel ders", "matematik", "fen", "sinav hazirlik"],
   },
   {
     id: "flora-fizyoterapi",
@@ -164,6 +206,12 @@ const listings = [
     mediaClass: "media-physio",
     featured: false,
     eveningTime: "18:00",
+    availability: { today: false, nextSlot: "Yarın 11:00", openSlots: 2 },
+    profileScore: 95,
+    conversionScore: 81,
+    responseMinutes: 7,
+    boost: false,
+    serviceTypes: ["fizyoterapi", "klinik pilates", "manuel terapi", "saglik"],
   },
 ];
 
@@ -626,39 +674,182 @@ function formatPrice(value) {
   return new Intl.NumberFormat("tr-TR").format(value);
 }
 
-function enrichListing(listing) {
+const categoryMarketFit = {
+  guzellik: 1.16,
+  "pet-kuafor": 1.14,
+  "hali-saha": 1.11,
+  masaj: 1.08,
+  padel: 1.05,
+  direksiyon: 1.03,
+  "ozel-ders": 1.02,
+  fizyoterapi: 0.98,
+  "kisisel-bakim": 0.98,
+  yoga: 0.94,
+};
+
+function clamp(value, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function parseDistance(value = "") {
+  const normalized = String(value).replace(",", ".").match(/\d+(\.\d+)?/);
+  return normalized ? Number(normalized[0]) : 3;
+}
+
+function parseTimeToMinutes(value = "") {
+  const match = String(value).match(/(\d{1,2})[:.](\d{2})/);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return hours * 60 + minutes;
+}
+
+function getCategoryLabel(categoryId) {
+  const category = categories.find((item) => item.id === categoryId);
+  return category ? category.featuredLabel : categoryId;
+}
+
+function buildSearchText(listing) {
+  return normalize(
+    [
+      listing.name,
+      listing.summary,
+      listing.cityLabel,
+      listing.category,
+      getCategoryLabel(listing.category),
+      listing.tags.join(" "),
+      (listing.serviceTypes || []).join(" "),
+    ].join(" "),
+  );
+}
+
+function getQueryMatchScore(listing, normalizedQuery) {
+  if (!normalizedQuery) return 1;
+
+  const haystack = buildSearchText(listing);
+  if (haystack.includes(normalizedQuery)) return 1;
+
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  if (!terms.length) return 1;
+
+  const matchedTerms = terms.filter((term) => haystack.includes(term)).length;
+  return matchedTerms / terms.length;
+}
+
+function getAvailabilityScore(listing, context = {}) {
+  const openSlots = Number(listing.availability?.openSlots || 0);
+  const todayScore = listing.availability?.today ? 0.64 : 0.2;
+  const slotDensityScore = clamp(openSlots / 10) * 0.22;
+  const liveCalendarScore = listing.tags.some((tag) => normalize(tag).includes("canli")) ? 0.08 : 0.04;
+  const listingMinutes = parseTimeToMinutes(listing.availability?.nextSlot || listing.eveningTime);
+  const requestedMinutes = context.requestedMinutes;
+  const timeAffinity =
+    listingMinutes == null || requestedMinutes == null
+      ? 0.06
+      : clamp(1 - Math.abs(listingMinutes - requestedMinutes) / 180) * 0.12;
+  return clamp(todayScore + slotDensityScore + liveCalendarScore + timeAffinity);
+}
+
+function getTrustScore(listing) {
+  const ratingScore = clamp(Number(listing.rating || 0) / 5);
+  const reviewScore = clamp(Math.log10(Number(listing.reviews || 0) + 1) / 3.1);
+  return ratingScore * 0.58 + reviewScore * 0.42;
+}
+
+function getResponseScore(listing) {
+  const minutes = Number(listing.responseMinutes || 20);
+  return clamp((20 - minutes) / 18);
+}
+
+function getRankBadges(listing, context) {
+  const badges = [];
+  if (listing.availability?.today) {
+    badges.push(`${listing.availability.nextSlot || listing.eveningTime} müsait`);
+  }
+
+  if (context.city !== "all" && parseDistance(listing.distance) <= 1.2) {
+    badges.push("Yakınında");
+  }
+
+  if (Number(listing.reviews || 0) >= 700) {
+    badges.push(`${listing.reviews} yorum`);
+  } else if (getResponseScore(listing) > 0.65) {
+    badges.push("Hızlı dönüş");
+  }
+
+  if (listing.boost) badges.push("Öne çıkan");
+  return badges.slice(0, 3);
+}
+
+function scoreListing(listing, context) {
+  const safeContext = { category: "all", city: "all", normalizedQuery: "", ...context };
+  const queryScore = getQueryMatchScore(listing, safeContext.normalizedQuery);
+  const categoryScore =
+    safeContext.category === "all" || listing.category === safeContext.category
+      ? clamp(categoryMarketFit[listing.category] || 1, 0.9, 1.2)
+      : 0;
+  const cityScore = safeContext.city === "all" || listing.city === safeContext.city ? 1 : 0;
+  const distanceScore = clamp((4 - parseDistance(listing.distance)) / 4);
+  const availabilityScore = getAvailabilityScore(listing, safeContext);
+  const trustScore = getTrustScore(listing);
+  const profileScore = clamp(Number(listing.profileScore || 75) / 100);
+  const conversionScore = clamp(Number(listing.conversionScore || 70) / 100);
+  const responseScore = getResponseScore(listing);
+  const boostScore = listing.boost ? 0.035 : 0;
+
+  const score =
+    queryScore * 0.2 +
+    categoryScore * 0.13 +
+    cityScore * 0.1 +
+    distanceScore * 0.1 +
+    availabilityScore * 0.17 +
+    trustScore * 0.14 +
+    profileScore * 0.08 +
+    conversionScore * 0.05 +
+    responseScore * 0.03 +
+    boostScore;
+
+  return Math.round(clamp(score, 0, 1.2) * 1000);
+}
+
+function enrichListing(listing, rankContext = {}) {
+  const safeRankContext = { category: "all", city: "all", normalizedQuery: "", ...rankContext };
   const category = categories.find((item) => item.id === listing.category);
+  const rankScore = safeRankContext.score || scoreListing(listing, safeRankContext);
 
   return {
     ...listing,
     categoryLabel: category ? category.featuredLabel : listing.category,
     priceLabel: formatPrice(listing.price),
+    rankScore,
+    rankBadges: getRankBadges(listing, safeRankContext),
   };
 }
 
-function filterListings({ category = "all", city = "all", query = "", featuredOnly = false } = {}) {
+function filterListings({ category = "all", city = "all", query = "", time = "", featuredOnly = false } = {}) {
   const normalizedQuery = normalize(query.trim());
+  const rankContext = {
+    category,
+    city,
+    normalizedQuery,
+    requestedMinutes: parseTimeToMinutes(time),
+  };
 
   return listings
-    .filter((listing) => {
+    .map((listing) => ({
+      listing,
+      score: scoreListing(listing, rankContext),
+      queryMatch: getQueryMatchScore(listing, normalizedQuery),
+    }))
+    .filter(({ listing, queryMatch }) => {
       if (featuredOnly && !listing.featured) return false;
       if (category !== "all" && listing.category !== category) return false;
       if (city !== "all" && listing.city !== city) return false;
-      if (!normalizedQuery) return true;
-
-      const haystack = normalize(
-        [
-          listing.name,
-          listing.summary,
-          listing.cityLabel,
-          listing.tags.join(" "),
-          listing.category,
-        ].join(" "),
-      );
-
-      return haystack.includes(normalizedQuery);
+      return !normalizedQuery || queryMatch >= 0.34;
     })
-    .map(enrichListing);
+    .sort((a, b) => b.score - a.score || b.listing.reviews - a.listing.reviews)
+    .map(({ listing, score }) => enrichListing(listing, { ...rankContext, score }));
 }
 
 function getListingById(id) {

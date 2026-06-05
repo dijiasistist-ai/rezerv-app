@@ -231,6 +231,7 @@ app.get("/api/listings", (req, res) => {
     category: String(req.query.category || "all"),
     city: String(req.query.city || "all"),
     query: String(req.query.query || ""),
+    time: String(req.query.time || ""),
   });
   res.json({ total: items.length, items });
 });

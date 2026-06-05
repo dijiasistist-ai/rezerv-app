@@ -4,6 +4,7 @@ const categoryRail = document.querySelector("#category-rail");
 const searchPanel = document.querySelector("#search-panel");
 const queryInput = document.querySelector("#search-query");
 const citySelect = document.querySelector("#search-city");
+const timeInput = document.querySelector("#search-time");
 const heroMetrics = document.querySelector("#hero-metrics");
 const hotSlots = document.querySelector("#hot-slots");
 const resultsSummary = document.querySelector("#results-summary");
@@ -44,6 +45,7 @@ const state = {
   category: "all",
   city: "all",
   query: "",
+  time: "Bugün, 19:00",
   categories: [],
   featuredListings: [],
   authMode: "login",
@@ -172,10 +174,20 @@ function renderListings(items = []) {
 
   listingGrid.innerHTML = items
     .map(
-      (item) => `
+      (item) => {
+        const badges = (item.rankBadges || item.tags || [])
+          .filter((badge) => !normalize(badge).includes("musait"))
+          .slice(0, 2)
+          .map((badge) => `<span>${badge}</span>`)
+          .join("");
+        const availabilityLabel = item.availability?.today
+          ? `${item.availability.nextSlot || item.eveningTime} müsait`
+          : item.availability?.nextSlot || "Yakında müsait";
+
+        return `
         <article class="listing-card" data-id="${item.id}">
           <div class="listing-media ${item.mediaClass || "media-pet"}">
-            <span>Bugün müsait</span>
+            <span>${availabilityLabel}</span>
             <button type="button" aria-label="Kaydet">♡</button>
           </div>
           <div class="listing-body">
@@ -185,6 +197,7 @@ function renderListings(items = []) {
             </div>
             <h3>${item.name}</h3>
             <p>${item.cityLabel} · ${item.distance || "0.9 km"}</p>
+            <div class="rank-badges">${badges}</div>
             <div class="listing-price">
               <strong>₺${item.priceLabel || formatPrice(item.price)}</strong>
               <span>/ ${item.priceUnit}</span>
@@ -192,7 +205,8 @@ function renderListings(items = []) {
             <button class="solid-button card-cta" type="button">${item.cta}</button>
           </div>
         </article>
-      `,
+      `;
+      },
     )
     .join("");
 }
@@ -247,6 +261,7 @@ async function loadListings() {
     category: state.category,
     city: state.city,
     query: state.query,
+    time: state.time,
   });
 
   const payload = await fetchJson(`/api/listings?${params.toString()}`);
@@ -397,6 +412,7 @@ searchPanel.addEventListener("submit", (event) => {
   event.preventDefault();
   state.query = queryInput.value.trim();
   state.city = citySelect.value;
+  state.time = timeInput.value.trim();
   state.category = getActiveCategory();
   loadListings();
   listingGrid.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -409,6 +425,11 @@ queryInput.addEventListener("input", () => {
 
 citySelect.addEventListener("change", () => {
   state.city = citySelect.value;
+  loadListings();
+});
+
+timeInput.addEventListener("change", () => {
+  state.time = timeInput.value.trim();
   loadListings();
 });
 

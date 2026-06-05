@@ -846,6 +846,27 @@ button {
   font-weight: 700;
 }
 
+.rank-badges {
+  display: flex;
+  gap: 4px;
+  min-height: 20px;
+  overflow: hidden;
+}
+
+.rank-badges span {
+  display: inline-flex;
+  align-items: center;
+  max-width: 82px;
+  min-height: 18px;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: #eef8ff;
+  color: var(--brand-dark);
+  font-size: 9px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .listing-price {
   display: flex;
   align-items: baseline;
