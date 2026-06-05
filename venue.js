@@ -75,16 +75,16 @@ function isDemoHost() {
 }
 
 async function requireVenueAccess() {
+  if (isDemoHost()) {
+    return {
+      name: "Demo Venue",
+      canManageVenue: true,
+    };
+  }
+
   const token = getToken();
 
   if (!token) {
-    if (isDemoHost()) {
-      return {
-        name: "Demo Venue",
-        canManageVenue: true,
-      };
-    }
-
     authWall.classList.remove("hidden");
     setTimeout(() => {
       window.location.href = "/index.html";
@@ -333,11 +333,19 @@ function renderWeeklySchedule(board, days) {
             badgeMarkup = buildSlotBadge(reservedSource.label, reservedSource.className);
           }
 
+          const compactStatusClass = modeClass
+            .split(" ")
+            .map((className) => `slot-${className.replace(/^is-/, "")}`)
+            .join(" ");
+          const slotMainMarkup =
+            mode === "rezerv"
+              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">+</span>`
+              : `<strong>${modeLabel}</strong>${badgeMarkup}${modeMeta ? `<span>${modeMeta}</span>` : ""}`;
+
           return `
-            <td class="schedule-slot-cell${selectedClass}${todayClass}" data-slot-key="${slotKey}" data-day-index="${dayIndex}" data-time="${time}">
+            <td class="schedule-slot-cell ${compactStatusClass}${selectedClass}${todayClass}" data-slot-key="${slotKey}" data-day-index="${dayIndex}" data-time="${time}">
               <div class="schedule-choice ${modeClass}">
-                <strong>${modeLabel}</strong>${badgeMarkup}
-                ${modeMeta ? `<span>${modeMeta}</span>` : ""}
+                ${slotMainMarkup}
                 ${
                   venueState.selectedSlotKey === slotKey
                     ? `

@@ -1528,16 +1528,67 @@ a {
   grid-template-rows: auto auto minmax(0, 1fr);
   height: calc(100vh - 114px);
   min-height: 560px;
-  padding: 12px;
+  padding: 10px;
+  background: #ffffff;
+  --calendar-header-height: 28px;
+  --calendar-row-count: 18;
 }
 
 #calendar-view .calendar-toolbar,
 #calendar-view .calendar-panel-head {
-  margin-bottom: 9px;
+  margin-bottom: 8px;
+}
+
+#calendar-view .calendar-panel-head {
+  align-items: center;
 }
 
 #calendar-view .panel-head h2 {
   font-size: 15px;
+}
+
+.calendar-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  color: #667085;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.calendar-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.legend-open {
+  border: 1px solid #ffd8c9;
+  background: #fff7f4;
+}
+
+.legend-online {
+  background: #175cff;
+}
+
+.legend-subscription {
+  background: #13a673;
+}
+
+.legend-manual {
+  background: #d89212;
+}
+
+.legend-closed {
+  background: #98a2b3;
 }
 
 #calendar-view .calendar-field-pill,
@@ -1555,22 +1606,34 @@ a {
 }
 
 #calendar-view .schedule-shell {
+  display: flex;
   min-height: 0;
   overflow: hidden;
   border: 1px solid #e8edf5;
   border-radius: 8px;
-  background: #fff;
+  background: #fbfdff;
 }
 
 #calendar-view .schedule-grid {
   min-width: 0;
+  width: 100%;
   height: 100%;
 }
 
 #calendar-view .schedule-table {
   width: 100%;
-  height: 100%;
+  height: 100% !important;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
+}
+
+#calendar-view .schedule-table tbody tr {
+  height: calc((100% - var(--calendar-header-height)) / var(--calendar-row-count)) !important;
+}
+
+#calendar-view .schedule-table td {
+  height: calc((100% - var(--calendar-header-height)) / var(--calendar-row-count)) !important;
 }
 
 #calendar-view .schedule-table th,
@@ -1579,26 +1642,46 @@ a {
 }
 
 #calendar-view .schedule-table th {
-  padding: 6px 5px;
-  background: #fbfdff;
+  height: var(--calendar-header-height);
+  padding: 5px 6px;
+  border-bottom: 1px solid #dfe6f0;
+  background: #ffffff;
+  color: #445066;
   font-size: 10px;
+  text-align: center;
 }
 
 #calendar-view .schedule-table th:first-child,
 #calendar-view .time-cell {
-  width: 46px;
+  width: 44px;
 }
 
 #calendar-view .time-cell {
-  padding: 5px 4px;
+  padding: 2px 6px 0 0;
+  background: #ffffff;
+  color: #98a2b3;
   font-size: 10px;
+  line-height: 1;
+  text-align: right;
+  vertical-align: top;
 }
 
 #calendar-view .schedule-slot-cell {
+  position: relative;
   min-height: 0;
   height: 100%;
-  border-left-width: 3px;
+  border-left-width: 0;
   padding: 2px 4px;
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.16), rgba(148, 163, 184, 0.16)) 0 0 / 100% 1px no-repeat,
+    #ffffff;
+  vertical-align: middle;
+}
+
+#calendar-view .schedule-slot-cell.is-today-column {
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.16), rgba(148, 163, 184, 0.16)) 0 0 / 100% 1px no-repeat,
+    #fffaf7;
 }
 
 #calendar-view .schedule-choice {
@@ -1606,6 +1689,8 @@ a {
   align-items: center;
   gap: 4px;
   min-height: 100%;
+  border-radius: 7px;
+  padding: 0 5px;
   overflow: hidden;
 }
 
@@ -1624,7 +1709,7 @@ a {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1641,11 +1726,120 @@ a {
 
 #calendar-view .slot-badge,
 #calendar-view .slot-channel-badge {
-  min-width: 16px;
+  min-width: 14px;
   min-height: 14px;
   justify-content: center;
   padding: 0 4px;
   font-size: 7px;
+}
+
+#calendar-view .slot-hissingo .schedule-choice {
+  justify-content: center;
+  background: transparent;
+  color: transparent;
+}
+
+#calendar-view .slot-hissingo .schedule-choice::before {
+  content: none;
+}
+
+#calendar-view .open-slot-dot {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid #ffd8c9;
+  border-radius: 50%;
+  background: #fff7f4;
+  color: #f06432;
+  font-size: 12px;
+  font-weight: 900;
+  opacity: 0;
+}
+
+#calendar-view .schedule-slot-cell.is-selected .open-slot-dot,
+#calendar-view .slot-hissingo:hover .open-slot-dot {
+  opacity: 0.88;
+}
+
+#calendar-view .slot-hissingo strong,
+#calendar-view .slot-hissingo .slot-channel-badge {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+#calendar-view .slot-reserved .schedule-choice,
+#calendar-view .slot-manual .schedule-choice,
+#calendar-view .slot-closed .schedule-choice {
+  justify-content: space-between;
+  box-shadow: inset 3px 0 0 currentColor;
+}
+
+#calendar-view .slot-reserved .schedule-choice {
+  background: #eef5ff;
+  color: #2367d9;
+}
+
+#calendar-view .slot-manual .schedule-choice {
+  background: #fff7e7;
+  color: #a15c00;
+}
+
+#calendar-view .slot-closed .schedule-choice {
+  background: #f4f5f7;
+  color: #667085;
+}
+
+#calendar-view .slot-subscription-reserved .schedule-choice {
+  background: #ecfdf4;
+  color: #09865a;
+}
+
+#calendar-view .slot-eft .schedule-choice {
+  background: #fff8df;
+  color: #aa6b00;
+}
+
+#calendar-view .slot-cash .schedule-choice,
+#calendar-view .slot-manual-reserved .schedule-choice {
+  background: #f1f8ff;
+  color: #2455a4;
+}
+
+#calendar-view .slot-corporate .schedule-choice {
+  background: #f3f0ff;
+  color: #6846bd;
+}
+
+#calendar-view .slot-online .schedule-choice {
+  background: #eef5ff;
+  color: #175cff;
+}
+
+#calendar-view .slot-closed .slot-channel-badge {
+  background: #ffffff;
+  color: #667085;
+}
+
+#calendar-view .slot-reserved .slot-channel-badge,
+#calendar-view .slot-manual .slot-channel-badge {
+  background: rgba(255, 255, 255, 0.72);
+  color: currentColor;
+}
+
+#calendar-view .slot-reserved strong,
+#calendar-view .slot-manual strong,
+#calendar-view .slot-closed strong {
+  color: currentColor;
+  font-weight: 900;
+}
+
+#calendar-view .schedule-slot-cell.is-selected .schedule-choice {
+  outline: 2px solid rgba(255, 96, 31, 0.45);
+  outline-offset: -1px;
 }
 
 #calendar-view .slot-options,
