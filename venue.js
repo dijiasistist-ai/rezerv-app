@@ -294,7 +294,7 @@ function renderWeeklySchedule(board, days) {
   const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
   const times = buildTimeSlots();
   const rows = times
-    .map((time) => {
+    .map((time, timeIndex) => {
       const cells = displayDays
         .map((day, dayIndex) => {
           const dayKey = `${day.dateObj.getFullYear()}-${day.dateObj.getMonth()}-${day.dateObj.getDate()}`;
@@ -337,6 +337,9 @@ function renderWeeklySchedule(board, days) {
             .split(" ")
             .map((className) => `slot-${className.replace(/^is-/, "")}`)
             .join(" ");
+          const popoverEdgeClass = dayIndex >= displayDays.length - 2 ? " is-popover-right" : "";
+          const popoverVerticalClass = timeIndex >= times.length - 5 ? " is-popover-above" : "";
+          const popoverClass = `slot-popover${popoverEdgeClass}${popoverVerticalClass}`;
           const slotMainMarkup =
             mode === "rezerv"
               ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">+</span>`
@@ -349,17 +352,39 @@ function renderWeeklySchedule(board, days) {
                 ${
                   venueState.selectedSlotKey === slotKey
                     ? `
-                      <div class="slot-popover">
-                        <button
-                          class="slot-popover-bubble ${mode === "manual" ? "is-actionable" : ""}"
-                          type="button"
-                          ${mode === "manual" ? `data-edit-manual="true" data-slot-key="${slotKey}" data-time="${time}" data-day-index="${dayIndex}"` : "disabled"}
-                        >${actionLabel}</button>
-                        <div class="slot-options">
-                          <button class="slot-option slot-option-hissingo ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="rezerv.app">R</button>
-                          <button class="slot-option slot-option-closed ${mode === "closed" ? "is-active" : ""}" type="button" data-mode="closed" data-slot-key="${slotKey}" aria-label="Kapalı">K</button>
-                          <button class="slot-option slot-option-manual ${mode === "manual" ? "is-active" : ""}" type="button" data-mode="manual" data-slot-key="${slotKey}" data-time="${time}" data-day-index="${dayIndex}" aria-label="Manuel">M</button>
+                      <div class="${popoverClass}">
+                        <div class="slot-popover-head">
+                          <strong>${time}</strong>
+                          <span>${actionLabel}</span>
                         </div>
+                        <div class="slot-options" aria-label="Slot durumu seç">
+                          <button class="slot-option slot-option-hissingo ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="rezerv.app">
+                            <span class="slot-option-icon">R</span>
+                            <span>rezerv.app</span>
+                          </button>
+                          <button class="slot-option slot-option-closed ${mode === "closed" ? "is-active" : ""}" type="button" data-mode="closed" data-slot-key="${slotKey}" aria-label="Kapalı">
+                            <span class="slot-option-icon">K</span>
+                            <span>Kapalı</span>
+                          </button>
+                          <button class="slot-option slot-option-manual ${mode === "manual" ? "is-active" : ""}" type="button" data-mode="manual" data-slot-key="${slotKey}" data-time="${time}" data-day-index="${dayIndex}" aria-label="Manuel rezerv">
+                            <span class="slot-option-icon">M</span>
+                            <span>Manuel rezerv</span>
+                          </button>
+                        </div>
+                        ${
+                          mode === "manual"
+                            ? `
+                              <button
+                                class="slot-popover-edit"
+                                type="button"
+                                data-edit-manual="true"
+                                data-slot-key="${slotKey}"
+                                data-time="${time}"
+                                data-day-index="${dayIndex}"
+                              >Manuel kaydı düzenle</button>
+                            `
+                            : ""
+                        }
                       </div>
                     `
                     : ""
@@ -800,6 +825,7 @@ function bindVenueInteractions() {
       }
       venueState.slotModes[option.dataset.slotKey] =
         nextMode === "rezerv" ? "rezerv" : nextMode;
+      venueState.selectedSlotKey = "";
       renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
       return;
     }
