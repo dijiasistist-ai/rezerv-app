@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rezerv.app | Rezervasyon Marketplace</title>
+    <meta
+      name="description"
+      content="Pet kuaför, padel, halı saha, güzellik merkezi, direksiyon dersi ve daha fazlası için anında rezervasyon marketplace'i."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="rezerv.app ana sayfa">
+          <img class="brand-logo" src="/assets/rezerv-logo.png" alt="rezerv.app" />
+          <span class="brand-tagline">Rezervasyon marketplace</span>
+        </a>
+
+        <nav class="main-nav" aria-label="Ana menü">
+          <a class="is-active" href="#hero">Keşfet</a>
+          <a href="#categories">Kategoriler</a>
+          <a href="#nearby">Yakınımda</a>
+          <a href="/venue.html">İşletmeler</a>
+          <a href="#featured">Fırsatlar</a>
+          <a href="/venue.html">İşletmeler için</a>
+          <a href="#metrics">Platform</a>
+        </nav>
+
+        <div class="header-actions">
+          <button class="location-button" id="location-trigger" type="button"><span>●</span> İstanbul</button>
+          <button class="saved-button" type="button">♡ Kaydedilenler</button>
+          <button class="bell-button" type="button" aria-label="Bildirimler">
+            <span>🔔</span>
+            <em>3</em>
+          </button>
+          <div class="account-shell">
+            <button class="account-button" id="login-trigger" type="button" aria-expanded="false">
+              <span class="avatar-mini">DY</span>
+              <span class="account-label">Dilek Yıldız</span>
+            </button>
+            <div class="account-menu hidden" id="account-menu" aria-hidden="true">
+              <div class="account-menu-copy" id="account-menu-copy">
+                <strong>Hesap</strong>
+                <span>Rezervasyonlarını ve oturumunu yönet.</span>
+              </div>
+              <button class="account-menu-item hidden" id="account-enable-venue" type="button">
+                İşletme modunu aç
+              </button>
+              <button class="account-menu-item hidden" id="account-dashboard" type="button">
+                İşletme paneline git
+              </button>
+              <button class="account-menu-item hidden" id="account-admin" type="button">
+                Yönetici paneline git
+              </button>
+              <button class="account-menu-item" id="account-logout" type="button">Çıkış yap</button>
+            </div>
+          </div>
+          <a class="solid-button reserve-now" href="#featured">Rezervasyon Yap</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" id="hero">
+          <div class="hero-copy">
+            <p class="hero-kicker">Türkiye'nin rezervasyon platformu</p>
+            <h1>
+              Pet kuaförden padel kortuna, güzellik merkezinden direksiyon dersine kadar
+              binlerce hizmeti keşfet, karşılaştır ve anında rezervasyon yap.
+            </h1>
+
+            <div class="trust-chips" aria-label="Öne çıkan avantajlar">
+              <span>✓ Canlı müsaitlik</span>
+              <span>✓ Anında rezervasyon</span>
+              <span>✓ Güvenli ödeme</span>
+              <span>✓ Ücretsiz iptal seçeneği</span>
+            </div>
+          </div>
+
+          <div class="hero-mosaic" aria-label="Popüler hizmet vitrini">
+            <article class="mosaic-card media-pet">
+              <span>Pet Kuaför</span>
+              <small>1.245 işletme</small>
+            </article>
+            <article class="mosaic-card media-padel">
+              <span>Padel Kort</span>
+              <small>523 işletme</small>
+            </article>
+            <article class="mosaic-card media-beauty">
+              <span>Güzellik Merkezi</span>
+              <small>1.013 işletme</small>
+            </article>
+            <article class="mosaic-card media-field">
+              <span>Halı Saha</span>
+              <small>704 işletme</small>
+            </article>
+            <article class="mosaic-card media-driving">
+              <span>Direksiyon Dersi</span>
+              <small>486 öğretmen</small>
+            </article>
+            <article class="mosaic-card media-spa">
+              <span>Masaj & Spa</span>
+              <small>892 işletme</small>
+            </article>
+          </div>
+
+          <form class="search-panel" id="search-panel">
+            <label class="search-field search-field-main">
+              <span>Ne arıyorsun?</span>
+              <input
+                id="search-query"
+                type="text"
+                placeholder="Pet kuaförü, padel, halı saha, masaj..."
+              />
+            </label>
+            <label class="search-field">
+              <span>Nerede?</span>
+              <select id="search-city"></select>
+            </label>
+            <label class="search-field">
+              <span>Ne zaman?</span>
+              <input type="text" value="Bugün, 19:00" aria-label="Tarih ve saat" />
+            </label>
+            <button class="solid-button search-button" type="submit">Ara</button>
+          </form>
+
+          <div class="popular-searches">
+            <strong>Popüler aramalar:</strong>
+            <button type="button" data-search="Pet kuaförü">Pet kuaförü</button>
+            <button type="button" data-search="Padel">Padel</button>
+            <button type="button" data-search="Halı saha">Halı saha</button>
+            <button type="button" data-search="Direksiyon hocası">Direksiyon hocası</button>
+            <button type="button" data-search="Güzellik merkezi">Güzellik merkezi</button>
+            <button type="button" data-search="Masaj">Masaj</button>
+            <button type="button" data-search="">Hepsi ›</button>
+          </div>
+        </section>
+
+        <section class="category-band" id="categories">
+          <div class="section-title-row">
+            <h2>✧ Popüler Kategoriler</h2>
+            <button class="round-arrow" type="button" aria-label="Sonraki kategoriler">›</button>
+          </div>
+          <div class="category-rail" id="category-rail"></div>
+        </section>
+
+        <section class="evening-band" id="nearby">
+          <div class="section-title-row compact">
+            <h2>Bu akşam müsait alanlar</h2>
+            <span class="live-dot">Canlı olarak güncelleniyor</span>
+            <a href="#featured">Tümünü gör ›</a>
+          </div>
+          <div class="evening-rail" id="hot-slots"></div>
+        </section>
+
+        <section class="featured-band" id="featured">
+          <div class="section-title-row compact">
+            <h2>Yakınında popüler işletmeler</h2>
+            <span class="live-dot">Senin için önerilenler</span>
+            <a href="#featured">Haritada gör ›</a>
+          </div>
+
+          <div class="filter-pills" id="filter-pills" aria-label="Kategori filtreleri"></div>
+          <div class="results-summary" id="results-summary"></div>
+          <div class="listing-grid" id="listing-grid"></div>
+        </section>
+
+        <section class="metrics-bar" id="metrics">
+          <div class="hero-metrics" id="hero-metrics"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="auth-modal hidden" id="auth-modal" aria-hidden="true">
+      <div class="auth-backdrop" id="auth-close"></div>
+      <div class="auth-dialog">
+        <div class="auth-header">
+          <div>
+            <p class="eyebrow">rezerv.app hesabı</p>
+            <h2 id="auth-title">Giriş yap</h2>
+          </div>
+          <button class="icon-button" id="auth-close-button" type="button" aria-label="Kapat">×</button>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab is-active" data-mode="login" type="button">Giriş</button>
+          <button class="auth-tab" data-mode="register" type="button">Kayıt Ol</button>
+        </div>
+
+        <form class="auth-form" id="auth-form">
+          <div class="auth-step" id="auth-step-entry">
+            <div class="auth-role-copy">
+              <p class="eyebrow">Giriş tipi</p>
+              <h3>Nasıl devam etmek istersin?</h3>
+              <p>Bireysel rezervasyon akışına ya da işletme yönetim paneline uygun giriş tipini seç.</p>
+            </div>
+
+            <div class="auth-role-grid">
+              <button class="auth-role-card" type="button" data-entry-choice="customer">
+                <strong>Bireysel giriş</strong>
+                <span>Rezervasyonlarını, favorilerini ve ödemelerini yönet.</span>
+              </button>
+              <button class="auth-role-card" type="button" data-entry-choice="venue">
+                <strong>İşletme girişi</strong>
+                <span>Takvim, tahsilat, doluluk ve işletme operasyonuna geç.</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="auth-step" id="auth-step-form">
+            <label id="name-field" class="hidden">
+              <span>Ad soyad</span>
+              <input id="auth-name" type="text" placeholder="Adınızı girin" />
+            </label>
+            <label>
+              <span>E-posta</span>
+              <input id="auth-email" type="email" placeholder="ornek@mail.com" required />
+            </label>
+            <label>
+              <span>Şifre</span>
+              <input id="auth-password" type="password" placeholder="En az 6 karakter" required />
+            </label>
+            <p class="auth-feedback" id="auth-feedback"></p>
+            <button class="solid-button auth-submit" id="auth-submit" type="submit">Giriş Yap</button>
+            <button class="ghost-button auth-back-button hidden" id="auth-entry-back" type="button">
+              Giriş tipine dön
+            </button>
+          </div>
+
+          <div class="auth-step hidden" id="auth-step-role">
+            <div class="auth-role-copy">
+              <p class="eyebrow">Kullanım tipi</p>
+              <h3>rezerv.app'i nasıl kullanacaksın?</h3>
+              <p>Önce hesabını oluşturuyoruz, ardından kullanım şeklini seçerek doğru akışa geçiyorsun.</p>
+            </div>
+
+            <div class="auth-role-grid">
+              <button class="auth-role-card" type="button" data-role-choice="customer">
+                <strong>Bireysel kullanım</strong>
+                <span>Rezervasyon yap, favori tesislerini takip et, ödemelerini yönet.</span>
+              </button>
+              <button class="auth-role-card" type="button" data-role-choice="venue">
+                <strong>İşletme yönetimi</strong>
+                <span>Takvim, tahsilat, doluluk, kampanya ve işletme operasyonunu yönet.</span>
+              </button>
+            </div>
+
+            <button class="ghost-button auth-back-button" id="auth-back-to-form" type="button">
+              Bilgilere geri dön
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

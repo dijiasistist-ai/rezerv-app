@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rezerv.app İşletme Paneli</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/venue.css" />
+  </head>
+  <body>
+    <div class="venue-auth-wall hidden" id="venue-auth-wall">
+      <div class="venue-auth-card">
+        <p class="eyebrow">Yetki gerekli</p>
+        <h1>Bu alan yalnızca işletme modu açık hesaplar için kullanılabilir.</h1>
+        <p>Venue paneline erişmek için hesabında işletme modunun aktif olması gerekiyor.</p>
+        <a class="solid-button" href="/index.html">Giriş ekranına dön</a>
+      </div>
+    </div>
+
+    <div class="sales-modal hidden" id="sales-modal">
+      <div class="sales-modal-backdrop" id="sales-modal-close"></div>
+      <div class="sales-modal-dialog">
+        <div class="sales-modal-header">
+          <p class="sales-modal-eyebrow">Hızlı kayıt</p>
+          <h2>Manuel Giriş</h2>
+          <p class="sales-modal-subtitle">Slotu hızlıca doldur, tahsilat bilgisini ekle ve takvime tek adımda işle.</p>
+        </div>
+        <div class="sales-modal-body">
+          <label class="sales-field">
+            <span>Zaman</span>
+            <input id="sales-time" type="text" />
+          </label>
+          <label class="sales-field">
+            <span>Kapora</span>
+            <input id="sales-deposit" type="text" value="50" />
+          </label>
+          <label class="sales-field">
+            <span>Cep Telefonu</span>
+            <input id="sales-phone" type="text" placeholder="0 (___) ___ __ __" />
+          </label>
+          <label class="sales-field">
+            <span>Tesiste Ödenecek Tutar</span>
+            <input id="sales-payout" type="text" value="100" />
+          </label>
+          <label class="sales-field">
+            <span>Ad Soyad</span>
+            <input id="sales-name" type="text" />
+          </label>
+          <label class="sales-field">
+            <span>Toplam Tutar</span>
+            <input id="sales-total" type="text" value="150" />
+          </label>
+          <label class="sales-field sales-field-wide">
+            <span>Notlar</span>
+            <textarea id="sales-notes"></textarea>
+          </label>
+          <label class="sales-checkbox">
+            <input id="sales-subscription" type="checkbox" />
+            <span>Abonelik müşterisi</span>
+          </label>
+        </div>
+        <div class="sales-modal-footer">
+          <button class="ghost-button" id="sales-cancel" type="button">Vazgeç</button>
+          <button class="solid-button" id="sales-save" type="button">Kaydet</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="venue-layout">
+      <aside class="venue-sidebar">
+        <a class="venue-brand" href="/index.html">
+          <span class="venue-brand-mark">R</span>
+          <span>
+            <strong>rezerv.app</strong>
+            <small>İşletme Paneli</small>
+          </span>
+        </a>
+
+        <nav class="venue-nav">
+          <button class="venue-nav-item is-active" data-view="overview">Genel Bakış</button>
+          <button class="venue-nav-item" data-view="calendar">Takvim</button>
+          <button class="venue-nav-item" data-view="subscriptions">Abonelikler</button>
+          <button class="venue-nav-item" data-view="transactions">İşlemler</button>
+          <button class="venue-nav-item" data-view="settings">Ayarlar</button>
+        </nav>
+      </aside>
+
+      <main class="venue-main">
+        <header class="venue-topbar">
+          <div>
+            <p class="eyebrow">İşletme yönetimi</p>
+            <h1 id="venue-title">Venue Console</h1>
+          </div>
+
+          <div class="topbar-actions">
+            <div class="menu-cluster">
+              <button class="menu-chip topbar-link" type="button" data-view-target="settings">Tesisler</button>
+              <button class="menu-chip topbar-link" type="button" data-view-target="calendar">Rezervasyonlar</button>
+
+              <div class="dropdown" id="manager-menu">
+                <button class="menu-chip has-caret" type="button" id="manager-menu-trigger">Yönetici</button>
+                <div class="dropdown-panel" id="manager-menu-items"></div>
+              </div>
+            </div>
+
+            <div class="venue-profile">
+              <div class="venue-avatar" id="venue-avatar"></div>
+              <div>
+                <strong id="venue-name"></strong>
+                <span id="venue-branch"></span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="view-section" id="overview-view">
+          <div class="stat-grid" id="stat-grid"></div>
+
+          <div class="panel-grid">
+            <section class="panel wide-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Özet</p>
+                  <h2>Bugünün operasyon notları</h2>
+                </div>
+                <div class="panel-actions">
+                  <button class="ghost-button">Bugün</button>
+                  <button class="solid-button">Takvime Git</button>
+                </div>
+              </div>
+              <div class="overview-list" id="overview-list"></div>
+            </section>
+
+            <section class="panel side-panel">
+              <div class="panel-head compact">
+                <div>
+                  <p class="eyebrow">Bugün</p>
+                  <h2>Hızlı işlemler</h2>
+                </div>
+              </div>
+              <div class="quick-actions" id="quick-actions"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="calendar-view">
+          <div class="section-card">
+            <div class="calendar-toolbar">
+              <div class="calendar-field-pills">
+                <button class="calendar-field-pill is-active" type="button">Saha 1</button>
+                <button class="calendar-field-pill" type="button">Saha 2</button>
+                <button class="calendar-field-pill" type="button">Stüdyo</button>
+              </div>
+              <div class="calendar-controls">
+                <div class="calendar-icon-set">
+                  <button class="calendar-icon-button" type="button" aria-label="Takvim">📅</button>
+                  <button class="calendar-icon-button" type="button" aria-label="Hafta başına git">«</button>
+                  <button class="calendar-icon-button" type="button" id="week-prev" aria-label="Önceki hafta">‹</button>
+                  <button class="calendar-icon-button" type="button" id="week-next" aria-label="Sonraki hafta">›</button>
+                  <button class="calendar-icon-button" type="button" aria-label="Hafta sonuna git">»</button>
+                </div>
+                <span class="week-range week-range-pill" id="week-range"></span>
+              </div>
+            </div>
+
+            <div class="panel-head calendar-panel-head">
+              <div>
+                <p class="eyebrow">Takvim</p>
+                <h2>Haftalık rezervasyon planı</h2>
+              </div>
+            </div>
+            <div class="schedule-shell">
+              <div class="schedule-grid" id="calendar-board-secondary"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="subscriptions-view">
+          <div class="section-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Haftalık abonelik satış</p>
+                <h2>Aktif ve pasif paketleri tek bakışta yönetin</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-button">Filtrele</button>
+                <button class="solid-button">Yeni abonelik</button>
+              </div>
+            </div>
+            <div class="table-shell">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Müşteri</th>
+                    <th>Saha</th>
+                    <th>Gün</th>
+                    <th>Başlangıç</th>
+                    <th>Saat</th>
+                    <th>Durum</th>
+                    <th>Bitiş</th>
+                  </tr>
+                </thead>
+                <tbody id="subscriptions-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="transactions-view">
+          <div class="section-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">İşlemler ve raporlama</p>
+                <h2>Rezervasyon, komisyon ve hakediş akışı</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-button">Excel'e aktar</button>
+                <button class="solid-button">Rapor indir</button>
+              </div>
+            </div>
+
+            <div class="report-summary-grid" id="report-summary-grid"></div>
+
+            <div class="filters-card">
+              <label>
+                <span>Tarih aralığı</span>
+                <input type="text" value="01.05.2026 - 31.05.2026" />
+              </label>
+              <label>
+                <span>İşlem tipi</span>
+                <select>
+                  <option>Tüm işlemler</option>
+                  <option>Rezervasyon</option>
+                  <option>Abonelik</option>
+                </select>
+              </label>
+              <label>
+                <span>Kanal</span>
+                <select>
+                  <option>Tümü</option>
+                  <option>Online</option>
+                  <option>EFT</option>
+                </select>
+              </label>
+              <button class="solid-button filter-search">Ara</button>
+            </div>
+
+            <div class="report-filter-line">
+              <span>Tarih filtre tipi</span>
+              <label class="radio-chip is-active">
+                <input type="radio" name="date-filter-type" checked />
+                <span>Oluşturulma zamanına göre</span>
+              </label>
+              <label class="radio-chip">
+                <input type="radio" name="date-filter-type" />
+                <span>Rezervasyon tarihine göre</span>
+              </label>
+            </div>
+
+            <div class="table-shell">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Tip</th>
+                    <th>Durum</th>
+                    <th>Tesis</th>
+                    <th>Saha</th>
+                    <th>Kanal</th>
+                    <th>Müşteri</th>
+                    <th>İşletme türü</th>
+                    <th>Tutar</th>
+                    <th>Kapora</th>
+                    <th>Komisyon</th>
+                    <th>Hakediş</th>
+                    <th>Tarih</th>
+                    <th>Saat</th>
+                    <th>Oluşturulma</th>
+                    <th>Aylık paket aktif mi</th>
+                    <th>Paket adı</th>
+                    <th>Çekim sayısı</th>
+                  </tr>
+                </thead>
+                <tbody id="transactions-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="settings-view">
+          <div class="section-card">
+            <div class="settings-tabs" id="settings-tabs"></div>
+            <div class="settings-onboarding">
+              <div class="panel settings-panel settings-panel-wide">
+                <div class="panel-head compact">
+                  <div>
+                    <p class="eyebrow">İşletme konfigürasyonu</p>
+                    <h2>İşletmenizin çalışma şeklini tanımlayın</h2>
+                  </div>
+                </div>
+                <div class="settings-onboarding-form" id="settings-onboarding-form"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="profile-view">
+          <div class="section-card">
+            <div class="panel-head compact">
+              <div>
+                <p class="eyebrow">Profil ayarları</p>
+                <h2>Kişisel hesabınızı ve iletişim bilgilerinizi yönetin</h2>
+              </div>
+            </div>
+            <div class="profile-layout">
+              <aside class="profile-card" id="profile-card"></aside>
+              <div class="profile-form-grid" id="profile-form-grid"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="reviews-view">
+          <div class="section-card">
+            <div class="panel-head compact">
+              <div>
+                <p class="eyebrow">Değerlendirmeler</p>
+                <h2>Tesisiniz için bırakılan yorumları ve puanlamaları yönetin</h2>
+              </div>
+            </div>
+            <div class="reviews-shell" id="reviews-shell"></div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="billing-view">
+          <div class="section-card">
+            <div class="panel-head compact">
+              <div>
+                <p class="eyebrow">Fatura adresleri</p>
+                <h2>Faturalama kayıtlarınızı ve şirket bilgilerinizi yönetin</h2>
+              </div>
+            </div>
+
+            <div class="billing-shell">
+              <div class="billing-actions">
+                <button class="ghost-button billing-add-button" type="button">+ Yeni Kayıt Ekle</button>
+              </div>
+
+              <div class="table-shell">
+                <table class="data-table billing-table">
+                  <thead>
+                    <tr>
+                      <th>Düzenle</th>
+                      <th>Adres Adı</th>
+                      <th>Tip</th>
+                      <th>Şehir</th>
+                      <th>Ad</th>
+                      <th>İlçe</th>
+                      <th>TC Kimlik No</th>
+                      <th>Vergi Dairesi</th>
+                      <th>Vergi Numarası</th>
+                      <th>Adres</th>
+                    </tr>
+                  </thead>
+                  <tbody id="billing-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/venue.js"></script>
+  </body>
+</html>

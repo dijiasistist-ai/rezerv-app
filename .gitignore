@@ -1,0 +1,14 @@
+node_modules/
+.DS_Store
+*.log
+
+# Local/generated backups from recovery work.
+*.broken-*.js
+*.broken-*.css
+*.broken-*.json
+*.broken-*
+XXtbVVnp
+
+# Local user data from the old prototype. The current demo server seeds users in memory.
+data/users.json
+data/auth-store.js

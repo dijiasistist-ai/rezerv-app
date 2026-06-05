@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rezerv.app Admin</title>
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-header">
+        <a class="admin-brand" href="/">
+          <img src="/assets/rezerv-logo.png" alt="rezerv.app" />
+        </a>
+        <a class="admin-link" href="/venue.html">İşletme paneli</a>
+      </header>
+
+      <section class="admin-hero">
+        <p>Platform</p>
+        <h1>rezerv.app yönetici özeti</h1>
+      </section>
+
+      <section class="summary-grid" id="summary-grid"></section>
+      <section class="admin-grid">
+        <div class="panel">
+          <h2>Operasyon uyarıları</h2>
+          <div class="alert-list" id="alert-list"></div>
+        </div>
+        <div class="panel">
+          <h2>İşletmeler</h2>
+          <div class="venue-list" id="venue-list"></div>
+        </div>
+      </section>
+    </main>
+    <script src="/admin.js"></script>
+  </body>
+</html>
