@@ -303,7 +303,9 @@ function renderWeeklySchedule(board, days) {
           const slotKey = `${dayIndex}-${time}`;
           const selectedClass = venueState.selectedSlotKey === slotKey ? " is-selected" : "";
           const todayClass = isToday ? " is-today-column" : "";
-          const mode = venueState.slotModes[slotKey] || getDefaultMode(slot);
+          const explicitMode = venueState.slotModes[slotKey];
+          const mode = explicitMode || getDefaultMode(slot);
+          const explicitRezervClass = explicitMode === "rezerv" ? " slot-explicit-rezerv" : "";
           const manualEntry = venueState.manualEntries[slotKey];
 
           let modeLabel = "Açık";
@@ -342,11 +344,11 @@ function renderWeeklySchedule(board, days) {
           const popoverClass = `slot-popover${popoverEdgeClass}${popoverVerticalClass}`;
           const slotMainMarkup =
             mode === "rezerv"
-              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">+</span>`
+              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">rezerv.app</span>`
               : `<strong>${modeLabel}</strong>${badgeMarkup}${modeMeta ? `<span>${modeMeta}</span>` : ""}`;
 
           return `
-            <td class="schedule-slot-cell ${compactStatusClass}${selectedClass}${todayClass}" data-slot-key="${slotKey}" data-day-index="${dayIndex}" data-time="${time}">
+            <td class="schedule-slot-cell ${compactStatusClass}${explicitRezervClass}${selectedClass}${todayClass}" data-slot-key="${slotKey}" data-day-index="${dayIndex}" data-time="${time}">
               <div class="schedule-choice ${modeClass}">
                 ${slotMainMarkup}
                 ${

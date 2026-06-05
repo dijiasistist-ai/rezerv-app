@@ -1751,29 +1751,39 @@ a {
   justify-content: center;
   background: transparent;
   color: transparent;
+  box-shadow: none;
 }
 
 #calendar-view .slot-hissingo .schedule-choice::before {
   content: none;
 }
 
-#calendar-view .open-slot-dot {
-  display: grid;
-  place-items: center;
-  width: 17px;
-  height: 17px;
-  border: 1px solid #ffd8c9;
-  border-radius: 50%;
-  background: #fff7f4;
-  color: #f06432;
-  font-size: 12px;
+#calendar-view .schedule-slot-cell .open-slot-dot {
+  display: block;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 9px;
+  line-height: 1;
   font-weight: 900;
-  opacity: 0;
+  opacity: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#calendar-view .slot-explicit-rezerv .schedule-choice {
+  justify-content: flex-start;
+  background: #fff7f2;
+  color: #c43c0b;
+  box-shadow: inset 3px 0 0 #ff601f;
 }
 
 #calendar-view .schedule-slot-cell.is-selected .open-slot-dot,
 #calendar-view .slot-hissingo:hover .open-slot-dot {
-  opacity: 0.88;
+  opacity: 1;
 }
 
 #calendar-view .slot-hissingo strong,
