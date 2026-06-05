@@ -1641,6 +1641,11 @@ a {
   border-color: #e8edf5;
 }
 
+#calendar-view .schedule-table th:not(:last-child),
+#calendar-view .schedule-table td:not(:last-child) {
+  border-right: 1px solid rgba(152, 162, 179, 0.18);
+}
+
 #calendar-view .schedule-table th {
   height: var(--calendar-header-height);
   padding: 5px 6px;
