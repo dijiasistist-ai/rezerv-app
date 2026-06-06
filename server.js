@@ -126,7 +126,15 @@ function seedUsers() {
 seedUsers();
 
 app.use(express.json({ limit: "1mb" }));
-app.use(express.static(__dirname));
+app.use(
+  express.static(__dirname, {
+    setHeaders(res, filePath) {
+      if (/\.(?:css|js|html)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  }),
+);
 
 function isLocalDemoRequest(req) {
   const host = String(req.hostname || req.get("host") || "").toLocaleLowerCase("tr-TR");
