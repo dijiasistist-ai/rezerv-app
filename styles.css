@@ -1187,24 +1187,54 @@ button {
 
 @media (max-width: 1500px) {
   .site-header {
-    grid-template-columns: auto minmax(0, 1fr);
-    row-gap: 2px;
+    grid-template-columns: 180px minmax(0, 1fr) auto;
+    gap: 12px;
+    width: min(var(--max-width), calc(100% - 44px));
+  }
+
+  .brand {
+    min-width: 180px;
+  }
+
+  .brand-logo {
+    width: 150px;
+  }
+
+  .brand-tagline {
+    margin-left: 46px;
+    font-size: 10px;
   }
 
   .main-nav {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    gap: clamp(18px, 2.2vw, 28px);
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .main-nav::-webkit-scrollbar {
-    display: none;
+    gap: 12px;
+    font-size: 12px;
   }
 
   .header-actions {
-    min-width: 0;
+    gap: 6px;
+  }
+
+  .location-button,
+  .saved-button {
+    gap: 7px;
+    padding: 0 10px;
+  }
+
+  .saved-button {
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+  }
+
+  .saved-button::before {
+    content: "♡";
+    font-size: 16px;
+  }
+
+  .reserve-now {
+    padding: 0 12px;
   }
 }
 
