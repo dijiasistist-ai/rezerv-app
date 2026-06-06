@@ -904,6 +904,73 @@ function getListingById(id) {
   return listing ? enrichListing(listing) : null;
 }
 
+const mapCoordinates = {
+  "pet-house-grooming": { lat: 40.9861, lng: 29.0278 },
+  "moda-padel-club": { lat: 40.9824, lng: 29.0252 },
+  "luna-beauty-center": { lat: 40.9893, lng: 29.0304 },
+  "kadikoy-arena-hali-saha": { lat: 40.9916, lng: 29.0372 },
+  "ahmet-hoca-direksiyon": { lat: 40.9954, lng: 29.0218 },
+  "lotus-spa": { lat: 40.9848, lng: 29.0338 },
+  "akademi-ozel-ders": { lat: 40.9928, lng: 29.1246 },
+  "flora-fizyoterapi": { lat: 40.9692, lng: 29.0718 },
+};
+
+function getDistanceKm(origin, target) {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const earthKm = 6371;
+  const dLat = toRad(target.lat - origin.lat);
+  const dLng = toRad(target.lng - origin.lng);
+  const lat1 = toRad(origin.lat);
+  const lat2 = toRad(target.lat);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getMapSourceListings() {
+  const liveListings = getPublicListings();
+  return liveListings.length ? liveListings : listings;
+}
+
+function getNearbyMapPayload(origin = { lat: 41.0351, lng: 29.0268 }) {
+  const safeOrigin = {
+    lat: Number.isFinite(origin.lat) ? origin.lat : 41.0351,
+    lng: Number.isFinite(origin.lng) ? origin.lng : 29.0268,
+  };
+  const categoriesById = new Map(categoryDefinitions.map((item) => [item.id, item]));
+  const items = getMapSourceListings()
+    .map((listing) => {
+      const coordinates = mapCoordinates[listing.id];
+      const category = categoriesById.get(listing.category);
+      if (!coordinates || !category) return null;
+      const distanceKm = getDistanceKm(safeOrigin, coordinates);
+
+      return {
+        id: listing.id,
+        name: listing.name,
+        category: listing.category,
+        categoryLabel: category.featuredLabel,
+        icon: category.icon,
+        cityLabel: listing.cityLabel,
+        lat: coordinates.lat,
+        lng: coordinates.lng,
+        distanceKm: Number(distanceKm.toFixed(2)),
+        distanceLabel: `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`,
+        nextSlot: listing.availability?.nextSlot || listing.eveningTime || "Yakında",
+        priceLabel: formatPrice(listing.price),
+        mediaClass: listing.mediaClass,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return {
+    origin: safeOrigin,
+    items,
+  };
+}
+
 function getBootstrapPayload() {
   const categories = getCategories();
 
@@ -938,6 +1005,7 @@ module.exports = {
   dashboard,
   filterListings,
   getListingById,
+  getNearbyMapPayload,
   getBootstrapPayload,
   getVenueDashboardPayload,
   getAdminDashboardPayload,

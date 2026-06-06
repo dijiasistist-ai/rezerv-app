@@ -6,6 +6,7 @@ const {
   filterListings,
   getAdminDashboardPayload,
   getBootstrapPayload,
+  getNearbyMapPayload,
   getVenueDashboardPayload,
 } = require("./data/store");
 
@@ -403,6 +404,12 @@ app.get("/api/listings", (req, res) => {
     time: String(req.query.time || ""),
   });
   res.json({ total: items.length, items });
+});
+
+app.get("/api/nearby", (req, res) => {
+  const lat = Number(req.query.lat || 41.0351);
+  const lng = Number(req.query.lng || 29.0268);
+  res.json(getNearbyMapPayload({ lat, lng }));
 });
 
 app.post("/api/auth/register", (req, res) => {

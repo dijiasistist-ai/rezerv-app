@@ -40,7 +40,13 @@ const authEntryBack = document.querySelector("#auth-entry-back");
 const authRoleChoices = document.querySelectorAll("[data-role-choice]");
 const authEntryChoices = document.querySelectorAll("[data-entry-choice]");
 const popularSearches = document.querySelector(".popular-searches");
-const locationTrigger = document.querySelector("#location-trigger");
+const nearbyMapTrigger = document.querySelector("#nearby-map-trigger");
+const nearbyMapModal = document.querySelector("#nearby-map-modal");
+const nearbyMapClose = document.querySelector("#nearby-map-close");
+const nearbyMapDismiss = document.querySelector("#nearby-map-dismiss");
+const nearbyLocate = document.querySelector("#nearby-locate");
+const nearbyMapStatus = document.querySelector("#nearby-map-status");
+const nearbyResults = document.querySelector("#nearby-results");
 
 const state = {
   category: "all",
@@ -55,6 +61,10 @@ const state = {
   pendingRegistration: null,
   token: localStorage.getItem("zuvu_token") || "",
   user: null,
+  nearbyMap: null,
+  nearbyMarkers: [],
+  nearbyUserMarker: null,
+  nearbyOrigin: { lat: 41.0351, lng: 29.0268 },
 };
 
 function normalize(value = "") {
@@ -87,6 +97,165 @@ function setActiveCategory(categoryId) {
   document.querySelectorAll("[data-filter]").forEach((node) => {
     node.classList.toggle("is-active", node.dataset.filter === categoryId);
   });
+}
+
+function setNearbyStatus(message) {
+  if (nearbyMapStatus) nearbyMapStatus.textContent = message;
+}
+
+function buildMapIcon(item) {
+  return L.divIcon({
+    className: "zuvu-map-pin",
+    html: `<span>${item.icon || "✦"}</span>`,
+    iconSize: [42, 52],
+    iconAnchor: [21, 50],
+    popupAnchor: [0, -44],
+  });
+}
+
+function buildUserIcon() {
+  return L.divIcon({
+    className: "zuvu-user-pin",
+    html: "<span>⌖</span>",
+    iconSize: [54, 54],
+    iconAnchor: [27, 27],
+  });
+}
+
+function ensureNearbyMap() {
+  if (!window.L) {
+    setNearbyStatus("Harita kütüphanesi yüklenemedi. İnternet bağlantısını kontrol et.");
+    return null;
+  }
+
+  if (state.nearbyMap) {
+    setTimeout(() => state.nearbyMap.invalidateSize(), 80);
+    return state.nearbyMap;
+  }
+
+  state.nearbyMap = L.map("nearby-map", {
+    center: [state.nearbyOrigin.lat, state.nearbyOrigin.lng],
+    zoom: 12,
+    zoomControl: false,
+  });
+
+  L.control.zoom({ position: "bottomright" }).addTo(state.nearbyMap);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap",
+    maxZoom: 19,
+  }).addTo(state.nearbyMap);
+
+  setTimeout(() => state.nearbyMap.invalidateSize(), 80);
+
+  return state.nearbyMap;
+}
+
+function clearNearbyMarkers() {
+  state.nearbyMarkers.forEach((marker) => marker.remove());
+  state.nearbyMarkers = [];
+  if (state.nearbyUserMarker) {
+    state.nearbyUserMarker.remove();
+    state.nearbyUserMarker = null;
+  }
+}
+
+function renderNearbyResults(items = []) {
+  nearbyResults.innerHTML = items.length
+    ? items
+        .slice(0, 6)
+        .map(
+          (item) => `
+            <button class="nearby-result" data-marker-id="${item.id}" type="button">
+              <span>${item.icon || "✦"}</span>
+              <strong>${item.name}</strong>
+              <small>${item.categoryLabel} · ${item.cityLabel} · ${item.distanceLabel}</small>
+              <em>${item.nextSlot} müsait · ₺${item.priceLabel}</em>
+            </button>
+          `,
+        )
+        .join("")
+    : `
+      <article class="nearby-empty">
+        <strong>Yakında işletme yok</strong>
+        <span>Bu bölgede yayına alınmış işletme bulunamadı.</span>
+      </article>
+    `;
+}
+
+async function loadNearbyMap(origin = state.nearbyOrigin) {
+  const map = ensureNearbyMap();
+  if (!map) return;
+
+  state.nearbyOrigin = origin;
+  setNearbyStatus("Yakındaki işletmeler hesaplanıyor...");
+
+  const params = new URLSearchParams({
+    lat: String(origin.lat),
+    lng: String(origin.lng),
+  });
+  const payload = await fetchJson(`/api/nearby?${params.toString()}`);
+  const items = payload.items || [];
+
+  clearNearbyMarkers();
+  state.nearbyUserMarker = L.marker([origin.lat, origin.lng], { icon: buildUserIcon() })
+    .addTo(map)
+    .bindPopup("Konumun");
+
+  items.forEach((item) => {
+    const marker = L.marker([item.lat, item.lng], { icon: buildMapIcon(item) })
+      .addTo(map)
+      .bindPopup(`<strong>${item.name}</strong><br>${item.categoryLabel}<br>${item.distanceLabel}`);
+    marker.zuvuId = item.id;
+    state.nearbyMarkers.push(marker);
+  });
+
+  const bounds = L.latLngBounds([[origin.lat, origin.lng], ...items.map((item) => [item.lat, item.lng])]);
+  if (bounds.isValid()) map.fitBounds(bounds, { padding: [42, 42], maxZoom: 13 });
+
+  renderNearbyResults(items);
+  setNearbyStatus(
+    items.length
+      ? `${items.length} işletme kategori ikonlarıyla haritada gösteriliyor.`
+      : "Bu konuma yakın işletme bulunamadı.",
+  );
+}
+
+function requestNearbyLocation() {
+  if (!navigator.geolocation) {
+    loadNearbyMap();
+    setNearbyStatus("Tarayıcı konum desteği vermiyor; İstanbul merkeziyle gösteriliyor.");
+    return;
+  }
+
+  setNearbyStatus("Konum izni bekleniyor...");
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      loadNearbyMap({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    },
+    () => {
+      loadNearbyMap();
+      setNearbyStatus("Konum izni verilmedi; İstanbul merkeziyle gösteriliyor.");
+    },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+  );
+}
+
+function openNearbyMap(event) {
+  if (event) event.preventDefault();
+  nearbyMapModal.classList.remove("hidden");
+  nearbyMapModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  if (state.nearbyMap) setTimeout(() => state.nearbyMap.invalidateSize(), 80);
+  requestNearbyLocation();
+}
+
+function closeNearbyMap() {
+  nearbyMapModal.classList.add("hidden");
+  nearbyMapModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
 }
 
 function renderHeroMetrics(items = []) {
@@ -448,10 +617,17 @@ timeInput.addEventListener("change", () => {
   loadListings();
 });
 
-locationTrigger.addEventListener("click", () => {
-  state.city = "istanbul";
-  citySelect.value = "istanbul";
-  loadListings();
+nearbyMapTrigger.addEventListener("click", openNearbyMap);
+nearbyLocate.addEventListener("click", requestNearbyLocation);
+nearbyMapClose.addEventListener("click", closeNearbyMap);
+nearbyMapDismiss.addEventListener("click", closeNearbyMap);
+nearbyResults.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-marker-id]");
+  if (!button || !state.nearbyMap) return;
+  const marker = state.nearbyMarkers.find((item) => item.zuvuId === button.dataset.markerId);
+  if (!marker) return;
+  state.nearbyMap.setView(marker.getLatLng(), 15, { animate: true });
+  marker.openPopup();
 });
 
 loginTrigger.addEventListener("click", () => {

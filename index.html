@@ -8,7 +8,13 @@
       name="description"
       content="Pet kuaför, padel, halı saha, güzellik merkezi, direksiyon dersi ve daha fazlası için anında rezervasyon marketplace'i."
     />
-    <link rel="stylesheet" href="/styles.css?v=20260606-pet-beauty-2" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIINfQ9U8K7tM5Hmx9E0EmYoKk1uH+kXgHk="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="/styles.css?v=20260606-nearby-map-1" />
   </head>
   <body>
     <div class="page-shell">
@@ -21,14 +27,13 @@
         <nav class="main-nav" aria-label="Ana menü">
           <a class="is-active" href="#hero">Keşfet</a>
           <a href="#categories">Kategoriler</a>
-          <a href="#nearby">Yakınımda</a>
+          <a href="#nearby-map" id="nearby-map-trigger">Yakınımda</a>
           <a href="#featured">Fırsatlar</a>
           <a href="/venue.html">İşletmeler için</a>
           <a href="#metrics">Platform</a>
         </nav>
 
         <div class="header-actions">
-          <button class="location-button" id="location-trigger" type="button"><span>●</span> İstanbul</button>
           <button class="saved-button" type="button">♡ Kaydedilenler</button>
           <button class="bell-button" type="button" aria-label="Bildirimler">
             <span>🔔</span>
@@ -183,6 +188,27 @@
       </main>
     </div>
 
+    <div class="map-modal hidden" id="nearby-map-modal" aria-hidden="true">
+      <div class="map-backdrop" id="nearby-map-close"></div>
+      <section class="map-dialog" aria-label="Yakınımdaki işletmeler haritası">
+        <div class="map-toolbar">
+          <div>
+            <p class="eyebrow">Yakınımda</p>
+            <h2>Haritada yakındaki işletmeler</h2>
+            <span id="nearby-map-status">Konumunu onaylayınca en yakın işletmeler sıralanır.</span>
+          </div>
+          <div class="map-actions">
+            <button class="ghost-button" id="nearby-locate" type="button">Konumumu bul</button>
+            <button class="round-arrow" id="nearby-map-dismiss" type="button" aria-label="Haritayı kapat">×</button>
+          </div>
+        </div>
+        <div class="map-layout">
+          <div class="nearby-map" id="nearby-map"></div>
+          <aside class="nearby-results" id="nearby-results"></aside>
+        </div>
+      </section>
+    </div>
+
     <div class="auth-modal hidden" id="auth-modal" aria-hidden="true">
       <div class="auth-backdrop" id="auth-close"></div>
       <div class="auth-dialog">
@@ -269,6 +295,11 @@
       </div>
     </div>
 
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
     <script src="/app.js"></script>
   </body>
 </html>
