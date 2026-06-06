@@ -999,15 +999,8 @@ button {
 }
 
 .media-pet {
-  background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.22)), url("/assets/pet-kuafor-poodle.jpg");
-  background-position: center 22%;
-}
-
-.mosaic-card.media-pet {
-  background-color: #ead9ad;
-  background-position: center, center 36%;
-  background-repeat: no-repeat;
-  background-size: cover, 60% auto;
+  background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.22)), url("/assets/pet-kuafor-grooming.png");
+  background-position: center;
 }
 
 .media-padel {
@@ -1015,7 +1008,13 @@ button {
 }
 
 .media-beauty {
-  background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.24)), url("https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=900&q=80");
+  background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.24)), url("/assets/guzellik-merkezi-device.png");
+  background-position: center;
+}
+
+.mosaic-card.media-beauty {
+  background-size: cover;
+  background-position: center 42%;
 }
 
 .media-field {
