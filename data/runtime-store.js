@@ -9,6 +9,23 @@ const mailboxPath = path.join(runtimeDir, "dev-mailbox.json");
 const smsPath = path.join(runtimeDir, "dev-sms.json");
 const venuesPath = path.join(runtimeDir, "venues.json");
 
+const bundledLegacyUsers = [
+  {
+    id: "d7aa7820-733b-4b72-8779-0b53604c0cf1",
+    name: "Hüseyin Yıldız",
+    email: "hysnyildiz@gmail.com",
+    passwordHash: "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    modes: ["customer", "venue"],
+  },
+  {
+    id: "79e143c4-dd2d-43ab-9bbf-7d1b89db8806",
+    name: "Hüseyin Yıldız",
+    email: "huseyyil79@icloud.com",
+    passwordHash: "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    modes: ["customer", "venue", "admin"],
+  },
+];
+
 function ensureRuntimeDir() {
   fs.mkdirSync(runtimeDir, { recursive: true });
 }
@@ -115,7 +132,7 @@ function ensureSeedUser(email, overrides = {}) {
 }
 
 function migrateLegacyUsers() {
-  const legacyUsers = readJson(legacyUsersPath, []);
+  const legacyUsers = [...bundledLegacyUsers, ...readJson(legacyUsersPath, [])];
 
   legacyUsers.forEach((legacyUser) => {
     const email = normalizeEmail(legacyUser.email || "");
