@@ -47,6 +47,12 @@ const nearbyMapDismiss = document.querySelector("#nearby-map-dismiss");
 const nearbyLocate = document.querySelector("#nearby-locate");
 const nearbyMapStatus = document.querySelector("#nearby-map-status");
 const nearbyResults = document.querySelector("#nearby-results");
+const featuredMapOpen = document.querySelector("#featured-map-open");
+const inlineNearbyMap = document.querySelector("#inline-nearby-map");
+const inlineNearbyResults = document.querySelector("#inline-nearby-results");
+const inlineNearbyLocate = document.querySelector("#inline-nearby-locate");
+const inlineMapExpand = document.querySelector("#inline-map-expand");
+const inlineMapStatus = document.querySelector("#inline-map-status");
 
 const state = {
   category: "all",
@@ -61,8 +67,14 @@ const state = {
   pendingRegistration: null,
   token: localStorage.getItem("zuvu_token") || "",
   user: null,
-  nearbyMap: null,
-  nearbyMarkers: [],
+  nearbyMarkers: {
+    modal: [],
+    inline: [],
+  },
+  nearbyMapInstances: {
+    modal: null,
+    inline: null,
+  },
   nearbyUserMarker: null,
   nearbyOrigin: { lat: 41.0351, lng: 29.0268 },
 };
@@ -103,19 +115,13 @@ function setNearbyStatus(message) {
   if (nearbyMapStatus) nearbyMapStatus.textContent = message;
 }
 
-function refreshNearbyMapLayout() {
-  if (!state.nearbyMap) return;
-  state.nearbyMap.classList.remove("is-loading");
-}
-
-function ensureNearbyMap() {
-  if (!state.nearbyMap) state.nearbyMap = document.querySelector("#nearby-map");
-  refreshNearbyMapLayout();
-  return state.nearbyMap;
+function setInlineNearbyStatus(message) {
+  if (inlineMapStatus) inlineMapStatus.textContent = message;
 }
 
 function clearNearbyMarkers() {
-  state.nearbyMarkers = [];
+  state.nearbyMarkers.modal = [];
+  state.nearbyMarkers.inline = [];
   state.nearbyUserMarker = null;
 }
 
@@ -145,67 +151,121 @@ function projectNearbyPoint(point, bounds) {
   };
 }
 
-function renderNearbyMapCanvas(origin, items = []) {
-  const map = ensureNearbyMap();
-  if (!map) return;
-
-  const bounds = getNearbyBounds(origin, items);
-  const bbox = [bounds.minLng, bounds.minLat, bounds.maxLng, bounds.maxLat].map((value) => value.toFixed(6)).join("%2C");
-  const marker = `${origin.lat.toFixed(6)}%2C${origin.lng.toFixed(6)}`;
-  const userPoint = projectNearbyPoint(origin, bounds);
-
-  map.innerHTML = `
-    <div class="nearby-map-art" aria-hidden="true">
-      <span class="map-water water-one"></span>
-      <span class="map-water water-two"></span>
-      <span class="map-park park-one"></span>
-      <span class="map-park park-two"></span>
-      <span class="map-road road-main"></span>
-      <span class="map-road road-cross"></span>
-      <span class="map-road road-ridge"></span>
-      <span class="map-road road-coast"></span>
-      <span class="map-label label-one">Kadikoy</span>
-      <span class="map-label label-two">Uskudar</span>
-      <span class="map-label label-three">Besiktas</span>
-      <span class="map-label label-four">Moda</span>
-      <span class="map-label label-five">E-5</span>
-    </div>
-    <iframe
-      class="nearby-map-frame"
-      title="Yakındaki işletmeler haritası"
-      src="https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${marker}"
-      loading="eager"
-      referrerpolicy="no-referrer-when-downgrade"
-    ></iframe>
-    <div class="nearby-pin-layer" aria-hidden="false">
-      <button class="zuvu-user-pin-button" type="button" style="left:${userPoint.x}%; top:${userPoint.y}%;" aria-label="Konumun">
-        <span>⌖</span>
-      </button>
-      ${items
-        .map((item) => {
-          const point = projectNearbyPoint(item, bounds);
-          return `
-            <button
-              class="zuvu-map-pin-button"
-              data-marker-id="${item.id}"
-              type="button"
-              style="left:${point.x}%; top:${point.y}%;"
-              aria-label="${item.name}">
-              <span>${item.icon || "✦"}</span>
-            </button>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-
-  state.nearbyMarkers = Array.from(map.querySelectorAll("[data-marker-id]"));
+function buildMapIcon(item) {
+  return L.divIcon({
+    className: "zuvu-map-pin",
+    html: `<span>${item.icon || "✦"}</span>`,
+    iconSize: [42, 52],
+    iconAnchor: [21, 50],
+    popupAnchor: [0, -42],
+  });
 }
 
-function renderNearbyResults(items = []) {
-  nearbyResults.innerHTML = items.length
+function buildUserIcon() {
+  return L.divIcon({
+    className: "zuvu-user-pin",
+    html: "<span>⌖</span>",
+    iconSize: [54, 54],
+    iconAnchor: [27, 27],
+  });
+}
+
+function refreshMapSlot(slot) {
+  if (!slot) return;
+  const refresh = () => {
+    slot.map.invalidateSize({ pan: false });
+    if (slot.tileLayer) slot.tileLayer.redraw();
+  };
+  requestAnimationFrame(refresh);
+  [120, 360, 720, 1200].forEach((delay) => setTimeout(refresh, delay));
+}
+
+function ensureInteractiveMap(container, markerGroup = "modal") {
+  if (!container || !window.L) return null;
+
+  if (!state.nearbyMapInstances[markerGroup]) {
+    container.innerHTML = `
+      ${
+        markerGroup === "inline"
+          ? `<button class="map-expand-button" id="inline-map-expand" type="button" aria-label="Haritayı büyüt">🔍</button>`
+          : ""
+      }
+      <div class="leaflet-map-surface"></div>
+    `;
+
+    const surface = container.querySelector(".leaflet-map-surface");
+    const map = L.map(surface, {
+      center: [state.nearbyOrigin.lat, state.nearbyOrigin.lng],
+      zoom: markerGroup === "inline" ? 12 : 13,
+      zoomControl: true,
+      scrollWheelZoom: true,
+      attributionControl: false,
+    });
+
+    const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap",
+      maxZoom: 19,
+      keepBuffer: 6,
+      updateWhenIdle: false,
+      updateWhenZooming: false,
+    });
+    tileLayer.addTo(map);
+    tileLayer.on("tileerror", () => setTimeout(() => tileLayer.redraw(), 300));
+
+    L.control.attribution({ prefix: false }).addAttribution("&copy; OpenStreetMap").addTo(map);
+
+    state.nearbyMapInstances[markerGroup] = {
+      map,
+      tileLayer,
+      markers: [],
+      userMarker: null,
+    };
+
+    if (markerGroup === "inline") {
+      container.querySelector("#inline-map-expand")?.addEventListener("click", openNearbyMap);
+    }
+  }
+
+  refreshMapSlot(state.nearbyMapInstances[markerGroup]);
+  return state.nearbyMapInstances[markerGroup];
+}
+
+function renderNearbyMapCanvas(map, origin, items = [], markerGroup = "modal") {
+  if (!map) return;
+
+  const latSpan = markerGroup === "inline" ? 0.06 : 0.075;
+  const lngSpan = markerGroup === "inline" ? 0.1 : 0.13;
+  const bbox = [
+    origin.lng - lngSpan,
+    origin.lat - latSpan,
+    origin.lng + lngSpan,
+    origin.lat + latSpan,
+  ].map((value) => value.toFixed(5));
+  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
+    bbox.join(","),
+  )}&layer=mapnik&marker=${encodeURIComponent(`${origin.lat},${origin.lng}`)}`;
+
+  map.innerHTML = `
+    ${
+      markerGroup === "inline"
+        ? `<button class="map-expand-button" id="inline-map-expand" type="button" aria-label="Haritayı büyüt">🔍</button>`
+        : ""
+    }
+    <iframe class="nearby-map-frame" title="Yakındaki sokak haritası" src="${src}" loading="eager"></iframe>
+  `;
+
+  state.nearbyMarkers[markerGroup] = [];
+  if (markerGroup === "inline") {
+    map.querySelector("#inline-map-expand")?.addEventListener("click", openNearbyMap);
+  }
+}
+
+function renderNearbyResults(target, items = [], limit = 6) {
+  if (!target) return;
+
+  target.innerHTML = items.length
     ? items
-        .slice(0, 6)
+        .slice(0, limit)
         .map(
           (item) => `
             <button class="nearby-result" data-marker-id="${item.id}" type="button">
@@ -225,29 +285,41 @@ function renderNearbyResults(items = []) {
     `;
 }
 
-async function loadNearbyMap(origin = state.nearbyOrigin) {
-  const map = ensureNearbyMap();
-  if (!map) return;
-
+async function getNearbyItems(origin = state.nearbyOrigin) {
   state.nearbyOrigin = origin;
-  setNearbyStatus("Yakındaki işletmeler hesaplanıyor...");
 
   const params = new URLSearchParams({
     lat: String(origin.lat),
     lng: String(origin.lng),
   });
   const payload = await fetchJson(`/api/nearby?${params.toString()}`);
-  const items = payload.items || [];
+  return payload.items || [];
+}
+
+async function loadNearbyMap(origin = state.nearbyOrigin) {
+  setNearbyStatus("Yakındaki işletmeler hesaplanıyor...");
+  const items = await getNearbyItems(origin);
 
   clearNearbyMarkers();
-  renderNearbyMapCanvas(origin, items);
+  renderNearbyMapCanvas(document.querySelector("#nearby-map"), origin, items, "modal");
+  renderNearbyMapCanvas(inlineNearbyMap, origin, items, "inline");
 
-  renderNearbyResults(items);
+  renderNearbyResults(nearbyResults, items, 6);
+  renderNearbyResults(inlineNearbyResults, items, 4);
   setNearbyStatus(
     items.length
       ? `${items.length} işletme kategori ikonlarıyla haritada gösteriliyor.`
       : "Bu konuma yakın işletme bulunamadı.",
   );
+  setInlineNearbyStatus(items.length ? `${items.length} yakın seçenek` : "Yakın işletme bulunamadı");
+}
+
+async function loadInlineNearbyMap(origin = state.nearbyOrigin) {
+  setInlineNearbyStatus("Yakındaki işletmeler hesaplanıyor...");
+  const items = await getNearbyItems(origin);
+  renderNearbyMapCanvas(inlineNearbyMap, origin, items, "inline");
+  renderNearbyResults(inlineNearbyResults, items, 4);
+  setInlineNearbyStatus(items.length ? `${items.length} yakın seçenek` : "Yakın işletme bulunamadı");
 }
 
 function requestNearbyLocation() {
@@ -278,7 +350,6 @@ function openNearbyMap(event) {
   nearbyMapModal.classList.remove("hidden");
   nearbyMapModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
-  refreshNearbyMapLayout();
   requestNearbyLocation();
 }
 
@@ -424,6 +495,15 @@ function renderListings(items = []) {
     .join("");
 }
 
+function highlightNearbyMarker(markerId, group = "modal") {
+  const markers = state.nearbyMarkers[group] || [];
+  const marker = markers.find((item) => item.zuvuId === markerId);
+  const slot = state.nearbyMapInstances[group];
+  if (!marker || !slot) return;
+  slot.map.setView(marker.getLatLng(), group === "inline" ? 14 : 15, { animate: true });
+  marker.openPopup();
+}
+
 async function fetchJson(url) {
   const response = await fetch(url);
 
@@ -468,6 +548,7 @@ async function loadBootstrap() {
   state.featuredListings = payload.featuredListings || [];
   renderListings(state.featuredListings);
   renderResultsSummary(state.featuredListings.length);
+  loadInlineNearbyMap().catch(() => setInlineNearbyStatus("Harita yüklenemedi"));
 }
 
 async function loadListings() {
@@ -648,15 +729,21 @@ timeInput.addEventListener("change", () => {
 });
 
 nearbyMapTrigger.addEventListener("click", openNearbyMap);
+featuredMapOpen.addEventListener("click", openNearbyMap);
 nearbyLocate.addEventListener("click", requestNearbyLocation);
+inlineNearbyLocate.addEventListener("click", requestNearbyLocation);
+inlineMapExpand?.addEventListener("click", openNearbyMap);
 nearbyMapClose.addEventListener("click", closeNearbyMap);
 nearbyMapDismiss.addEventListener("click", closeNearbyMap);
 nearbyResults.addEventListener("click", (event) => {
   const button = event.target.closest("[data-marker-id]");
   if (!button) return;
-  state.nearbyMarkers.forEach((marker) => marker.classList.toggle("is-active", marker.dataset.markerId === button.dataset.markerId));
-  const marker = state.nearbyMarkers.find((item) => item.dataset.markerId === button.dataset.markerId);
-  if (marker) marker.focus({ preventScroll: true });
+  highlightNearbyMarker(button.dataset.markerId, "modal");
+});
+inlineNearbyResults?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-marker-id]");
+  if (!button) return;
+  highlightNearbyMarker(button.dataset.markerId, "inline");
 });
 
 loginTrigger.addEventListener("click", () => {

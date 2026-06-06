@@ -8,7 +8,7 @@
       name="description"
       content="Pet kuaför, padel, halı saha, güzellik merkezi, direksiyon dersi ve daha fazlası için anında rezervasyon marketplace'i."
     />
-    <link rel="stylesheet" href="/styles.css?v=20260606-nearby-map-3" />
+    <link rel="stylesheet" href="/styles.css?v=20260606-map-frame-1" />
   </head>
   <body>
     <div class="page-shell">
@@ -168,12 +168,30 @@
           <div class="section-title-row compact">
             <h2>Yakınında popüler işletmeler</h2>
             <span class="live-dot">Senin için önerilenler</span>
-            <a href="#featured">Haritada gör ›</a>
           </div>
 
-          <div class="filter-pills" id="filter-pills" aria-label="Kategori filtreleri"></div>
-          <div class="results-summary" id="results-summary"></div>
-          <div class="listing-grid" id="listing-grid"></div>
+          <div class="featured-layout">
+            <div class="featured-results">
+              <div class="filter-pills" id="filter-pills" aria-label="Kategori filtreleri"></div>
+              <div class="results-summary" id="results-summary"></div>
+              <div class="listing-grid" id="listing-grid"></div>
+            </div>
+            <aside class="inline-map-panel" aria-label="Yakınımdaki işletmeler">
+              <div class="inline-map-header">
+                <div>
+                  <strong>Yakınımda</strong>
+                  <span id="inline-map-status">Harita hazırlanıyor.</span>
+                </div>
+                <div class="inline-map-actions">
+                  <button class="ghost-button" id="featured-map-open" type="button">Büyüt</button>
+                  <button class="ghost-button" id="inline-nearby-locate" type="button">Konumum</button>
+                </div>
+              </div>
+              <div class="nearby-map inline-nearby-map" id="inline-nearby-map">
+                <button class="map-expand-button" id="inline-map-expand" type="button" aria-label="Haritayı büyüt">🔍</button>
+              </div>
+            </aside>
+          </div>
         </section>
 
         <section class="metrics-bar" id="metrics">
@@ -289,6 +307,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=20260606-nearby-map-3"></script>
+    <script src="/app.js?v=20260606-map-frame-1"></script>
   </body>
 </html>
