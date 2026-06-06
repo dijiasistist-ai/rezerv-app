@@ -21,11 +21,17 @@ Isletme paneli:
 http://127.0.0.1:8091/venue.html
 ```
 
+Admin paneli:
+
+```text
+http://127.0.0.1:8091/admin.html
+```
+
 Demo hesaplar:
 
 - `demo@zuvu.app` / `123456`
 - `firma@zuvu.app` / `123456`
-- `admin@zuvu.app` / `123456`
+- `admin` veya `admin@zuvu.app` / `123456`
 
 ## Render deploy
 

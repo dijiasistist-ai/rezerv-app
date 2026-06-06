@@ -4,34 +4,157 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>zuvu Admin</title>
-    <link rel="stylesheet" href="/admin.css" />
+    <link rel="stylesheet" href="/admin.css?v=20260606-admin-1" />
   </head>
   <body>
+    <div class="admin-auth-wall hidden" id="admin-auth-wall">
+      <div class="admin-auth-card">
+        <img src="/assets/zuvu-logo.png" alt="zuvu" />
+        <h1>Admin girişi gerekli</h1>
+        <p>Bu alan yalnızca admin kullanıcısı ile açılır.</p>
+        <a href="/">Ana sayfadan giriş yap</a>
+      </div>
+    </div>
+
     <main class="admin-shell">
       <header class="admin-header">
-        <a class="admin-brand" href="/">
+        <a class="admin-brand" href="/" aria-label="zuvu ana sayfa">
           <img src="/assets/zuvu-logo.png" alt="zuvu" />
         </a>
-        <a class="admin-link" href="/venue.html">İşletme paneli</a>
+        <nav class="admin-nav" aria-label="Admin menüsü">
+          <a href="#directory">Arama</a>
+          <a href="#actions">Operasyon</a>
+          <a href="#reports">Raporlar</a>
+          <a href="/venue.html">İşletme paneli</a>
+        </nav>
       </header>
 
       <section class="admin-hero">
-        <p>Platform</p>
-        <h1>zuvu yönetici özeti</h1>
+        <div>
+          <p>Yönetim konsolu</p>
+          <h1>Platform, kullanıcı, işletme ve rapor merkezi</h1>
+        </div>
+        <button class="print-button" id="admin-refresh" type="button">Yenile</button>
       </section>
 
-      <section class="summary-grid" id="summary-grid"></section>
-      <section class="admin-grid">
-        <div class="panel">
-          <h2>Operasyon uyarıları</h2>
-          <div class="alert-list" id="alert-list"></div>
+      <section class="summary-grid" id="summary-grid" aria-label="Platform özeti"></section>
+
+      <section class="admin-workspace">
+        <div class="panel directory-panel" id="directory">
+          <div class="panel-heading">
+            <div>
+              <p>Arama</p>
+              <h2>İşletme ve müşteri bul</h2>
+            </div>
+            <span id="directory-count">0 kayıt</span>
+          </div>
+          <form class="search-row" id="admin-search-form">
+            <input id="admin-search-query" type="search" placeholder="İsim, e-posta, telefon, lokasyon..." />
+            <select id="admin-search-type">
+              <option value="all">Tümü</option>
+              <option value="business">İşletmeler</option>
+              <option value="customer">Bireysel müşteriler</option>
+              <option value="user">Tüm kullanıcılar</option>
+            </select>
+            <button type="submit">Ara</button>
+          </form>
+          <div class="result-list" id="directory-results"></div>
         </div>
-        <div class="panel">
-          <h2>İşletmeler</h2>
-          <div class="venue-list" id="venue-list"></div>
-        </div>
+
+        <aside class="panel detail-panel">
+          <div class="panel-heading">
+            <div>
+              <p>Detay</p>
+              <h2>Seçili kayıt</h2>
+            </div>
+          </div>
+          <div class="detail-body" id="detail-body">
+            <span class="empty-copy">Arama sonucundan bir kayıt seç.</span>
+          </div>
+        </aside>
+
+        <section class="panel action-panel" id="actions">
+          <div class="panel-heading">
+            <div>
+              <p>Operasyon</p>
+              <h2>Hızlı işlemler</h2>
+            </div>
+          </div>
+
+          <div class="action-grid">
+            <form class="admin-form" id="password-reset-form">
+              <h3>Şifre reset</h3>
+              <label>
+                Kullanıcı e-postası
+                <input id="reset-email" type="email" placeholder="ornek@zuvu.app" />
+              </label>
+              <label>
+                Yeni şifre
+                <input id="reset-password" type="text" placeholder="Boş kalırsa geçici şifre oluşur" />
+              </label>
+              <button type="submit">Şifreyi güncelle</button>
+              <p class="form-feedback" id="reset-feedback"></p>
+            </form>
+
+            <form class="admin-form" id="notification-form">
+              <h3>Bildirim gönder</h3>
+              <label>
+                Hedef
+                <select id="notification-target">
+                  <option value="all">Tüm kullanıcılar</option>
+                  <option value="customer">Bireysel müşteriler</option>
+                  <option value="venue">İşletme yetkilileri</option>
+                </select>
+              </label>
+              <label>
+                Kanal
+                <select id="notification-channel">
+                  <option value="email">E-posta</option>
+                  <option value="sms">SMS</option>
+                </select>
+              </label>
+              <label>
+                Başlık
+                <input id="notification-subject" type="text" value="zuvu bilgilendirme" />
+              </label>
+              <label>
+                Mesaj
+                <textarea id="notification-message" rows="4" placeholder="Gönderilecek mesaj..."></textarea>
+              </label>
+              <button type="submit">Bildirimi hazırla</button>
+              <p class="form-feedback" id="notification-feedback"></p>
+            </form>
+          </div>
+        </section>
+
+        <section class="panel report-panel" id="reports">
+          <div class="panel-heading report-heading">
+            <div>
+              <p>Raporlama</p>
+              <h2>Profesyonel kurum raporu</h2>
+            </div>
+            <button class="print-button" id="print-report" type="button">Raporu yazdır</button>
+          </div>
+
+          <form class="report-controls" id="report-form">
+            <label>
+              Kurum
+              <select id="report-venue"></select>
+            </label>
+            <label>
+              Dönem
+              <select id="report-period"></select>
+            </label>
+            <button type="submit">Rapor hazırla</button>
+          </form>
+
+          <article class="report-document" id="report-document">
+            <span class="empty-copy">Rapor hazırlanıyor...</span>
+          </article>
+        </section>
       </section>
     </main>
-    <script src="/admin.js"></script>
+
+    <script src="/admin.js?v=20260606-admin-1"></script>
   </body>
 </html>

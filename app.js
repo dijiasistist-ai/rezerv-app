@@ -606,6 +606,12 @@ authForm.addEventListener("submit", async (event) => {
     authFeedback.classList.add("is-success");
     authForm.reset();
     setTimeout(() => {
+      if (response.user.canAccessAdmin) {
+        closeAuthModal();
+        window.location.href = "/admin.html";
+        return;
+      }
+
       if (state.authEntry === "venue") {
         if (response.user.canManageVenue) {
           closeAuthModal();

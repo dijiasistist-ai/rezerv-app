@@ -219,6 +219,7 @@ module.exports = {
   findUserByEmail,
   findUserByEmailVerificationToken,
   findUserById,
+  getUsers,
   getDevOutbox,
   getVenueOverlay,
   hashPassword,

@@ -15,6 +15,7 @@ const {
   findUserByEmail,
   findUserByEmailVerificationToken,
   findUserById,
+  getUsers,
   getDevOutbox,
   getVenueOverlay,
   hashPassword,
@@ -118,11 +119,22 @@ function seedUsers() {
     canManageVenue: true,
   });
   ensureSeedUser("admin@zuvu.app", {
-    name: "zuvu Admin",
+    name: "admin",
     password: "123456",
     canManageVenue: true,
     isAdmin: true,
   });
+
+  const adminUser = findUserByEmail("admin@zuvu.app");
+  if (adminUser && (!adminUser.isAdmin || !adminUser.canManageVenue || adminUser.name !== "admin")) {
+    upsertUser({
+      ...adminUser,
+      name: "admin",
+      canManageVenue: true,
+      isAdmin: true,
+      emailVerified: true,
+    });
+  }
 }
 
 seedUsers();
@@ -225,6 +237,150 @@ function mergeVenuePayload(venueId) {
   return payload;
 }
 
+function resolveLoginEmail(value = "") {
+  const normalized = normalizeEmail(value);
+  if (normalized === "admin") return "admin@zuvu.app";
+  return normalized;
+}
+
+function formatCurrency(value) {
+  return `₺${new Intl.NumberFormat("tr-TR").format(Number(value || 0))}`;
+}
+
+function formatAdminUser(user) {
+  return {
+    id: user.id,
+    name: user.name || user.email,
+    email: normalizeEmail(user.email),
+    phone: user.phone || "",
+    type: user.isAdmin ? "Admin" : user.canManageVenue ? "İşletme yetkilisi" : "Bireysel müşteri",
+    canManageVenue: Boolean(user.canManageVenue),
+    isAdmin: Boolean(user.isAdmin),
+    venueId: user.venueId || "",
+    emailVerified: Boolean(user.emailVerified),
+    phoneVerified: Boolean(user.phoneVerified),
+    createdAt: user.createdAt || "",
+    updatedAt: user.updatedAt || "",
+  };
+}
+
+function getAdminBusinessDirectory() {
+  return getAdminDashboardPayload().venues.map((venue) => {
+    const dashboard = getVenueDashboardPayload(venue.id);
+    return {
+      ...venue,
+      contactName: dashboard.profile?.fullName || venue.manager || "",
+      contactEmail: dashboard.profile?.email || "",
+      contactPhone: dashboard.profile?.phone || "",
+      sport: dashboard.venue?.sport || venue.category,
+      settingsStatus: dashboard.settings?.locationStatus || "Kontrol bekliyor",
+      reportUrl: `/api/admin/reports?venueId=${encodeURIComponent(venue.id)}`,
+    };
+  });
+}
+
+function buildAdminBootstrap() {
+  const users = getUsers().map(formatAdminUser);
+  const businesses = getAdminBusinessDirectory();
+  const customers = users.filter((user) => !user.isAdmin && !user.canManageVenue);
+  const dashboard = getAdminDashboardPayload();
+
+  return {
+    ...dashboard,
+    users,
+    customers,
+    businesses,
+    reportDefaults: {
+      periods: ["Bu ay", "Son 30 gün", "Bu çeyrek", "Yıllık"],
+      venues: [{ id: "all", name: "Tüm kurumlar" }, ...businesses.map((item) => ({ id: item.id, name: item.name }))],
+    },
+  };
+}
+
+function normalizeSearchText(value = "") {
+  return String(value)
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function matchesQuery(record, query) {
+  if (!query) return true;
+  return normalizeSearchText(Object.values(record).join(" ")).includes(query);
+}
+
+function getAdminSearchResults({ type = "all", query = "" } = {}) {
+  const normalizedQuery = normalizeSearchText(query);
+  const payload = buildAdminBootstrap();
+  const results = [];
+
+  if (type === "all" || type === "business") {
+    payload.businesses.filter((item) => matchesQuery(item, normalizedQuery)).forEach((item) => {
+      results.push({ resultType: "business", ...item });
+    });
+  }
+
+  if (type === "all" || type === "customer") {
+    payload.customers.filter((item) => matchesQuery(item, normalizedQuery)).forEach((item) => {
+      results.push({ resultType: "customer", ...item });
+    });
+  }
+
+  if (type === "all" || type === "user") {
+    payload.users.filter((item) => matchesQuery(item, normalizedQuery)).forEach((item) => {
+      results.push({ resultType: "user", ...item });
+    });
+  }
+
+  return results.slice(0, 50);
+}
+
+function createAdminReport({ venueId = "all", period = "Bu ay" } = {}) {
+  const businesses = getAdminBusinessDirectory();
+  const selectedBusinesses =
+    venueId === "all" ? businesses : businesses.filter((business) => business.id === venueId);
+
+  return {
+    title: venueId === "all" ? "Kurum Bazlı Platform Raporu" : `${selectedBusinesses[0]?.name || "Kurum"} Raporu`,
+    period,
+    generatedAt: new Date().toISOString(),
+    scope: selectedBusinesses.map((item) => item.name).join(", ") || "Kurum bulunamadı",
+    executiveSummary: [
+      "Rapor finansal hacim, ödeme kanalı, kapasite kullanımı ve operasyon sağlığını birlikte okur.",
+      "Henüz canlı rezervasyon ve ödeme verisi bağlanmadığı için finansal ve operasyonel metrikler 0 gösterilir.",
+      "Canlı veri bağlandığında bu alanlar otomatik olarak kurum, dönem ve kanal bazında hesaplanacak.",
+      "Aksiyon önerileri yalnızca tablo vermek yerine yönetim kararını hızlandıracak şekilde sunulur.",
+    ],
+    financial: [
+      { label: "Toplam işlem hacmi", value: formatCurrency(0), note: "0 işlem" },
+      { label: "Platform komisyonu", value: formatCurrency(0), note: "Tahsil edilen komisyon" },
+      { label: "Tesise ödenecek", value: formatCurrency(0), note: "Hakediş toplamı" },
+      { label: "Online kanal payı", value: "%0", note: "0 online işlem" },
+    ],
+    operational: [
+      { label: "Kapasite kullanımı", value: "%0", note: "0/0 dolu slot" },
+      { label: "zuvu satışına açık slot", value: "0", note: "Marketplace'e açılmış kapasite" },
+      { label: "Manuel işlem", value: "0", note: "İşletme veya nakit/EFT kanalı" },
+      { label: "Aktif abonelik", value: "0", note: "0 toplam abonelik" },
+    ],
+    recommendations: [
+      "Online ödeme payı düşük kurumlarda resepsiyon akışını zuvu rezervasyona taşı.",
+      "Boş prime-time slotları için son dakika kampanya ve bildirim kuralı tanımla.",
+      "Abonelik müşterilerini kurum bazlı yenileme raporuna bağla.",
+      "Eksik profil, lokasyon ve medya alanlarını yayına almadan önce kalite kontrol listesine ekle.",
+    ],
+    rows: selectedBusinesses.map((business) => ({
+      kurum: business.name,
+      lokasyon: business.branch,
+      kategori: business.category,
+      doluluk: business.occupancy,
+      haftalikCiro: business.weeklyRevenue,
+      acikKonu: business.openIssues,
+      saglik: business.health,
+    })),
+  };
+}
+
 app.get("/api/bootstrap", (_req, res) => {
   const payload = getBootstrapPayload();
   res.json({
@@ -293,7 +449,7 @@ app.post("/api/auth/register", (req, res) => {
 });
 
 app.post("/api/auth/login", (req, res) => {
-  const email = normalizeEmail(req.body.email || "");
+  const email = resolveLoginEmail(req.body.email || "");
   const password = String(req.body.password || "");
   const user = findUserByEmail(email);
 
@@ -472,7 +628,118 @@ app.post("/api/venue/billing-addresses", requireVenueAccess, (req, res) => {
 });
 
 app.get("/api/admin/bootstrap", requireAdmin, (_req, res) => {
-  res.json(getAdminDashboardPayload());
+  res.json(buildAdminBootstrap());
+});
+
+app.get("/api/admin/search", requireAdmin, (req, res) => {
+  res.json({
+    items: getAdminSearchResults({
+      type: String(req.query.type || "all"),
+      query: String(req.query.q || ""),
+    }),
+  });
+});
+
+app.post("/api/admin/password-reset", requireAdmin, (req, res) => {
+  const target =
+    (req.body.userId && findUserById(String(req.body.userId))) ||
+    (req.body.email && findUserByEmail(resolveLoginEmail(req.body.email))) ||
+    null;
+  const password = String(req.body.password || createSmsCode()).trim();
+
+  if (!target) {
+    res.status(404).json({ error: "Kullanıcı bulunamadı." });
+    return;
+  }
+
+  if (password.length < 6) {
+    res.status(400).json({ error: "Yeni şifre en az 6 karakter olmalı." });
+    return;
+  }
+
+  const updated = upsertUser({
+    ...target,
+    passwordHash: hashPassword(password),
+    passwordResetToken: "",
+  });
+
+  appendDevEmail({
+    to: updated.email,
+    template: "admin-password-reset",
+    subject: "zuvu geçici şifre",
+    text: `Merhaba ${updated.name}, zuvu hesabın için geçici şifre: ${password}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
+        <h1 style="margin:0 0 12px;font-size:24px">Geçici şifre oluşturuldu</h1>
+        <p>Merhaba ${updated.name}, zuvu hesabın için geçici şifren aşağıdadır.</p>
+        <strong style="display:inline-block;font-size:22px;letter-spacing:2px">${password}</strong>
+      </div>
+    `,
+  });
+
+  res.json({
+    message: "Şifre güncellendi ve dev posta kutusuna e-posta kaydı bırakıldı.",
+    user: formatAdminUser(updated),
+    temporaryPassword: password,
+  });
+});
+
+app.post("/api/admin/notifications", requireAdmin, (req, res) => {
+  const body = req.body || {};
+  const channel = body.channel === "sms" ? "sms" : "email";
+  const targetType = String(body.targetType || "all");
+  const subject = String(body.subject || "zuvu bildirimi").trim();
+  const message = String(body.message || "").trim();
+
+  if (!message) {
+    res.status(400).json({ error: "Bildirim mesajı gerekli." });
+    return;
+  }
+
+  const users = buildAdminBootstrap().users;
+  let recipients = users;
+  if (targetType === "customer") recipients = users.filter((user) => !user.isAdmin && !user.canManageVenue);
+  if (targetType === "venue") recipients = users.filter((user) => user.canManageVenue);
+  if (body.targetId) recipients = users.filter((user) => user.id === body.targetId || user.venueId === body.targetId);
+
+  const delivered = recipients
+    .map((recipient) => {
+      if (channel === "sms" && recipient.phone) {
+        return appendDevSms({
+          to: recipient.phone,
+          template: "admin-notification",
+          body: message,
+        });
+      }
+
+      return appendDevEmail({
+        to: recipient.email,
+        template: "admin-notification",
+        subject,
+        text: message,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
+            <h1 style="margin:0 0 12px;font-size:24px">${subject}</h1>
+            <p>${message}</p>
+          </div>
+        `,
+      });
+    })
+    .filter(Boolean);
+
+  res.status(201).json({
+    message: `${delivered.length} bildirim dev kutusuna kaydedildi.`,
+    deliveredCount: delivered.length,
+  });
+});
+
+app.get("/api/admin/reports", requireAdmin, (req, res) => {
+  res.json(
+    createAdminReport({
+      venueId: String(req.query.venueId || "all"),
+      period: String(req.query.period || "Bu ay"),
+    }),
+  );
 });
 
 app.get("/api/admin/dev-outbox", requireAdmin, (_req, res) => {
