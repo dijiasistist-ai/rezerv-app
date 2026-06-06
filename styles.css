@@ -1185,6 +1185,29 @@ button {
   background: #fff;
 }
 
+@media (max-width: 1500px) {
+  .site-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 2px;
+  }
+
+  .main-nav {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    gap: clamp(18px, 2.2vw, 28px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .header-actions {
+    min-width: 0;
+  }
+}
+
 @media (max-width: 1280px) {
   .site-header {
     grid-template-columns: 1fr;
