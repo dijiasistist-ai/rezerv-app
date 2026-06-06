@@ -119,23 +119,26 @@ function migrateLegacyUsers() {
 
   legacyUsers.forEach((legacyUser) => {
     const email = normalizeEmail(legacyUser.email || "");
-    if (!email || findUserByEmail(email)) return;
+    if (!email) return;
 
     const modes = Array.isArray(legacyUser.modes) ? legacyUser.modes : [];
+    const existingUser = findUserByEmail(email);
+
     upsertUser({
+      ...(existingUser || {}),
       id: legacyUser.id || crypto.randomUUID(),
       name: legacyUser.name || email,
       email,
-      phone: legacyUser.phone || "",
+      phone: legacyUser.phone || existingUser?.phone || "",
       passwordHash: legacyUser.passwordHash || legacyUser.password || "",
       canManageVenue: modes.includes("venue") || modes.includes("admin"),
       isAdmin: modes.includes("admin"),
-      venueId: legacyUser.venueId || "zincirlikuyu-arena",
+      venueId: legacyUser.venueId || existingUser?.venueId || "zincirlikuyu-arena",
       emailVerified: true,
-      phoneVerified: Boolean(legacyUser.phone),
-      emailVerificationToken: "",
-      phoneVerificationCode: "",
-      passwordResetToken: "",
+      phoneVerified: Boolean(legacyUser.phone || existingUser?.phoneVerified),
+      emailVerificationToken: existingUser?.emailVerificationToken || "",
+      phoneVerificationCode: existingUser?.phoneVerificationCode || "",
+      passwordResetToken: existingUser?.passwordResetToken || "",
     });
   });
 }
