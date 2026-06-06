@@ -1206,7 +1206,7 @@ button {
   }
 
   .main-nav {
-    gap: clamp(18px, 1.5vw, 22px);
+    gap: clamp(24px, 1.9vw, 30px);
     font-size: 12px;
   }
 
