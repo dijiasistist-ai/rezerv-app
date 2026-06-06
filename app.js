@@ -103,60 +103,103 @@ function setNearbyStatus(message) {
   if (nearbyMapStatus) nearbyMapStatus.textContent = message;
 }
 
-function buildMapIcon(item) {
-  return L.divIcon({
-    className: "zuvu-map-pin",
-    html: `<span>${item.icon || "✦"}</span>`,
-    iconSize: [42, 52],
-    iconAnchor: [21, 50],
-    popupAnchor: [0, -44],
-  });
-}
-
-function buildUserIcon() {
-  return L.divIcon({
-    className: "zuvu-user-pin",
-    html: "<span>⌖</span>",
-    iconSize: [54, 54],
-    iconAnchor: [27, 27],
-  });
+function refreshNearbyMapLayout() {
+  if (!state.nearbyMap) return;
+  state.nearbyMap.classList.remove("is-loading");
 }
 
 function ensureNearbyMap() {
-  if (!window.L) {
-    setNearbyStatus("Harita kütüphanesi yüklenemedi. İnternet bağlantısını kontrol et.");
-    return null;
-  }
-
-  if (state.nearbyMap) {
-    setTimeout(() => state.nearbyMap.invalidateSize(), 80);
-    return state.nearbyMap;
-  }
-
-  state.nearbyMap = L.map("nearby-map", {
-    center: [state.nearbyOrigin.lat, state.nearbyOrigin.lng],
-    zoom: 12,
-    zoomControl: false,
-  });
-
-  L.control.zoom({ position: "bottomright" }).addTo(state.nearbyMap);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap",
-    maxZoom: 19,
-  }).addTo(state.nearbyMap);
-
-  setTimeout(() => state.nearbyMap.invalidateSize(), 80);
-
+  if (!state.nearbyMap) state.nearbyMap = document.querySelector("#nearby-map");
+  refreshNearbyMapLayout();
   return state.nearbyMap;
 }
 
 function clearNearbyMarkers() {
-  state.nearbyMarkers.forEach((marker) => marker.remove());
   state.nearbyMarkers = [];
-  if (state.nearbyUserMarker) {
-    state.nearbyUserMarker.remove();
-    state.nearbyUserMarker = null;
-  }
+  state.nearbyUserMarker = null;
+}
+
+function getNearbyBounds(origin, items = []) {
+  const points = [origin, ...items];
+  const lats = points.map((item) => item.lat);
+  const lngs = points.map((item) => item.lng);
+  const latSpread = Math.max(Math.max(...lats) - Math.min(...lats), 0.018);
+  const lngSpread = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.028);
+  const latPad = latSpread * 0.28;
+  const lngPad = lngSpread * 0.28;
+
+  return {
+    minLat: Math.min(...lats) - latPad,
+    maxLat: Math.max(...lats) + latPad,
+    minLng: Math.min(...lngs) - lngPad,
+    maxLng: Math.max(...lngs) + lngPad,
+  };
+}
+
+function projectNearbyPoint(point, bounds) {
+  const x = ((point.lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 100;
+  const y = (1 - (point.lat - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * 100;
+  return {
+    x: Math.min(94, Math.max(6, x)),
+    y: Math.min(90, Math.max(10, y)),
+  };
+}
+
+function renderNearbyMapCanvas(origin, items = []) {
+  const map = ensureNearbyMap();
+  if (!map) return;
+
+  const bounds = getNearbyBounds(origin, items);
+  const bbox = [bounds.minLng, bounds.minLat, bounds.maxLng, bounds.maxLat].map((value) => value.toFixed(6)).join("%2C");
+  const marker = `${origin.lat.toFixed(6)}%2C${origin.lng.toFixed(6)}`;
+  const userPoint = projectNearbyPoint(origin, bounds);
+
+  map.innerHTML = `
+    <div class="nearby-map-art" aria-hidden="true">
+      <span class="map-water water-one"></span>
+      <span class="map-water water-two"></span>
+      <span class="map-park park-one"></span>
+      <span class="map-park park-two"></span>
+      <span class="map-road road-main"></span>
+      <span class="map-road road-cross"></span>
+      <span class="map-road road-ridge"></span>
+      <span class="map-road road-coast"></span>
+      <span class="map-label label-one">Kadikoy</span>
+      <span class="map-label label-two">Uskudar</span>
+      <span class="map-label label-three">Besiktas</span>
+      <span class="map-label label-four">Moda</span>
+      <span class="map-label label-five">E-5</span>
+    </div>
+    <iframe
+      class="nearby-map-frame"
+      title="Yakındaki işletmeler haritası"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${marker}"
+      loading="eager"
+      referrerpolicy="no-referrer-when-downgrade"
+    ></iframe>
+    <div class="nearby-pin-layer" aria-hidden="false">
+      <button class="zuvu-user-pin-button" type="button" style="left:${userPoint.x}%; top:${userPoint.y}%;" aria-label="Konumun">
+        <span>⌖</span>
+      </button>
+      ${items
+        .map((item) => {
+          const point = projectNearbyPoint(item, bounds);
+          return `
+            <button
+              class="zuvu-map-pin-button"
+              data-marker-id="${item.id}"
+              type="button"
+              style="left:${point.x}%; top:${point.y}%;"
+              aria-label="${item.name}">
+              <span>${item.icon || "✦"}</span>
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+
+  state.nearbyMarkers = Array.from(map.querySelectorAll("[data-marker-id]"));
 }
 
 function renderNearbyResults(items = []) {
@@ -197,20 +240,7 @@ async function loadNearbyMap(origin = state.nearbyOrigin) {
   const items = payload.items || [];
 
   clearNearbyMarkers();
-  state.nearbyUserMarker = L.marker([origin.lat, origin.lng], { icon: buildUserIcon() })
-    .addTo(map)
-    .bindPopup("Konumun");
-
-  items.forEach((item) => {
-    const marker = L.marker([item.lat, item.lng], { icon: buildMapIcon(item) })
-      .addTo(map)
-      .bindPopup(`<strong>${item.name}</strong><br>${item.categoryLabel}<br>${item.distanceLabel}`);
-    marker.zuvuId = item.id;
-    state.nearbyMarkers.push(marker);
-  });
-
-  const bounds = L.latLngBounds([[origin.lat, origin.lng], ...items.map((item) => [item.lat, item.lng])]);
-  if (bounds.isValid()) map.fitBounds(bounds, { padding: [42, 42], maxZoom: 13 });
+  renderNearbyMapCanvas(origin, items);
 
   renderNearbyResults(items);
   setNearbyStatus(
@@ -248,7 +278,7 @@ function openNearbyMap(event) {
   nearbyMapModal.classList.remove("hidden");
   nearbyMapModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
-  if (state.nearbyMap) setTimeout(() => state.nearbyMap.invalidateSize(), 80);
+  refreshNearbyMapLayout();
   requestNearbyLocation();
 }
 
@@ -623,11 +653,10 @@ nearbyMapClose.addEventListener("click", closeNearbyMap);
 nearbyMapDismiss.addEventListener("click", closeNearbyMap);
 nearbyResults.addEventListener("click", (event) => {
   const button = event.target.closest("[data-marker-id]");
-  if (!button || !state.nearbyMap) return;
-  const marker = state.nearbyMarkers.find((item) => item.zuvuId === button.dataset.markerId);
-  if (!marker) return;
-  state.nearbyMap.setView(marker.getLatLng(), 15, { animate: true });
-  marker.openPopup();
+  if (!button) return;
+  state.nearbyMarkers.forEach((marker) => marker.classList.toggle("is-active", marker.dataset.markerId === button.dataset.markerId));
+  const marker = state.nearbyMarkers.find((item) => item.dataset.markerId === button.dataset.markerId);
+  if (marker) marker.focus({ preventScroll: true });
 });
 
 loginTrigger.addEventListener("click", () => {
