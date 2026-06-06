@@ -477,10 +477,9 @@ button {
   z-index: 1;
   display: inline-grid;
   align-content: center;
+  justify-items: center;
   gap: 0;
-  width: max-content;
-  min-width: 68px;
-  max-width: calc(100% - 26px);
+  width: min(146px, calc(100% - 26px));
   min-height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 9px;
@@ -501,6 +500,7 @@ button {
   font-size: 10.25px;
   font-weight: 560;
   line-height: 1.08;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -511,6 +511,7 @@ button {
   font-size: 9px;
   font-weight: 520;
   line-height: 1.12;
+  text-align: center;
 }
 
 .search-panel {
