@@ -470,31 +470,43 @@ button {
   background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.32));
 }
 
-.mosaic-card span,
-.mosaic-card small {
+.mosaic-label {
   position: absolute;
-  left: 14px;
+  left: 12px;
+  bottom: 13px;
   z-index: 1;
+  display: inline-grid;
+  gap: 0;
   width: max-content;
-  max-width: calc(100% - 24px);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.93);
+  max-width: calc(100% - 30px);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 10px;
+  padding: 6px 10px 7px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.16);
   color: var(--ink);
-  font-weight: 900;
   transform: skewX(8deg);
+  backdrop-filter: blur(8px);
 }
 
 .mosaic-card span {
-  bottom: 31px;
-  padding: 7px 11px 0;
-  font-size: 15px;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mosaic-card small {
-  bottom: 11px;
-  padding: 0 11px 7px;
+  display: block;
   color: #475467;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
 }
 
 .search-panel {
