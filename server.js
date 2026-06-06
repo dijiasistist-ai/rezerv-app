@@ -248,12 +248,15 @@ function formatCurrency(value) {
 }
 
 function formatAdminUser(user) {
+  const role = user.isAdmin ? "admin" : user.canManageVenue ? "venue" : "customer";
+
   return {
     id: user.id,
     name: user.name || user.email,
     email: normalizeEmail(user.email),
     phone: user.phone || "",
-    type: user.isAdmin ? "Admin" : user.canManageVenue ? "İşletme yetkilisi" : "Bireysel müşteri",
+    role,
+    type: role === "admin" ? "Admin" : role === "venue" ? "İşletme yetkilisi" : "Bireysel müşteri",
     canManageVenue: Boolean(user.canManageVenue),
     isAdmin: Boolean(user.isAdmin),
     venueId: user.venueId || "",
@@ -637,6 +640,38 @@ app.get("/api/admin/search", requireAdmin, (req, res) => {
       type: String(req.query.type || "all"),
       query: String(req.query.q || ""),
     }),
+  });
+});
+
+app.patch("/api/admin/users/:id/role", requireAdmin, (req, res) => {
+  const target = findUserById(String(req.params.id || ""));
+  const role = String(req.body.role || "");
+
+  if (!target) {
+    res.status(404).json({ error: "Kullanıcı bulunamadı." });
+    return;
+  }
+
+  if (!["customer", "venue"].includes(role)) {
+    res.status(400).json({ error: "Rol bireysel veya işletme olmalı." });
+    return;
+  }
+
+  if (target.isAdmin) {
+    res.status(400).json({ error: "Admin hesabının rolü bu ekrandan değiştirilemez." });
+    return;
+  }
+
+  const updated = upsertUser({
+    ...target,
+    canManageVenue: role === "venue",
+    isAdmin: false,
+    venueId: role === "venue" ? target.venueId || "zincirlikuyu-arena" : target.venueId || "",
+  });
+
+  res.json({
+    message: role === "venue" ? "Kullanıcı işletme yetkilisi yapıldı." : "Kullanıcı bireysel müşteri yapıldı.",
+    user: formatAdminUser(updated),
   });
 });
 

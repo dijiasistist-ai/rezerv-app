@@ -317,6 +317,66 @@ button {
   overflow-wrap: anywhere;
 }
 
+.role-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--soft);
+}
+
+.role-editor label {
+  display: grid;
+  gap: 7px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.role-editor select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 9px 11px;
+  outline: none;
+}
+
+.role-editor button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 13px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 900;
+}
+
+.role-editor .form-feedback {
+  grid-column: 1 / -1;
+}
+
+.role-editor.is-disabled {
+  grid-template-columns: 1fr;
+}
+
+.role-editor.is-disabled strong,
+.role-editor.is-disabled span {
+  display: block;
+}
+
+.role-editor.is-disabled span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
 .action-panel,
 .report-panel {
   grid-column: 1 / -1;
@@ -553,6 +613,7 @@ button {
   .summary-grid,
   .admin-workspace,
   .action-grid,
+  .role-editor,
   .search-row,
   .report-controls,
   .report-metric-grid,

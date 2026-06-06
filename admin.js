@@ -120,6 +120,32 @@ function detailRows(rows) {
     .join("");
 }
 
+function renderRoleEditor(item) {
+  if (item.resultType === "business") return "";
+  if (item.isAdmin) {
+    return `
+      <div class="role-editor is-disabled">
+        <strong>Rol değiştir</strong>
+        <span>Admin hesapları bu hızlı kontrolden değiştirilemez.</span>
+      </div>
+    `;
+  }
+
+  return `
+    <form class="role-editor" id="role-editor-form" data-user-id="${escapeHtml(item.id)}">
+      <label>
+        Rol değiştir
+        <select id="role-editor-select">
+          <option value="customer"${item.role === "customer" ? " selected" : ""}>Bireysel müşteri</option>
+          <option value="venue"${item.role === "venue" ? " selected" : ""}>İşletme yetkilisi</option>
+        </select>
+      </label>
+      <button type="submit">Rolü kaydet</button>
+      <p class="form-feedback" id="role-editor-feedback"></p>
+    </form>
+  `;
+}
+
 function renderDetail(item) {
   state.selected = item;
   if (!item) {
@@ -159,6 +185,7 @@ function renderDetail(item) {
       <h3>${escapeHtml(resultTitle(item))}</h3>
     </div>
     ${detailRows(rows)}
+    ${renderRoleEditor(item)}
   `;
   renderResults(state.results);
 }
@@ -287,6 +314,38 @@ directoryResults.addEventListener("click", (event) => {
   const button = event.target.closest("[data-result-index]");
   if (!button) return;
   renderDetail(state.results[Number(button.dataset.resultIndex)]);
+});
+
+detailBody.addEventListener("submit", async (event) => {
+  const form = event.target.closest("#role-editor-form");
+  if (!form) return;
+
+  event.preventDefault();
+  const feedback = form.querySelector("#role-editor-feedback");
+  feedback.textContent = "";
+  feedback.classList.remove("is-success");
+
+  try {
+    const payload = await apiRequest(`/api/admin/users/${encodeURIComponent(form.dataset.userId)}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        role: form.querySelector("#role-editor-select").value,
+      }),
+    });
+    const currentResultType = payload.user.role === "customer" ? "customer" : "user";
+    const nextUser = { ...payload.user, resultType: currentResultType };
+    state.results = state.results.map((item) => (item.id === nextUser.id ? nextUser : item));
+    feedback.textContent = payload.message;
+    feedback.classList.add("is-success");
+    renderDetail(nextUser);
+    const nextFeedback = detailBody.querySelector("#role-editor-feedback");
+    if (nextFeedback) {
+      nextFeedback.textContent = payload.message;
+      nextFeedback.classList.add("is-success");
+    }
+  } catch (error) {
+    feedback.textContent = error.message;
+  }
 });
 
 searchForm.addEventListener("submit", async (event) => {
