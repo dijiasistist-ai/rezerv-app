@@ -479,7 +479,7 @@ button {
   align-content: center;
   justify-items: center;
   gap: 0;
-  width: min(146px, calc(100% - 26px));
+  width: min(117px, calc(100% - 26px));
   min-height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 9px;
