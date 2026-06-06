@@ -8,6 +8,7 @@ const timeInput = document.querySelector("#search-time");
 const heroMetrics = document.querySelector("#hero-metrics");
 const hotSlots = document.querySelector("#hot-slots");
 const resultsSummary = document.querySelector("#results-summary");
+const mosaicCards = document.querySelectorAll("[data-mosaic-category]");
 const loginTrigger = document.querySelector("#login-trigger");
 const accountLabel = document.querySelector(".account-label");
 const avatarMini = document.querySelector(".avatar-mini");
@@ -156,6 +157,19 @@ function renderCategories(items = []) {
     .join("");
 }
 
+function renderMosaicCounts(items = []) {
+  const categoriesById = new Map(items.map((item) => [item.id, item]));
+
+  mosaicCards.forEach((card) => {
+    const category = categoriesById.get(card.dataset.mosaicCategory);
+    const countNode = card.querySelector("small");
+    if (!category || !countNode) return;
+
+    const noun = card.dataset.mosaicCategory === "direksiyon" ? "öğretmen" : "işletme";
+    countNode.textContent = `${category.count || "0"} ${noun}`;
+  });
+}
+
 function renderResultsSummary(total) {
   const queryText = state.query ? `"${state.query}" için ` : "";
   resultsSummary.textContent = `${queryText}${total} işletme gösteriliyor`;
@@ -249,6 +263,7 @@ async function loadBootstrap() {
   const payload = await fetchJson("/api/bootstrap");
   renderCities(payload.cities);
   renderCategories(payload.categories);
+  renderMosaicCounts(payload.categories);
   renderHeroMetrics(payload.heroMetrics);
   renderHotSlots(payload.hotSlots);
   state.featuredListings = payload.featuredListings || [];

@@ -1,15 +1,53 @@
-const categories = [
-  { id: "pet-kuafor", label: "Pet Kuaför", featuredLabel: "Pet Kuaför", icon: "🐾", count: "1.245", cityFocus: "istanbul" },
-  { id: "guzellik", label: "Güzellik Merkezi", featuredLabel: "Güzellik Merkezi", icon: "💄", count: "1.013", cityFocus: "istanbul" },
-  { id: "hali-saha", label: "Halı Saha", featuredLabel: "Halı Saha", icon: "⚽", count: "704", cityFocus: "istanbul" },
-  { id: "padel", label: "Padel Kort", featuredLabel: "Padel Kort", icon: "🎾", count: "523", cityFocus: "istanbul" },
-  { id: "direksiyon", label: "Direksiyon Dersi", featuredLabel: "Direksiyon Dersi", icon: "🚘", count: "486", cityFocus: "istanbul" },
-  { id: "ozel-ders", label: "Özel Ders", featuredLabel: "Özel Ders", icon: "🎓", count: "1.782", cityFocus: "istanbul" },
-  { id: "masaj", label: "Masaj & Spa", featuredLabel: "Masaj & Spa", icon: "🪷", count: "892", cityFocus: "istanbul" },
-  { id: "kisisel-bakim", label: "Kişisel Bakım", featuredLabel: "Kişisel Bakım", icon: "🧴", count: "1.135", cityFocus: "istanbul" },
-  { id: "fizyoterapi", label: "Fizyoterapi", featuredLabel: "Fizyoterapi", icon: "🧘", count: "312", cityFocus: "istanbul" },
-  { id: "yoga", label: "Yoga & Pilates", featuredLabel: "Yoga & Pilates", icon: "🧘‍♀️", count: "267", cityFocus: "istanbul" },
+const categoryDefinitions = [
+  { id: "pet-kuafor", label: "Pet Kuaför", featuredLabel: "Pet Kuaför", icon: "🐾", cityFocus: "istanbul" },
+  { id: "guzellik", label: "Güzellik Merkezi", featuredLabel: "Güzellik Merkezi", icon: "💄", cityFocus: "istanbul" },
+  { id: "hali-saha", label: "Halı Saha", featuredLabel: "Halı Saha", icon: "⚽", cityFocus: "istanbul" },
+  { id: "padel", label: "Padel Kort", featuredLabel: "Padel Kort", icon: "🎾", cityFocus: "istanbul" },
+  { id: "direksiyon", label: "Direksiyon Dersi", featuredLabel: "Direksiyon Dersi", icon: "🚘", cityFocus: "istanbul" },
+  { id: "ozel-ders", label: "Özel Ders", featuredLabel: "Özel Ders", icon: "🎓", cityFocus: "istanbul" },
+  { id: "masaj", label: "Masaj & Spa", featuredLabel: "Masaj & Spa", icon: "🪷", cityFocus: "istanbul" },
+  { id: "kisisel-bakim", label: "Kişisel Bakım", featuredLabel: "Kişisel Bakım", icon: "🧴", cityFocus: "istanbul" },
+  { id: "fizyoterapi", label: "Fizyoterapi", featuredLabel: "Fizyoterapi", icon: "🧘", cityFocus: "istanbul" },
+  { id: "yoga", label: "Yoga & Pilates", featuredLabel: "Yoga & Pilates", icon: "🧘‍♀️", cityFocus: "istanbul" },
 ];
+
+const marketplaceRecords = {
+  approvedBusinesses: [],
+  reservations: [],
+  activeUsers: [],
+};
+
+function formatCount(value) {
+  return new Intl.NumberFormat("tr-TR").format(Number(value || 0));
+}
+
+function getMarketplaceStats() {
+  const businesses = marketplaceRecords.approvedBusinesses;
+  const reservations = marketplaceRecords.reservations;
+  const activeUsers = marketplaceRecords.activeUsers;
+  const categoryCounts = businesses.reduce((counts, business) => {
+    counts[business.category] = (counts[business.category] || 0) + 1;
+    return counts;
+  }, {});
+
+  return {
+    totalReservations: reservations.length,
+    totalBusinesses: businesses.length,
+    activeUsers: activeUsers.length,
+    occupancyIncrease: 0,
+    averageBookingSeconds: 0,
+    securePaymentRate: 0,
+    categoryCounts,
+  };
+}
+
+function getCategories() {
+  const stats = getMarketplaceStats();
+  return categoryDefinitions.map((category) => ({
+    ...category,
+    count: formatCount(stats.categoryCounts[category.id] || 0),
+  }));
+}
 
 const cities = [
   { id: "all", label: "Tüm şehirler" },
@@ -224,14 +262,56 @@ const hotSlots = [
   { time: "21:30", title: "Masaj & Spa", venue: "Lotus Spa", mediaClass: "media-spa" },
 ];
 
-const heroMetrics = [
-  { value: "42.000+", label: "Toplam rezervasyon" },
-  { value: "1.200+", label: "İşletme" },
-  { value: "18.000+", label: "Aktif kullanıcı" },
-  { value: "%18", label: "Ortalama doluluk artışı" },
-  { value: "24 sn", label: "Ortalama rezervasyon akışı" },
-  { value: "100%", label: "Güvenli ödeme" },
-];
+function getPublicListings() {
+  return marketplaceRecords.approvedBusinesses.map((business) => ({
+    id: business.id,
+    name: business.name,
+    category: business.category,
+    city: business.city || "istanbul",
+    cityLabel: business.cityLabel || business.city || "İstanbul",
+    rating: Number(business.rating || 0),
+    reviews: Number(business.reviews || 0),
+    distance: business.distance || "",
+    price: Number(business.price || 0),
+    priceUnit: business.priceUnit || "",
+    summary: business.summary || "",
+    tags: business.tags || [],
+    cta: "Rezervasyon Yap",
+    mediaClass: business.mediaClass || "media-pet",
+    featured: Boolean(business.featured),
+    eveningTime: business.eveningTime || "",
+    availability: business.availability || { today: false, nextSlot: "", openSlots: 0 },
+    profileScore: Number(business.profileScore || 0),
+    conversionScore: Number(business.conversionScore || 0),
+    responseMinutes: Number(business.responseMinutes || 20),
+    boost: Boolean(business.boost),
+    serviceTypes: business.serviceTypes || [],
+  }));
+}
+
+function getHotSlots() {
+  return getPublicListings()
+    .filter((listing) => listing.availability?.today && (listing.availability.nextSlot || listing.eveningTime))
+    .slice(0, 6)
+    .map((listing) => ({
+      time: listing.availability.nextSlot || listing.eveningTime,
+      title: getCategoryLabel(listing.category),
+      venue: listing.name,
+      mediaClass: listing.mediaClass,
+    }));
+}
+
+function getHeroMetrics() {
+  const stats = getMarketplaceStats();
+  return [
+    { value: formatCount(stats.totalReservations), label: "Toplam rezervasyon" },
+    { value: formatCount(stats.totalBusinesses), label: "İşletme" },
+    { value: formatCount(stats.activeUsers), label: "Aktif kullanıcı" },
+    { value: `%${formatCount(stats.occupancyIncrease)}`, label: "Ortalama doluluk artışı" },
+    { value: `${formatCount(stats.averageBookingSeconds)} sn`, label: "Ortalama rezervasyon akışı" },
+    { value: `%${formatCount(stats.securePaymentRate)}`, label: "Güvenli ödeme" },
+  ];
+}
 
 const dashboard = {
   bars: [72, 84, 68, 91, 77, 88],
@@ -242,6 +322,20 @@ const dashboard = {
   ],
 };
 
+const emptyVenueStats = [
+  { label: "Bu hafta ciro", value: "₺0", delta: "0%" },
+  { label: "Toplam rezervasyon", value: "0", delta: "0" },
+  { label: "Aktif abonelik", value: "0", delta: "0" },
+  { label: "Doluluk", value: "%0", delta: "0 puan" },
+];
+
+const emptyVenueReportSummary = [
+  { label: "Toplam işlem hacmi", value: "₺0", meta: "0 işlem" },
+  { label: "Toplam komisyon", value: "₺0", meta: "Platform payı" },
+  { label: "Tesise ödenecek", value: "₺0", meta: "Hakediş toplamı" },
+  { label: "Aktif paket geliri", value: "₺0", meta: "0 paket" },
+];
+
 const venueDashboard = {
   id: "zincirlikuyu-arena",
   venue: {
@@ -250,12 +344,7 @@ const venueDashboard = {
     sport: "Halı saha, tenis, stüdyo",
     avatarLabel: "ZA",
   },
-  stats: [
-    { label: "Bu hafta ciro", value: "₺384.200", delta: "+12%" },
-    { label: "Toplam rezervasyon", value: "214", delta: "+18" },
-    { label: "Aktif abonelik", value: "68", delta: "+9" },
-    { label: "Doluluk", value: "%84", delta: "+6 puan" },
-  ],
+  stats: emptyVenueStats,
   managerMenu: [
     "Profil Ayarları",
     "Değerlendirmeler",
@@ -378,28 +467,7 @@ const venueDashboard = {
       expiry: "01.09.2025 21:00",
     },
   ],
-  reportSummary: [
-    {
-      label: "Toplam işlem hacmi",
-      value: "₺126.400",
-      meta: "Mayıs ayı · 32 işlem",
-    },
-    {
-      label: "Toplam komisyon",
-      value: "₺18.960",
-      meta: "Platform payı",
-    },
-    {
-      label: "Tesise ödenecek",
-      value: "₺107.440",
-      meta: "Hakediş toplamı",
-    },
-    {
-      label: "Aktif paket geliri",
-      value: "₺24.000",
-      meta: "6 aylık paket · 14 çekim",
-    },
-  ],
+  reportSummary: emptyVenueReportSummary,
   transactions: [
     {
       id: 180743,
@@ -564,18 +632,8 @@ const venueDashboards = {
       sport: "Halı saha, padel",
       avatarLabel: "MA",
     },
-    stats: [
-      { label: "Bu hafta ciro", value: "₺291.500", delta: "+9%" },
-      { label: "Toplam rezervasyon", value: "166", delta: "+11" },
-      { label: "Aktif abonelik", value: "39", delta: "+5" },
-      { label: "Doluluk", value: "%78", delta: "+4 puan" },
-    ],
-    reportSummary: [
-      { label: "Toplam işlem hacmi", value: "₺98.200", meta: "Mayıs ayı · 24 işlem" },
-      { label: "Toplam komisyon", value: "₺14.730", meta: "Platform payı" },
-      { label: "Tesise ödenecek", value: "₺83.470", meta: "Hakediş toplamı" },
-      { label: "Aktif paket geliri", value: "₺16.400", meta: "8 haftalık paketler" },
-    ],
+    stats: emptyVenueStats,
+    reportSummary: emptyVenueReportSummary,
   }),
   "gobek-sail-club": createVenueDashboard("gobek-sail-club", {
     venue: {
@@ -584,27 +642,17 @@ const venueDashboards = {
       sport: "Tekne, deniz turu",
       avatarLabel: "GS",
     },
-    stats: [
-      { label: "Bu hafta ciro", value: "₺612.000", delta: "+16%" },
-      { label: "Toplam rezervasyon", value: "74", delta: "+8" },
-      { label: "Aktif paket", value: "12", delta: "+2" },
-      { label: "Doluluk", value: "%71", delta: "+3 puan" },
-    ],
-    reportSummary: [
-      { label: "Toplam işlem hacmi", value: "₺214.900", meta: "Mayıs ayı · 18 tur" },
-      { label: "Toplam komisyon", value: "₺32.235", meta: "Platform payı" },
-      { label: "Tesise ödenecek", value: "₺182.665", meta: "Hakediş toplamı" },
-      { label: "Ek hizmet geliri", value: "₺41.200", meta: "Kaptan, menü, rota" },
-    ],
+    stats: emptyVenueStats,
+    reportSummary: emptyVenueReportSummary,
   }),
 };
 
 const adminDashboard = {
   summary: [
-    { label: "Toplam firma", value: "12", meta: "8 aktif, 4 onboarding" },
-    { label: "Haftalık GMV", value: "₺3,4M", meta: "Tüm tesisler" },
-    { label: "Ortalama doluluk", value: "%76", meta: "7 günlük görünüm" },
-    { label: "Riskli tesis", value: "3", meta: "Doluluk <%45" },
+    { label: "Toplam firma", value: "0", meta: "0 aktif, 0 onboarding" },
+    { label: "Haftalık GMV", value: "₺0", meta: "Tüm tesisler" },
+    { label: "Ortalama doluluk", value: "%0", meta: "7 günlük görünüm" },
+    { label: "Riskli tesis", value: "0", meta: "Doluluk <%45" },
   ],
   alerts: [
     {
@@ -630,9 +678,9 @@ const adminDashboard = {
       branch: "Levent / İstanbul",
       category: "Halı saha",
       status: "Aktif",
-      occupancy: "%84",
-      weeklyRevenue: "₺384.200",
-      openIssues: 2,
+      occupancy: "%0",
+      weeklyRevenue: "₺0",
+      openIssues: 0,
       manager: "Hüseyin Yıldız",
       health: "İyi",
     },
@@ -642,9 +690,9 @@ const adminDashboard = {
       branch: "Kadıköy / İstanbul",
       category: "Halı saha + padel",
       status: "Aktif",
-      occupancy: "%78",
-      weeklyRevenue: "₺291.500",
-      openIssues: 4,
+      occupancy: "%0",
+      weeklyRevenue: "₺0",
+      openIssues: 0,
       manager: "Ayşe Demir",
       health: "Takip gerekli",
     },
@@ -654,9 +702,9 @@ const adminDashboard = {
       branch: "Göcek / Muğla",
       category: "Tekne",
       status: "Premium",
-      occupancy: "%71",
-      weeklyRevenue: "₺612.000",
-      openIssues: 1,
+      occupancy: "%0",
+      weeklyRevenue: "₺0",
+      openIssues: 0,
       manager: "Mert Kaya",
       health: "Büyüyor",
     },
@@ -706,7 +754,7 @@ function parseTimeToMinutes(value = "") {
 }
 
 function getCategoryLabel(categoryId) {
-  const category = categories.find((item) => item.id === categoryId);
+  const category = categoryDefinitions.find((item) => item.id === categoryId);
   return category ? category.featuredLabel : categoryId;
 }
 
@@ -753,7 +801,7 @@ function getAvailabilityScore(listing, context = {}) {
 
 function getTrustScore(listing) {
   const ratingScore = clamp(Number(listing.rating || 0) / 5);
-  const reviewScore = clamp(Math.log10(Number(listing.reviews || 0) + 1) / 3.1);
+  const reviewScore = 0;
   return ratingScore * 0.58 + reviewScore * 0.42;
 }
 
@@ -772,9 +820,7 @@ function getRankBadges(listing, context) {
     badges.push("Yakınında");
   }
 
-  if (Number(listing.reviews || 0) >= 700) {
-    badges.push(`${listing.reviews} yorum`);
-  } else if (getResponseScore(listing) > 0.65) {
+  if (getResponseScore(listing) > 0.65) {
     badges.push("Hızlı dönüş");
   }
 
@@ -815,11 +861,12 @@ function scoreListing(listing, context) {
 
 function enrichListing(listing, rankContext = {}) {
   const safeRankContext = { category: "all", city: "all", normalizedQuery: "", ...rankContext };
-  const category = categories.find((item) => item.id === listing.category);
+  const category = categoryDefinitions.find((item) => item.id === listing.category);
   const rankScore = safeRankContext.score || scoreListing(listing, safeRankContext);
 
   return {
     ...listing,
+    reviews: 0,
     categoryLabel: category ? category.featuredLabel : listing.category,
     priceLabel: formatPrice(listing.price),
     rankScore,
@@ -836,7 +883,7 @@ function filterListings({ category = "all", city = "all", query = "", time = "",
     requestedMinutes: parseTimeToMinutes(time),
   };
 
-  return listings
+  return getPublicListings()
     .map((listing) => ({
       listing,
       score: scoreListing(listing, rankContext),
@@ -853,11 +900,13 @@ function filterListings({ category = "all", city = "all", query = "", time = "",
 }
 
 function getListingById(id) {
-  const listing = listings.find((item) => item.id === id);
+  const listing = getPublicListings().find((item) => item.id === id);
   return listing ? enrichListing(listing) : null;
 }
 
 function getBootstrapPayload() {
+  const categories = getCategories();
+
   return {
     brand: {
       name: "zuvu",
@@ -865,8 +914,8 @@ function getBootstrapPayload() {
     },
     cities,
     categories,
-    heroMetrics,
-    hotSlots,
+    heroMetrics: getHeroMetrics(),
+    hotSlots: getHotSlots(),
     dashboard,
     featuredListings: filterListings({ featuredOnly: true }),
   };
@@ -881,11 +930,11 @@ function getAdminDashboardPayload() {
 }
 
 module.exports = {
-  categories,
+  categories: getCategories(),
   cities,
   listings,
-  hotSlots,
-  heroMetrics,
+  hotSlots: getHotSlots(),
+  heroMetrics: getHeroMetrics(),
   dashboard,
   filterListings,
   getListingById,
