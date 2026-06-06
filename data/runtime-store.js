@@ -29,7 +29,12 @@ function writeJson(filePath, value) {
 }
 
 function normalizeEmail(email = "") {
-  return String(email).trim().toLocaleLowerCase("tr-TR");
+  return String(email)
+    .trim()
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/\u0307/g, "")
+    .replace(/\u0131/g, "i");
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
@@ -54,7 +59,7 @@ function saveUsers(users) {
 
 function findUserByEmail(email) {
   const normalizedEmail = normalizeEmail(email);
-  return getUsers().find((user) => user.email === normalizedEmail) || null;
+  return getUsers().find((user) => normalizeEmail(user.email) === normalizedEmail) || null;
 }
 
 function findUserById(id) {
@@ -67,11 +72,15 @@ function findUserByEmailVerificationToken(token) {
 
 function upsertUser(nextUser) {
   const users = getUsers();
-  const index = users.findIndex((user) => user.id === nextUser.id || user.email === nextUser.email);
+  const normalizedEmail = nextUser.email ? normalizeEmail(nextUser.email) : "";
+  const userToSave = normalizedEmail ? { ...nextUser, email: normalizedEmail } : nextUser;
+  const index = users.findIndex(
+    (user) => user.id === userToSave.id || (normalizedEmail && normalizeEmail(user.email) === normalizedEmail),
+  );
   if (index >= 0) {
-    users[index] = { ...users[index], ...nextUser, updatedAt: new Date().toISOString() };
+    users[index] = { ...users[index], ...userToSave, updatedAt: new Date().toISOString() };
   } else {
-    users.push({ ...nextUser, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    users.push({ ...userToSave, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   }
   saveUsers(users);
   return index >= 0 ? users[index] : users[users.length - 1];

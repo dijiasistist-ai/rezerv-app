@@ -41,7 +41,7 @@ function normalizeUser(user) {
   return {
     id: user.id,
     name: user.name,
-    email: user.email,
+    email: normalizeEmail(user.email),
     phone: user.phone || "",
     canManageVenue: Boolean(user.canManageVenue),
     canAccessAdmin: Boolean(user.isAdmin),
