@@ -12,7 +12,8 @@
   --blue: #04a7f4;
   --amber: #d89212;
   --red: #dd4b39;
-  font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-family: var(--font-main);
 }
 
 * {
@@ -82,7 +83,7 @@ button {
   border-radius: 12px;
   background: var(--brand);
   color: #fff;
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-weight: 800;
 }
 
@@ -141,7 +142,7 @@ button {
 
 .venue-topbar h1 {
   margin: 0;
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: 27px;
   letter-spacing: 0;
 }
@@ -310,7 +311,7 @@ button {
 .stat-card strong {
   display: block;
   margin: 8px 0 4px;
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: 28px;
 }
 
@@ -332,7 +333,7 @@ button {
 .report-summary-card strong {
   display: block;
   margin: 7px 0;
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: 22px;
 }
 
@@ -362,7 +363,7 @@ button {
 
 .panel-head h2 {
   margin: 0;
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: 20px;
   letter-spacing: 0;
 }
@@ -1105,7 +1106,7 @@ button {
 
 .sales-modal-header h2 {
   margin: 0;
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
 }
 
 .sales-modal-subtitle {
@@ -1161,7 +1162,7 @@ button {
 
 .venue-auth-card h1 {
   margin: 0 0 10px;
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: 26px;
 }
 

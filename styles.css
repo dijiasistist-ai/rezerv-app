@@ -11,7 +11,8 @@
   --blue: #04a7f4;
   --shadow: 0 16px 38px rgba(16, 24, 40, 0.09);
   --max-width: 1480px;
-  font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-family: var(--font-main);
 }
 
 * {
@@ -253,7 +254,7 @@ button {
 
 .account-menu-copy strong {
   color: var(--ink);
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
 }
 
 .account-menu-copy span {
@@ -367,7 +368,7 @@ button {
 .hero h1 {
   margin: 0;
   color: var(--ink);
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: clamp(31px, 2.05vw, 41px);
   line-height: 1.18;
   letter-spacing: 0;
@@ -604,7 +605,7 @@ button {
 .section-title-row h2 {
   margin: 0;
   color: var(--ink);
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: 19px;
   letter-spacing: 0;
 }
@@ -950,7 +951,7 @@ button {
 .hero-metrics strong {
   grid-area: value;
   color: var(--ink);
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: 20px;
 }
 
@@ -1049,7 +1050,7 @@ button {
 .auth-header h2 {
   margin: 0;
   color: var(--ink);
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
 }
 
 .eyebrow {
@@ -1141,7 +1142,7 @@ button {
 .auth-role-copy h3 {
   margin: 0;
   color: var(--ink);
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
 }
 
 .auth-role-copy p:last-child {
