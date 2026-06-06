@@ -478,11 +478,13 @@ button {
   display: inline-grid;
   align-content: center;
   gap: 0;
-  width: min(146px, calc(100% - 26px));
-  height: 40px;
+  width: max-content;
+  min-width: 68px;
+  max-width: calc(100% - 26px);
+  min-height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 9px;
-  padding: 5px 9px;
+  padding: 5px 8px;
   background: rgba(255, 255, 255, 0.86);
   box-shadow: 0 8px 16px rgba(16, 24, 40, 0.14);
   color: var(--ink);
