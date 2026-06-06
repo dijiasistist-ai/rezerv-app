@@ -4,6 +4,7 @@ const path = require("path");
 
 const runtimeDir = path.join(__dirname, "runtime");
 const usersPath = path.join(runtimeDir, "users.json");
+const legacyUsersPath = path.join(__dirname, "users.json");
 const mailboxPath = path.join(runtimeDir, "dev-mailbox.json");
 const smsPath = path.join(runtimeDir, "dev-sms.json");
 const venuesPath = path.join(runtimeDir, "venues.json");
@@ -43,6 +44,11 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
 }
 
 function verifyPassword(password, storedPassword = "") {
+  if (/^[a-f0-9]{64}$/i.test(storedPassword)) {
+    const actualHash = crypto.createHash("sha256").update(String(password)).digest("hex");
+    return crypto.timingSafeEqual(Buffer.from(actualHash, "hex"), Buffer.from(storedPassword, "hex"));
+  }
+
   if (!storedPassword.includes(":")) return password === storedPassword;
   const [salt, expectedHash] = storedPassword.split(":");
   const actualHash = hashPassword(password, salt).split(":")[1];
@@ -105,6 +111,32 @@ function ensureSeedUser(email, overrides = {}) {
     emailVerificationToken: "",
     phoneVerificationCode: "",
     passwordResetToken: "",
+  });
+}
+
+function migrateLegacyUsers() {
+  const legacyUsers = readJson(legacyUsersPath, []);
+
+  legacyUsers.forEach((legacyUser) => {
+    const email = normalizeEmail(legacyUser.email || "");
+    if (!email || findUserByEmail(email)) return;
+
+    const modes = Array.isArray(legacyUser.modes) ? legacyUser.modes : [];
+    upsertUser({
+      id: legacyUser.id || crypto.randomUUID(),
+      name: legacyUser.name || email,
+      email,
+      phone: legacyUser.phone || "",
+      passwordHash: legacyUser.passwordHash || legacyUser.password || "",
+      canManageVenue: modes.includes("venue") || modes.includes("admin"),
+      isAdmin: modes.includes("admin"),
+      venueId: legacyUser.venueId || "zincirlikuyu-arena",
+      emailVerified: true,
+      phoneVerified: Boolean(legacyUser.phone),
+      emailVerificationToken: "",
+      phoneVerificationCode: "",
+      passwordResetToken: "",
+    });
   });
 }
 
@@ -171,6 +203,7 @@ module.exports = {
   getVenueOverlay,
   hashPassword,
   normalizeEmail,
+  migrateLegacyUsers,
   saveVenueOverlay,
   upsertUser,
   verifyPassword,

@@ -18,6 +18,7 @@ const {
   getDevOutbox,
   getVenueOverlay,
   hashPassword,
+  migrateLegacyUsers,
   normalizeEmail,
   saveVenueOverlay,
   upsertUser,
@@ -109,6 +110,7 @@ function sendPhoneVerification(user) {
 }
 
 function seedUsers() {
+  migrateLegacyUsers();
   ensureSeedUser("demo@zuvu.app", { name: "Demo Kullanıcı", password: "123456" });
   ensureSeedUser("firma@zuvu.app", {
     name: "Zincirlikuyu Arena",
