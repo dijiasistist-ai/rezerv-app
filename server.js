@@ -214,15 +214,43 @@ function seedUsers() {
 seedUsers();
 
 app.use(express.json({ limit: "8mb" }));
+
+const publicStaticFiles = new Set([
+  "admin.css",
+  "admin.html",
+  "admin.js",
+  "app.js",
+  "index.html",
+  "styles.css",
+  "venue.css",
+  "venue.html",
+  "venue.js",
+]);
+
+function setStaticHeaders(res, filePath) {
+  if (/\.(?:css|js|html)$/i.test(filePath)) {
+    res.setHeader("Cache-Control", "no-cache");
+  }
+}
+
 app.use(
-  express.static(__dirname, {
-    setHeaders(res, filePath) {
-      if (/\.(?:css|js|html)$/i.test(filePath)) {
-        res.setHeader("Cache-Control", "no-cache");
-      }
-    },
+  "/assets",
+  express.static(path.join(__dirname, "assets"), {
+    setHeaders: setStaticHeaders,
   }),
 );
+
+app.get("/:file", (req, res, next) => {
+  const fileName = String(req.params.file || "");
+  if (!publicStaticFiles.has(fileName)) {
+    next();
+    return;
+  }
+
+  const filePath = path.join(__dirname, fileName);
+  setStaticHeaders(res, filePath);
+  res.sendFile(filePath);
+});
 
 function isLocalDemoRequest(req) {
   const host = String(req.hostname || req.get("host") || "").toLocaleLowerCase("tr-TR");
