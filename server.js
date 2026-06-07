@@ -76,7 +76,7 @@ function createVenueIdFromUser(user) {
 function getUserVenueId(user) {
   if (!user?.canManageVenue) return user?.venueId || "";
   const email = normalizeEmail(user.email || "");
-  const reservedDefaultOwners = new Set(["hysnyildiz@gmail.com", "firma@tyee.app", "admin@tyee.app"]);
+  const reservedDefaultOwners = new Set(["firma@tyee.app", "admin@tyee.app"]);
   if (user.venueId && (user.venueId !== "zincirlikuyu-arena" || reservedDefaultOwners.has(email) || user.isAdmin)) {
     return user.venueId;
   }
@@ -397,8 +397,12 @@ function mergeVenuePayload(venueId, user = null) {
   const payload = getVenueDashboardPayload(venueId);
   const overlay = getVenueOverlay(venueId);
   const isTemplateFallback = payload.id !== venueId;
+  const email = normalizeEmail(user?.email || "");
+  const isDemoVenueOwner = user?.isAdmin || email === "firma@tyee.app";
+  const isRealVenueAccount = Boolean(user?.canManageVenue && !isDemoVenueOwner);
+  const shouldStartEmpty = isTemplateFallback || isRealVenueAccount;
 
-  if (isTemplateFallback) {
+  if (shouldStartEmpty) {
     payload.id = venueId;
     payload.isFreshVenue = true;
     payload.venue = {
