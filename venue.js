@@ -867,13 +867,12 @@ function renderSettingsOnboarding(settings) {
     Sözleşmeler: renderContractSettings,
   };
   settingsOnboardingForm.innerHTML = (renderers[activeTab] || renderGeneralSettings)(normalized);
-  if (activeTab === "Genel Bilgiler" || activeTab === "İşletme Detayları") {
+  if (activeTab === "İletişim Bilgileri") {
     requestAnimationFrame(() => setupLocationPicker(normalized));
   }
 }
 
 function renderGeneralSettings(settings) {
-  const location = settings.location || {};
   const questionsMarkup = settings.questions
     .map(
       (item, index) => `
@@ -922,25 +921,6 @@ function renderGeneralSettings(settings) {
 
     ${selectsMarkup}
 
-    <div class="settings-location-block">
-      <strong>İşletme Konumu</strong>
-      <div class="settings-location-status">${escapeHtml(settings.locationStatus)}</div>
-      <label class="settings-select-field">
-        <span>Açık adres</span>
-        <input id="settings-location-address" type="text" value="${escapeHtml(location.address || "")}" placeholder="Cadde, sokak, bina no" />
-      </label>
-      ${locationPickerMarkup(location)}
-      <div class="settings-form-grid">
-        <label class="settings-select-field">
-          <span>Enlem</span>
-          <input id="settings-location-lat" type="text" value="${escapeHtml(location.lat || "")}" placeholder="41.0082" />
-        </label>
-        <label class="settings-select-field">
-          <span>Boylam</span>
-          <input id="settings-location-lng" type="text" value="${escapeHtml(location.lng || "")}" placeholder="28.9784" />
-        </label>
-      </div>
-    </div>
     <div class="settings-save-row">
       <button class="solid-button" data-settings-save type="button">Ayarları kaydet</button>
       <span class="venue-save-status" data-settings-status></span>
@@ -950,6 +930,7 @@ function renderGeneralSettings(settings) {
 
 function renderContactSettings(settings) {
   const contact = settings.contact;
+  const location = settings.location || {};
   return `
     <div class="settings-form-grid">
       <label class="settings-input-field">
@@ -977,13 +958,31 @@ function renderContactSettings(settings) {
         <input id="settings-contact-instagram" type="text" value="${escapeHtml(contact.instagram)}" placeholder="@isletme" />
       </label>
     </div>
+    <div class="settings-location-block">
+      <strong>Adres ve harita konumu</strong>
+      <div class="settings-location-status">${escapeHtml(settings.locationStatus || "Girilmemiş")}</div>
+      <label class="settings-select-field">
+        <span>Açık adres</span>
+        <input id="settings-location-address" type="text" value="${escapeHtml(location.address || "")}" placeholder="Cadde, sokak, bina no" />
+      </label>
+      ${locationPickerMarkup(location)}
+      <div class="settings-form-grid">
+        <label class="settings-select-field">
+          <span>Enlem</span>
+          <input id="settings-location-lat" type="text" value="${escapeHtml(location.lat || "")}" placeholder="41.0082" />
+        </label>
+        <label class="settings-select-field">
+          <span>Boylam</span>
+          <input id="settings-location-lng" type="text" value="${escapeHtml(location.lng || "")}" placeholder="28.9784" />
+        </label>
+      </div>
+    </div>
     ${settingsSaveMarkup()}
   `;
 }
 
 function renderDetailSettings(settings) {
   const details = settings.details;
-  const location = settings.location || {};
   return `
     <div class="settings-form-grid">
       <label class="settings-select-field">
@@ -1012,25 +1011,6 @@ function renderDetailSettings(settings) {
         <span>İptal politikası</span>
         <input id="settings-detail-cancellation" type="text" value="${escapeHtml(details.cancellationPolicy)}" placeholder="Rezervasyondan 2 saat öncesine kadar" />
       </label>
-    </div>
-    <div class="settings-location-block">
-      <strong>Harita ve konum</strong>
-      <div class="settings-location-status">${escapeHtml(settings.locationStatus || "Girilmemiş")}</div>
-      <label class="settings-select-field">
-        <span>Açık adres</span>
-        <input id="settings-location-address" type="text" value="${escapeHtml(location.address || "")}" placeholder="Cadde, sokak, bina no" />
-      </label>
-      ${locationPickerMarkup(location)}
-      <div class="settings-form-grid">
-        <label class="settings-select-field">
-          <span>Enlem</span>
-          <input id="settings-location-lat" type="text" value="${escapeHtml(location.lat || "")}" placeholder="41.0082" />
-        </label>
-        <label class="settings-select-field">
-          <span>Boylam</span>
-          <input id="settings-location-lng" type="text" value="${escapeHtml(location.lng || "")}" placeholder="28.9784" />
-        </label>
-      </div>
     </div>
     ${settingsSaveMarkup()}
   `;
@@ -1302,15 +1282,6 @@ function collectSettingsPayload() {
       ...item,
       value: document.querySelector(`[data-settings-select-index="${index}"]`)?.value || item.value,
     }));
-    const hasLocation = Boolean(valueOf("#settings-location-address") || (valueOf("#settings-location-lat") && valueOf("#settings-location-lng")));
-    next.locationStatus = hasLocation ? "Girilmiş" : "Girilmemiş";
-    next.location = {
-      ...(current.location || {}),
-      address: valueOf("#settings-location-address"),
-      lat: valueOf("#settings-location-lat"),
-      lng: valueOf("#settings-location-lng"),
-      mapUrl: valueOf("#settings-location-map-url"),
-    };
   }
 
   if (venueState.activeSettingsTab === "İletişim Bilgileri") {
@@ -1322,6 +1293,15 @@ function collectSettingsPayload() {
       website: valueOf("#settings-contact-website"),
       instagram: valueOf("#settings-contact-instagram"),
     };
+    const hasLocation = Boolean(valueOf("#settings-location-address") || (valueOf("#settings-location-lat") && valueOf("#settings-location-lng")));
+    next.locationStatus = hasLocation ? "Girilmiş" : "Girilmemiş";
+    next.location = {
+      ...(current.location || {}),
+      address: valueOf("#settings-location-address"),
+      lat: valueOf("#settings-location-lat"),
+      lng: valueOf("#settings-location-lng"),
+      mapUrl: valueOf("#settings-location-map-url"),
+    };
   }
 
   if (venueState.activeSettingsTab === "İşletme Detayları") {
@@ -1331,15 +1311,6 @@ function collectSettingsPayload() {
       description: valueOf("#settings-detail-description"),
       workingHours: valueOf("#settings-detail-working-hours"),
       cancellationPolicy: valueOf("#settings-detail-cancellation"),
-    };
-    const hasLocation = Boolean(valueOf("#settings-location-address") || (valueOf("#settings-location-lat") && valueOf("#settings-location-lng")));
-    next.locationStatus = hasLocation ? "Girilmiş" : "Girilmemiş";
-    next.location = {
-      ...(current.location || {}),
-      address: valueOf("#settings-location-address"),
-      lat: valueOf("#settings-location-lat"),
-      lng: valueOf("#settings-location-lng"),
-      mapUrl: valueOf("#settings-location-map-url"),
     };
   }
 
