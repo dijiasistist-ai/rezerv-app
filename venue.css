@@ -1477,7 +1477,7 @@ a {
 
 .venue-sidebar {
   height: calc(100vh - 24px);
-  padding: 14px;
+  padding: 5px 14px 14px;
   border-right: 1px solid #edf1f7;
   background: #fff;
   color: var(--ink);
