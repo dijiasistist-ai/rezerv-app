@@ -932,6 +932,112 @@ button {
   font-weight: 800;
 }
 
+.contract-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid #dbe7f3;
+  border-radius: 8px;
+  padding: 18px;
+  background: linear-gradient(120deg, rgba(31, 93, 91, 0.08), rgba(21, 160, 255, 0.08));
+}
+
+.contract-hero span {
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.contract-hero h3 {
+  margin: 6px 0;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.contract-hero p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.contract-hero > strong {
+  flex: 0 0 auto;
+  border: 1px solid #b9e7ff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #fff;
+  color: var(--brand-dark);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.contract-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.contract-summary-grid div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fff;
+}
+
+.contract-summary-grid strong {
+  color: var(--brand-dark);
+  font-size: 22px;
+}
+
+.contract-summary-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.business-contract-reader {
+  display: grid;
+  gap: 16px;
+  max-height: 520px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  background: #fff;
+  color: #273143;
+  line-height: 1.65;
+}
+
+.business-contract-reader section {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.business-contract-reader section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.business-contract-reader h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.business-contract-reader p {
+  margin: 0;
+  color: #465267;
+  font-size: 14px;
+}
+
 .settings-map-placeholder {
   display: grid;
   place-items: center;
@@ -2377,7 +2483,8 @@ a {
   }
 
   .stat-grid,
-  .report-summary-grid {
+  .report-summary-grid,
+  .contract-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -2415,10 +2522,20 @@ a {
 
   .stat-grid,
   .report-summary-grid,
+  .contract-summary-grid,
   .settings-form-grid,
   .profile-form-grid,
   .sales-modal-body {
     grid-template-columns: 1fr;
+  }
+
+  .contract-hero {
+    display: grid;
+  }
+
+  .contract-hero > strong {
+    width: fit-content;
+    white-space: normal;
   }
 
   .venue-profile {

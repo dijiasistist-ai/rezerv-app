@@ -78,6 +78,133 @@ const DEFAULT_SETTINGS_TABS = [
   "Sözleşmeler",
 ];
 
+const BUSINESS_CONTRACT_VERSION = "İşletme Sözleşmesi v1.0 - 08.06.2026";
+const BUSINESS_CONTRACT_SECTIONS = [
+  {
+    title: "1. Taraflar, kapsam ve elektronik kabul",
+    body: [
+      "Bu sözleşme, tyee.app rezervasyon platformunu işleten tyee ile platformda işletme hesabı açan gerçek veya tüzel kişi işletme arasında kurulur. İşletme hesabını oluşturan, panelde sözleşmeyi onaylayan veya platform üzerinden hizmet yayınlayan kişi, işletmeyi temsile yetkili olduğunu kabul eder.",
+      "Sözleşme; işletmenin platformda listelenmesi, rezervasyon alması, ödeme modeli seçmesi, müşteri verilerini işlemesi, bildirim alması, kampanya yürütmesi ve tyee tarafından sağlanan panel, takvim, rapor, bildirim, harita ve entegrasyon hizmetlerini kullanması için geçerlidir.",
+      "Elektronik onay, tarih-saat, kullanıcı, IP, cihaz, sözleşme versiyonu ve işlem kaydı ile saklanabilir. İşletme, paneldeki onay kayıtlarının yazılı delil başlangıcı ve ticari kayıt niteliğinde kullanılabileceğini kabul eder.",
+    ],
+  },
+  {
+    title: "2. Tanımlar ve platformun rolü",
+    body: [
+      "tyee bir rezervasyon, keşif, işletme yönetimi ve ödeme akışı platformudur. tyee, işletmenin sunduğu hizmetin doğrudan sağlayıcısı, işvereni, acentesi, bayisi, garantörü veya temsilcisi değildir.",
+      "İşletme; pet kuaför, spor tesisi, padel kortu, güzellik merkezi, masaj ve spa, direksiyon dersi, özel ders, fizyoterapi, yoga-pilates veya platformda açılabilecek diğer kategorilerde hizmet veren bağımsız hizmet sağlayıcıdır.",
+      "Müşteri, platform üzerinden işletmeyi bulan, rezervasyon yapan, ödeme yapan veya işletme ile iletişime geçen gerçek ya da tüzel kişidir. İşletme, müşteriye karşı hizmetin ifası, kalite standardı, güvenliği, iptali, iadesi ve mevzuata uygunluğundan sorumludur.",
+    ],
+  },
+  {
+    title: "3. İşletme hesabı, doğrulama ve yetki",
+    body: [
+      "İşletme, kayıt sırasında verdiği ticaret unvanı, vergi bilgileri, IBAN, adres, harita konumu, iletişim bilgileri, kategori, ruhsat, sertifika, yetkili kişi ve görsellerin doğru, güncel ve hukuka uygun olduğunu taahhüt eder.",
+      "tyee; kimlik, şirket, vergi, faaliyet belgesi, ruhsat, mesleki yeterlilik, banka hesabı, marka kullanım yetkisi ve benzeri doğrulama belgelerini talep edebilir. Belge sunulmaması, yanlış bilgi verilmesi veya şüpheli işlem halinde hesap askıya alınabilir.",
+      "Aynı e-posta, telefon, vergi numarası veya işletme için birden fazla hesap açılması tyee onayına bağlıdır. Yanlışlıkla bireysel hesap açan işletme kullanıcılarının hesap türü admin panelinden düzeltilebilir; ancak aynı e-posta ile mükerrer hesap oluşturulamaz.",
+    ],
+  },
+  {
+    title: "4. Hizmet bilgileri, fiyat, müsaitlik ve rezervasyon",
+    body: [
+      "İşletme; hizmet açıklaması, fiyat, süre, kontenjan, alan bilgisi, çalışan bilgisi, çalışma saati, müsaitlik, iptal politikası ve özel koşulları doğru yayınlamakla yükümlüdür. Yanlış fiyat, yanlış müsaitlik veya eksik bilgilendirme nedeniyle doğacak talepler işletmeye aittir.",
+      "İşletme, platform takvimini güncel tutar. Dolu alanı açık göstermek, teyitsiz randevu almak, müşteriyi platform dışına yönlendirerek komisyonu bertaraf etmek veya yanıltıcı kampanya yayınlamak sözleşmeye aykırıdır.",
+      "Rezervasyonun kabulü, reddi, değişikliği, iptali ve no-show süreçleri paneldeki kurallara göre yürütülür. İşletme, müşteriye sunulan iptal ve iade şartlarını rezervasyon anından sonra müşteri aleyhine tek taraflı ağırlaştıramaz.",
+    ],
+  },
+  {
+    title: "5. Ödeme modelleri ve tyee komisyonu",
+    body: [
+      "Platformda temel komisyon oranı, aksi yazılı olarak kararlaştırılmadıkça rezervasyon veya paket tutarının yüzde yedisidir. Örnek olarak 4.000 TL tutarlı bir rezervasyonda tyee platform payı 280 TL'dir.",
+      "Kapora komisyon modelinde, müşteriden rezervasyon sırasında yüzde yedilik tutar kapora/platform payı olarak alınabilir. Kalan hizmet bedeli işletme tarafından hizmet yerinde veya işletmenin kendi ödeme yöntemiyle tahsil edilir.",
+      "Tam online ödeme modelinde, müşteriden hizmet bedelinin tamamı alınır. tyee yüzde yedilik platform payını mahsup eder; kalan hakediş, kart ödeme kuruluşu ve banka süreçleri tamamlandıktan sonra işletmenin kayıtlı IBAN hesabına aktarılır.",
+      "Sadece rezervasyon modelinde online tahsilat yapılmaz. Hizmet bedeli işletme tarafından tahsil edilir. tyee, ay sonunda işletmeye rezervasyon listesini ve komisyon tutarını bildirir. İşletme bildirilen komisyonu FAST/EFT ile öder.",
+      "Ay sonu FAST modelinde ödeme bildirimi sonrası işletmeye on beş gün süre tanınır. Bu sürede ödeme yapılmazsa hatırlatma bildirimi gönderilebilir, hesap pasife çekilebilir, yeni rezervasyon alma yetkisi sınırlandırılabilir ve alacak takibi başlatılabilir.",
+    ],
+  },
+  {
+    title: "6. İade, iptal, ters ibraz ve mutabakat",
+    body: [
+      "İade ve iptal kuralları, tüketici mevzuatı ve müşteriye rezervasyon sırasında gösterilen koşullarla uyumlu olmalıdır. İşletme, kendi kusurundan, hizmeti sunamamasından veya yanlış bilgilendirmeden doğan iade taleplerinden sorumludur.",
+      "Kartlı ödemelerde chargeback, ters ibraz, dolandırıcılık incelemesi, banka komisyonu, ödeme kuruluşu kesintisi ve vergi yükümlülükleri ödeme modeli ve kusur durumuna göre işletmeye yansıtılabilir.",
+      "tyee, işletmeye panel üzerinden finansal ve operasyonel rapor sunar. İşletme, raporları makul sürede kontrol etmek ve itirazını yazılı olarak bildirmekle yükümlüdür. Süresinde itiraz edilmeyen mutabakat kayıtları kabul edilmiş sayılabilir.",
+    ],
+  },
+  {
+    title: "7. Vergi, fatura ve yasal izinler",
+    body: [
+      "İşletme, kendi hizmet satışından doğan vergi, fatura, e-arşiv/e-fatura, belge düzeni, ruhsat, mesleki yeterlilik, belediye, sağlık, spor, eğitim, ulaşım ve sektör bazlı izinlerden tek başına sorumludur.",
+      "tyee yalnızca kendi platform payı için fatura düzenler. Müşteriye sunulan hizmetin faturası, ilgili mevzuat gerektiriyorsa işletme tarafından düzenlenir.",
+      "İşletme, yasaklı, ruhsatsız, yanıltıcı, sağlığı veya güvenliği riske atan, üçüncü kişi haklarını ihlal eden hizmetleri platformda yayınlayamaz.",
+    ],
+  },
+  {
+    title: "8. Müşteri deneyimi, yorumlar ve kalite",
+    body: [
+      "İşletme, müşterilere dürüst, ayrımcılık yapmayan, güvenli ve profesyonel hizmet sunar. Şikayet, geç kalma, no-show, hijyen, güvenlik, ödeme uyuşmazlığı veya kötü hizmet tekrar ederse tyee görünürlüğü azaltabilir ya da hesabı askıya alabilir.",
+      "Müşteri yorumları ve puanları, platform güveni için yayınlanabilir. İşletme sahte yorum, zorla yorum değiştirme, rakibi kötüleme veya müşteriye baskı kurma davranışında bulunamaz.",
+      "tyee, arama sıralamasında kategori, konum, müsaitlik, kalite sinyalleri, iptal oranı, müşteri memnuniyeti, profil doluluğu, ödeme uyumu ve kampanya performansı gibi kriterleri kullanabilir.",
+    ],
+  },
+  {
+    title: "9. KVKK, veri güvenliği ve ticari ileti",
+    body: [
+      "Taraflar, 6698 sayılı Kişisel Verilerin Korunması Kanunu ve ilgili ikincil mevzuata uygun hareket eder. tyee, platform hesabı, rezervasyon ve ödeme akışı için kendi veri sorumluluğu kapsamında; işletme ise müşteriye hizmet sunumu ve kendi kayıtları bakımından veri sorumlusu sıfatıyla hareket edebilir.",
+      "İşletme, platformdan aldığı müşteri verilerini yalnızca rezervasyonu ifa etmek, müşteri ile hizmet hakkında iletişim kurmak, yasal kayıt tutmak ve meşru operasyonel amaçlar için kullanır. Müşteri verileri izinsiz pazarlama, üçüncü kişiye satış, toplu mesaj veya platform dışı kampanya amacıyla kullanılamaz.",
+      "SMS, e-posta, WhatsApp ve benzeri ticari elektronik iletiler ancak gerekli izinler, aydınlatma ve ret imkanı sağlanarak gönderilebilir. İşletme, kendi ticari ileti kampanyalarından ve izin kayıtlarından sorumludur.",
+      "İşletme; panel kullanıcı şifrelerini korur, yetkisiz erişimi önler, veri ihlali veya şüpheli durumları gecikmeksizin tyee'ye bildirir. tyee, güvenlik amacıyla oturum, IP, cihaz ve işlem kayıtlarını tutabilir.",
+    ],
+  },
+  {
+    title: "10. Entegrasyonlar, harita, bildirim ve üçüncü taraflar",
+    body: [
+      "Platform; ödeme kuruluşları, harita sağlayıcıları, SMS/WhatsApp servisleri, e-posta altyapıları, bulut barındırma ve analitik araçlarıyla çalışabilir. Bu hizmetlerdeki kesinti, kota, mevzuat değişikliği veya sağlayıcı kaynaklı sorunlar nedeniyle makul gecikmeler yaşanabilir.",
+      "İşletme, harita konumunu doğru işaretlemekle yükümlüdür. Yanlış konum, yanlış adres veya eksik ulaşım bilgisi nedeniyle müşterinin uğrayacağı zarar ve şikayetlerden işletme sorumludur.",
+      "tyee, bildirimlerin ulaşacağını mutlak garanti etmez; işletme kritik rezervasyonları panelden takip etmekle yükümlüdür.",
+    ],
+  },
+  {
+    title: "11. Fikri mülkiyet, marka ve içerik hakları",
+    body: [
+      "tyee markası, yazılımı, tasarımı, algoritması, paneli, rapor formatları ve platform içerikleri tyee'ye veya lisans verenlerine aittir. İşletmeye yalnızca sözleşme süresince sınırlı kullanım hakkı verilir.",
+      "İşletme, yüklediği logo, fotoğraf, video, açıklama, fiyat listesi ve kampanya metinleri üzerinde gerekli haklara sahip olduğunu taahhüt eder. Üçüncü kişi hak ihlali iddiasında işletme tyee'yi zarar, talep ve masraftan korur.",
+      "tyee, işletmenin adını, logosunu ve profil görsellerini platform içinde, arama sonuçlarında, kampanya alanlarında ve tyee'nin işletme keşif akışında gösterebilir.",
+    ],
+  },
+  {
+    title: "12. Hizmet seviyesi, bakım ve sorumluluk sınırı",
+    body: [
+      "tyee, platformu makul ticari özenle çalıştırır; ancak kesintisiz, hatasız, her cihazda aynı performansta veya her zaman gelir sağlayacak şekilde çalışacağını garanti etmez.",
+      "Planlı bakım, güvenlik güncellemesi, altyapı kesintisi, ödeme kuruluşu sorunu, internet kesintisi, siber saldırı, mücbir sebep veya üçüncü taraf kaynaklı aksaklıklarda hizmet geçici olarak sınırlanabilir.",
+      "Kanunen yasaklanmadığı ölçüde tyee'nin toplam sorumluluğu, uyuşmazlığa konu olaydan önceki son üç ayda işletmeden tahsil edilen platform payı ile sınırlıdır. Dolaylı zarar, kar kaybı, itibar kaybı ve veri kaybı iddiaları için tyee sorumlu tutulamaz.",
+    ],
+  },
+  {
+    title: "13. Askıya alma, fesih ve veri çıkışı",
+    body: [
+      "İşletme; mevzuata aykırı işlem, ödeme ihlali, sahte bilgi, müşteri şikayetleri, güvenlik riski, komisyon kaçırma, kötüye kullanım veya platform itibarını zedeleyen davranış halinde geçici ya da kalıcı olarak pasife alınabilir.",
+      "Taraflardan biri makul bildirimle sözleşmeyi feshedebilir. Devam eden rezervasyonlar, tahakkuk etmiş komisyonlar, iade/chargeback süreçleri, gizlilik ve KVKK yükümlülükleri fesih sonrasında da geçerliliğini korur.",
+      "İşletme, hesabın kapanması halinde makul süre içinde kendi ticari kayıtlarını dışa aktarmaktan sorumludur. Yasal saklama süreleri ve güvenlik gerekleri saklıdır.",
+    ],
+  },
+  {
+    title: "14. Gizlilik, rekabet ve dürüst kullanım",
+    body: [
+      "Taraflar, ticari sır, fiyatlama, müşteri listesi, rapor, algoritma, teknik doküman ve finansal bilgileri gizli tutar. Bu bilgiler yalnızca sözleşmenin ifası için kullanılabilir.",
+      "İşletme, tyee üzerinden gelen müşterileri sistematik biçimde platform dışına taşıyarak komisyonu bertaraf edemez. Müşterinin işletmeyle doğal ilişki kurması engellenmez; ancak platformun rezervasyon akışını kötüye kullanım yasaktır.",
+      "tyee, platform bütünlüğünü korumak için kötüye kullanım tespiti, fraud kontrolü, hız limiti, görünürlük sınırlaması ve manuel inceleme uygulayabilir.",
+    ],
+  },
+  {
+    title: "15. Uyuşmazlık, uygulanacak hukuk ve değişiklik",
+    body: [
+      "Bu sözleşmeye Türkiye Cumhuriyeti hukuku uygulanır. Taraflar, ticari uyuşmazlıklarda zorunlu arabuluculuk hükümleri saklı kalmak üzere İstanbul Merkez Mahkemeleri ve İcra Dairelerinin yetkili olduğunu kabul eder.",
+      "tyee, mevzuat, ödeme altyapısı, ürün kapsamı veya operasyonel ihtiyaçlar nedeniyle sözleşmeyi güncelleyebilir. Esaslı değişiklikler işletmeye panel, e-posta veya bildirim yoluyla duyurulur. İşletmenin değişiklik sonrası platformu kullanmaya devam etmesi güncel metni kabul ettiği anlamına gelir.",
+      "Bu metin operasyonel sözleşme taslağıdır. Şirket bilgileri, vergi/fatura düzeni, ödeme kuruluşu sözleşmeleri, KVKK aydınlatma metni ve sektör bazlı izinler avukat tarafından son kez kontrol edilerek yayınlanmalıdır.",
+    ],
+  },
+];
+
 function getToken() {
   return localStorage.getItem("tyee_token") || "";
 }
@@ -1141,15 +1268,51 @@ function renderPaymentSettings(settings) {
 function renderContractSettings(settings) {
   const contracts = settings.contracts;
   return `
+    <section class="contract-hero">
+      <div>
+        <span>İşletme sözleşmesi taslağı</span>
+        <h3>tyee işletme kullanım ve rezervasyon aracılık sözleşmesi</h3>
+        <p>Ödeme, komisyon, KVKK, iptal, raporlama, kalite, askıya alma ve uyuşmazlık maddeleri tek metinde toplandı.</p>
+      </div>
+      <strong>${escapeHtml(BUSINESS_CONTRACT_VERSION)}</strong>
+    </section>
+    <div class="contract-summary-grid">
+      <div>
+        <strong>%7</strong>
+        <span>Varsayılan platform payı</span>
+      </div>
+      <div>
+        <strong>3 model</strong>
+        <span>Kapora, tam online, sadece rezervasyon</span>
+      </div>
+      <div>
+        <strong>15 gün</strong>
+        <span>Ay sonu FAST ödeme süresi</span>
+      </div>
+      <div>
+        <strong>KVKK</strong>
+        <span>Veri ve ticari ileti yükümlülüğü</span>
+      </div>
+    </div>
+    <article class="business-contract-reader" aria-label="İşletme sözleşmesi metni">
+      ${BUSINESS_CONTRACT_SECTIONS.map(
+        (section) => `
+          <section>
+            <h4>${escapeHtml(section.title)}</h4>
+            ${section.body.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+          </section>
+        `,
+      ).join("")}
+    </article>
     <div class="settings-question">
       <strong>Sözleşme durumları</strong>
       <label class="settings-radio">
         <input id="settings-contract-terms" type="checkbox" ${contracts.termsAccepted ? "checked" : ""} />
-        <span>İşletme kullanım sözleşmesi onaylandı</span>
+        <span>İşletme kullanım ve rezervasyon aracılık sözleşmesi okundu, onaylandı</span>
       </label>
       <label class="settings-radio">
         <input id="settings-contract-kvkk" type="checkbox" ${contracts.kvkkAccepted ? "checked" : ""} />
-        <span>KVKK metni onaylandı</span>
+        <span>KVKK, veri güvenliği ve ticari ileti yükümlülükleri onaylandı</span>
       </label>
     </div>
     <label class="settings-input-field">
