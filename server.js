@@ -384,6 +384,7 @@ function mergeVenuePayload(venueId, user = null) {
       businessName: user?.name || "",
       locationStatus: "Girilmemiş",
     };
+    payload.subscriptions = [];
   }
 
   if (overlay.settings) payload.settings = overlay.settings;

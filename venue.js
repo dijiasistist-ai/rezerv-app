@@ -609,6 +609,15 @@ function statusPill(status) {
 }
 
 function renderSubscriptions(items) {
+  if (!items.length) {
+    subscriptionsBody.innerHTML = `
+      <tr>
+        <td colspan="8" class="empty-table-cell">Henüz abonelik kaydı yok.</td>
+      </tr>
+    `;
+    return;
+  }
+
   subscriptionsBody.innerHTML = items
     .map(
       (item) => `

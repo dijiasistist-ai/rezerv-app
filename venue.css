@@ -1158,9 +1158,16 @@ button {
 }
 
 .reviews-empty-state,
+.empty-table-cell,
 .billing-empty-cell {
   color: var(--muted);
   text-align: center;
+}
+
+.data-table .empty-table-cell {
+  padding: 30px 16px;
+  font-weight: 800;
+  white-space: normal;
 }
 
 .sales-modal {
