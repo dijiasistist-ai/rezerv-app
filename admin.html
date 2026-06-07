@@ -3,29 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>zuvu Admin</title>
-    <link rel="stylesheet" href="/admin.css?v=20260606-admin-1" />
+    <title>tyee Admin</title>
+    <link rel="stylesheet" href="/admin.css?v=20260607-admin-access-1" />
   </head>
   <body>
     <div class="admin-auth-wall hidden" id="admin-auth-wall">
       <div class="admin-auth-card">
-        <img src="/assets/zuvu-logo.png" alt="zuvu" />
+        <img src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
         <h1>Admin girişi gerekli</h1>
         <p>Bu alan yalnızca admin kullanıcısı ile açılır.</p>
-        <a href="/">Ana sayfadan giriş yap</a>
+        <form class="admin-login-form" id="admin-login-form">
+          <label>
+            Kullanıcı
+            <input id="admin-login-email" type="text" autocomplete="username" placeholder="admin veya e-posta" />
+          </label>
+          <label>
+            Şifre
+            <input id="admin-login-password" type="password" autocomplete="current-password" placeholder="Şifre" />
+          </label>
+          <button type="submit">Admin paneline gir</button>
+          <p class="form-feedback" id="admin-login-feedback"></p>
+        </form>
       </div>
     </div>
 
     <main class="admin-shell">
       <header class="admin-header">
-        <a class="admin-brand" href="/" aria-label="zuvu ana sayfa">
-          <img src="/assets/zuvu-logo.png" alt="zuvu" />
+        <a class="admin-brand" href="/" aria-label="tyee ana sayfa">
+          <img src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
         </a>
         <nav class="admin-nav" aria-label="Admin menüsü">
           <a href="#directory">Arama</a>
           <a href="#actions">Operasyon</a>
           <a href="#reports">Raporlar</a>
+          <a href="#access">Yetkililer</a>
           <a href="/venue.html">İşletme paneli</a>
+          <button class="admin-logout" id="admin-logout" type="button">Çıkış</button>
         </nav>
       </header>
 
@@ -86,7 +99,7 @@
               <h3>Şifre reset</h3>
               <label>
                 Kullanıcı e-postası
-                <input id="reset-email" type="email" placeholder="ornek@zuvu.app" />
+                <input id="reset-email" type="email" placeholder="ornek@tyee.app" />
               </label>
               <label>
                 Yeni şifre
@@ -111,11 +124,12 @@
                 <select id="notification-channel">
                   <option value="email">E-posta</option>
                   <option value="sms">SMS</option>
+                  <option value="whatsapp">WhatsApp</option>
                 </select>
               </label>
               <label>
                 Başlık
-                <input id="notification-subject" type="text" value="zuvu bilgilendirme" />
+                <input id="notification-subject" type="text" value="tyee bilgilendirme" />
               </label>
               <label>
                 Mesaj
@@ -152,9 +166,56 @@
             <span class="empty-copy">Rapor hazırlanıyor...</span>
           </article>
         </section>
+
+        <section class="panel access-panel" id="access">
+          <div class="panel-heading">
+            <div>
+              <p>Güvenlik</p>
+              <h2>Admin erişim yetkilileri</h2>
+            </div>
+            <span id="access-current-ip">IP bekleniyor</span>
+          </div>
+
+          <div class="action-grid">
+            <form class="admin-form" id="access-rule-form">
+              <h3>Yetkili tanımla</h3>
+              <label>
+                Yetkili adı
+                <input id="access-label" type="text" placeholder="Dilek ofis, Mobil uygulama..." />
+              </label>
+              <label>
+                E-posta
+                <input id="access-email" type="email" placeholder="admin@tyee.app" />
+              </label>
+              <label>
+                IP adresi
+                <input id="access-ip" type="text" placeholder="88.255.100.10" />
+              </label>
+              <label>
+                Mobil uygulama anahtarı
+                <input id="access-mobile-token" type="text" placeholder="Mobil app için gizli anahtar" />
+              </label>
+              <label>
+                Not
+                <input id="access-note" type="text" placeholder="Ev interneti, iPhone uygulaması..." />
+              </label>
+              <label class="checkbox-line">
+                <input id="access-active" type="checkbox" checked />
+                Aktif
+              </label>
+              <button type="submit">Yetkiliyi kaydet</button>
+              <p class="form-feedback" id="access-feedback"></p>
+            </form>
+
+            <div class="access-list-wrap">
+              <h3>Tanımlı erişimler</h3>
+              <div class="access-list" id="access-list"></div>
+            </div>
+          </div>
+        </section>
       </section>
     </main>
 
-    <script src="/admin.js?v=20260606-admin-1"></script>
+    <script src="/admin.js?v=20260607-admin-access-1"></script>
   </body>
 </html>

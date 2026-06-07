@@ -8,6 +8,8 @@ const legacyUsersPath = path.join(__dirname, "users.json");
 const mailboxPath = path.join(runtimeDir, "dev-mailbox.json");
 const smsPath = path.join(runtimeDir, "dev-sms.json");
 const venuesPath = path.join(runtimeDir, "venues.json");
+const adminAccessPath = path.join(runtimeDir, "admin-access.json");
+const deletedVenuesPath = path.join(runtimeDir, "deleted-venues.json");
 
 const bundledLegacyUsers = [
   {
@@ -73,16 +75,70 @@ function verifyPassword(password, storedPassword = "") {
 }
 
 function getUsers() {
-  return readJson(usersPath, []);
+  const users = readJson(usersPath, []);
+  const uniqueUsers = mergeUsersByEmail(users);
+  if (uniqueUsers.length !== users.length) saveUsers(uniqueUsers);
+  return uniqueUsers;
 }
 
 function saveUsers(users) {
   writeJson(usersPath, users);
 }
 
+function deleteUserById(id) {
+  const users = getUsers();
+  const target = users.find((user) => user.id === id);
+  if (!target) return null;
+  if (target.isAdmin) return { protected: true, user: target };
+  saveUsers(users.filter((user) => user.id !== id));
+  return { protected: false, user: target };
+}
+
 function findUserByEmail(email) {
   const normalizedEmail = normalizeEmail(email);
   return getUsers().find((user) => normalizeEmail(user.email) === normalizedEmail) || null;
+}
+
+function mergeUsersByEmail(users = []) {
+  const byEmail = new Map();
+  const withoutEmail = [];
+
+  users.forEach((user) => {
+    const email = normalizeEmail(user.email || "");
+    if (!email) {
+      withoutEmail.push(user);
+      return;
+    }
+
+    const existing = byEmail.get(email);
+    if (!existing) {
+      byEmail.set(email, { ...user, email });
+      return;
+    }
+
+    byEmail.set(email, {
+      ...existing,
+      ...user,
+      id: existing.id || user.id,
+      name: existing.name || user.name,
+      email,
+      phone: existing.phone || user.phone || "",
+      passwordHash: existing.passwordHash || user.passwordHash || "",
+      password: existing.password || user.password || "",
+      canManageVenue: Boolean(existing.canManageVenue || user.canManageVenue),
+      isAdmin: Boolean(existing.isAdmin || user.isAdmin),
+      venueId: existing.venueId || user.venueId || "",
+      emailVerified: Boolean(existing.emailVerified || user.emailVerified),
+      phoneVerified: Boolean(existing.phoneVerified || user.phoneVerified),
+      emailVerificationToken: existing.emailVerificationToken || user.emailVerificationToken || "",
+      phoneVerificationCode: existing.phoneVerificationCode || user.phoneVerificationCode || "",
+      passwordResetToken: existing.passwordResetToken || user.passwordResetToken || "",
+      createdAt: existing.createdAt || user.createdAt,
+      updatedAt: user.updatedAt || existing.updatedAt,
+    });
+  });
+
+  return [...withoutEmail, ...byEmail.values()];
 }
 
 function findUserById(id) {
@@ -116,7 +172,7 @@ function ensureSeedUser(email, overrides = {}) {
 
   return upsertUser({
     id: crypto.randomUUID(),
-    name: overrides.name || "zuvu Demo",
+    name: overrides.name || "tyee Demo",
     email: normalizedEmail,
     phone: overrides.phone || "",
     passwordHash: hashPassword(overrides.password || "123456"),
@@ -197,6 +253,19 @@ function getVenues() {
   return readJson(venuesPath, {});
 }
 
+function getDeletedVenueIds() {
+  return readJson(deletedVenuesPath, []);
+}
+
+function deleteVenueRecord(venueId) {
+  const id = String(venueId || "").trim();
+  if (!id) return false;
+  const deleted = new Set(getDeletedVenueIds());
+  deleted.add(id);
+  writeJson(deletedVenuesPath, [...deleted]);
+  return true;
+}
+
 function getVenueOverlay(venueId) {
   const venues = getVenues();
   return venues[venueId] || {};
@@ -213,12 +282,60 @@ function saveVenueOverlay(venueId, patch) {
   return venues[venueId];
 }
 
+function getAdminAccessRules() {
+  return readJson(adminAccessPath, []);
+}
+
+function upsertAdminAccessRule(rule) {
+  const rules = getAdminAccessRules();
+  const id = rule.id || crypto.randomUUID();
+  const index = rules.findIndex((item) => item.id === id);
+  const nextRule = {
+    id,
+    label: String(rule.label || "Yetkili erişim").trim(),
+    email: normalizeEmail(rule.email || ""),
+    ipAddress: String(rule.ipAddress || "").trim(),
+    mobileToken: String(rule.mobileToken || "").trim(),
+    note: String(rule.note || "").trim(),
+    isActive: rule.isActive !== false,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (index >= 0) {
+    rules[index] = {
+      ...rules[index],
+      ...nextRule,
+      createdAt: rules[index].createdAt || new Date().toISOString(),
+    };
+  } else {
+    rules.unshift({
+      ...nextRule,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  writeJson(adminAccessPath, rules);
+  return rules[index >= 0 ? index : 0];
+}
+
+function deleteAdminAccessRule(id) {
+  const rules = getAdminAccessRules();
+  const nextRules = rules.filter((rule) => rule.id !== id);
+  writeJson(adminAccessPath, nextRules);
+  return nextRules.length !== rules.length;
+}
+
 module.exports = {
   appendDevEmail,
   appendDevSms,
+  deleteAdminAccessRule,
+  deleteUserById,
+  deleteVenueRecord,
   findUserByEmail,
   findUserByEmailVerificationToken,
   findUserById,
+  getAdminAccessRules,
+  getDeletedVenueIds,
   getUsers,
   getDevOutbox,
   getVenueOverlay,
@@ -226,6 +343,7 @@ module.exports = {
   normalizeEmail,
   migrateLegacyUsers,
   saveVenueOverlay,
+  upsertAdminAccessRule,
   upsertUser,
   verifyPassword,
   ensureSeedUser,

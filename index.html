@@ -3,19 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>zuvu | Rezervasyon Marketplace</title>
+    <title>tyee | Rezervasyon Marketplace</title>
     <meta
       name="description"
       content="Pet kuaför, padel, halı saha, güzellik merkezi, direksiyon dersi ve daha fazlası için anında rezervasyon marketplace'i."
     />
-    <link rel="stylesheet" href="/styles.css?v=20260606-map-frame-1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css?v=20260607-header-font-2" />
   </head>
   <body>
     <div class="page-shell">
       <header class="site-header">
-        <a class="brand" href="/" aria-label="zuvu ana sayfa">
-          <img class="brand-logo" src="/assets/zuvu-logo.png" alt="zuvu" />
-          <span class="brand-tagline">Rezervasyon marketplace</span>
+        <a class="brand" href="/" aria-label="tyee ana sayfa">
+          <img class="brand-logo" src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
         </a>
 
         <nav class="main-nav" aria-label="Ana menü">
@@ -23,20 +25,61 @@
           <a href="#categories">Kategoriler</a>
           <a href="#nearby-map" id="nearby-map-trigger">Yakınımda</a>
           <a href="#featured">Fırsatlar</a>
-          <a href="/venue.html">İşletmeler için</a>
-          <a href="#metrics">Platform</a>
+          <a href="/venue.html" id="business-nav-link">İşletme Paneli</a>
         </nav>
 
         <div class="header-actions">
-          <button class="saved-button" type="button">♡ Kaydedilenler</button>
-          <button class="bell-button" type="button" aria-label="Bildirimler">
-            <span>🔔</span>
-            <em>3</em>
-          </button>
+          <details class="header-popover-shell">
+            <summary class="saved-button">♡ Kaydedilenler</summary>
+            <div class="header-popover">
+              <div class="popover-head">
+                <strong>Kaydedilenler</strong>
+                <span>Beğendiğin işletmeleri burada tutacağız.</span>
+              </div>
+              <div class="popover-empty">
+                <span>♡</span>
+                <strong>Henüz kayıtlı işletme yok</strong>
+                <small>İşletme kartlarındaki kalbe basınca buraya eklenir.</small>
+              </div>
+            </div>
+          </details>
+          <details class="header-popover-shell" id="notification-shell">
+            <summary class="bell-button" aria-label="Bildirimler">
+              <span>🔔</span>
+              <em id="notification-count" aria-live="polite">3</em>
+            </summary>
+            <div class="header-popover notification-menu">
+              <div class="popover-head">
+                <strong>Bildirimler</strong>
+                <span id="notification-status">Rezervasyon ve hesap akışı bildirimleri.</span>
+              </div>
+              <button class="notification-item" type="button" data-notification-id="location-permission">
+                <span>✓</span>
+                <div>
+                  <strong>Konum izni hazır</strong>
+                  <small>Yakınımdaki işletmeleri listelemek için konumunu kullanabiliriz.</small>
+                </div>
+              </button>
+              <button class="notification-item" type="button" data-notification-id="reservation-roadmap">
+                <span>R</span>
+                <div>
+                  <strong>Rezervasyon altyapısı sırada</strong>
+                  <small>Takvim ve müsaitlik akışı local geliştirme listesine eklendi.</small>
+                </div>
+              </button>
+              <button class="notification-item" type="button" data-notification-id="profile-completion">
+                <span>!</span>
+                <div>
+                  <strong>Profil bilgilerini tamamla</strong>
+                  <small>İşletme ve bireysel hesap ayrımı admin panelinden yönetilecek.</small>
+                </div>
+              </button>
+            </div>
+          </details>
           <div class="account-shell">
             <button class="account-button" id="login-trigger" type="button" aria-expanded="false">
-              <span class="avatar-mini">DY</span>
-              <span class="account-label">Dilek Yıldız</span>
+              <span class="avatar-mini hidden"></span>
+              <span class="account-label">Giriş Yap / Kayıt Ol</span>
             </button>
             <div class="account-menu hidden" id="account-menu" aria-hidden="true">
               <div class="account-menu-copy" id="account-menu-copy">
@@ -62,7 +105,6 @@
       <main>
         <section class="hero" id="hero">
           <div class="hero-copy">
-            <p class="hero-kicker">Türkiye'nin rezervasyon platformu</p>
             <h1>
               Pet kuaförden padel kortuna, güzellik merkezinden direksiyon dersine kadar
               binlerce hizmeti keşfet, karşılaştır ve anında rezervasyon yap.
@@ -117,7 +159,6 @@
 
           <form class="search-panel" id="search-panel">
             <label class="search-field search-field-main">
-              <span>Ne arıyorsun?</span>
               <input
                 id="search-query"
                 type="text"
@@ -125,12 +166,8 @@
               />
             </label>
             <label class="search-field">
-              <span>Nerede?</span>
+              <span class="sr-only">Nerede?</span>
               <select id="search-city"></select>
-            </label>
-            <label class="search-field">
-              <span>Ne zaman?</span>
-              <input id="search-time" type="text" value="Bugün, 19:00" aria-label="Tarih ve saat" />
             </label>
             <button class="solid-button search-button" type="submit">Ara</button>
           </form>
@@ -149,19 +186,10 @@
 
         <section class="category-band" id="categories">
           <div class="section-title-row">
-            <h2>✧ Popüler Kategoriler</h2>
-            <button class="round-arrow" type="button" aria-label="Sonraki kategoriler">›</button>
+            <h2>Kategoriler</h2>
+            <button class="round-arrow" id="category-next" type="button" aria-label="Sonraki kategorileri göster">›</button>
           </div>
           <div class="category-rail" id="category-rail"></div>
-        </section>
-
-        <section class="evening-band" id="nearby">
-          <div class="section-title-row compact">
-            <h2>Bu akşam müsait alanlar</h2>
-            <span class="live-dot">Canlı olarak güncelleniyor</span>
-            <a href="#featured">Tümünü gör ›</a>
-          </div>
-          <div class="evening-rail" id="hot-slots"></div>
         </section>
 
         <section class="featured-band" id="featured">
@@ -172,7 +200,7 @@
 
           <div class="featured-layout">
             <div class="featured-results">
-              <div class="filter-pills" id="filter-pills" aria-label="Kategori filtreleri"></div>
+              <div class="filter-pills" id="filter-pills" aria-label="Kategori filtreleri" hidden></div>
               <div class="results-summary" id="results-summary"></div>
               <div class="listing-grid" id="listing-grid"></div>
             </div>
@@ -183,7 +211,6 @@
                   <span id="inline-map-status">Harita hazırlanıyor.</span>
                 </div>
                 <div class="inline-map-actions">
-                  <button class="ghost-button" id="featured-map-open" type="button">Büyüt</button>
                   <button class="ghost-button" id="inline-nearby-locate" type="button">Konumum</button>
                 </div>
               </div>
@@ -226,7 +253,7 @@
       <div class="auth-dialog">
         <div class="auth-header">
           <div>
-            <p class="eyebrow">zuvu hesabı</p>
+            <p class="eyebrow">tyee hesabı</p>
             <h2 id="auth-title">Giriş yap</h2>
           </div>
           <button class="icon-button" id="auth-close-button" type="button" aria-label="Kapat">×</button>
@@ -284,7 +311,7 @@
           <div class="auth-step hidden" id="auth-step-role">
             <div class="auth-role-copy">
               <p class="eyebrow">Kullanım tipi</p>
-              <h3>zuvu'yu nasıl kullanacaksın?</h3>
+              <h3>tyee'ı nasıl kullanacaksın?</h3>
               <p>Önce hesabını oluşturuyoruz, ardından kullanım şeklini seçerek doğru akışa geçiyorsun.</p>
             </div>
 
@@ -307,6 +334,6 @@
       </div>
     </div>
 
-    <script src="/app.js?v=20260606-map-frame-1"></script>
+    <script src="/app.js?v=20260607-notifications-read-1"></script>
   </body>
 </html>

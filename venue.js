@@ -24,6 +24,7 @@ const overviewList = document.querySelector("#overview-list");
 const subscriptionsBody = document.querySelector("#subscriptions-body");
 const transactionsBody = document.querySelector("#transactions-body");
 const reportSummaryGrid = document.querySelector("#report-summary-grid");
+const reportsSummaryGrid = document.querySelector("#reports-summary-grid");
 const settingsTabs = document.querySelector("#settings-tabs");
 const settingsOnboardingForm = document.querySelector("#settings-onboarding-form");
 const profileCard = document.querySelector("#profile-card");
@@ -31,10 +32,8 @@ const profileFormGrid = document.querySelector("#profile-form-grid");
 const reviewsShell = document.querySelector("#reviews-shell");
 const billingBody = document.querySelector("#billing-body");
 const billingAddButton = document.querySelector(".billing-add-button");
-const managerMenuItems = document.querySelector("#manager-menu-items");
-const managerMenu = document.querySelector("#manager-menu");
-const managerMenuTrigger = document.querySelector("#manager-menu-trigger");
-const topbarLinks = document.querySelectorAll(".topbar-link");
+const navGroups = document.querySelectorAll(".venue-nav-group");
+const navGroupTriggers = document.querySelectorAll(".venue-nav-heading");
 const navItems = document.querySelectorAll(".venue-nav-item");
 const sections = document.querySelectorAll(".view-section");
 const authWall = document.querySelector("#venue-auth-wall");
@@ -44,7 +43,7 @@ const venueState = {
   slotModes: {},
   manualEntries: {},
   currentWeekOffset: 0,
-  isManagerMenuOpen: false,
+  activeSettingsTab: "Genel Bilgiler",
   salesDraftSlotKey: "",
   venueId: "zincirlikuyu-arena",
   dashboard: null,
@@ -66,14 +65,18 @@ const MONTH_SHORT = [
   "Ara",
 ];
 const BASE_WEEK_START = new Date(2026, 4, 11);
-const DEFAULT_MANAGER_MENU = ["Takvim", "Haftalık Abonelik Satış", "İşlemler", "Raporlama", "Ayarlar", "Çıkış Yap"];
+const DEFAULT_SETTINGS_TABS = [
+  "Genel Bilgiler",
+  "İletişim Bilgileri",
+  "İşletme Detayları",
+  "Medya",
+  "Alan Bilgileri",
+  "Ödeme Bilgileri",
+  "Sözleşmeler",
+];
 
 function getToken() {
-  return localStorage.getItem("zuvu_token") || "";
-}
-
-function isDemoHost() {
-  return ["127.0.0.1", "localhost"].includes(window.location.hostname);
+  return localStorage.getItem("tyee_token") || "";
 }
 
 function getAuthHeaders() {
@@ -105,14 +108,92 @@ function escapeHtml(value = "") {
     .replace(/"/g, "&quot;");
 }
 
-async function requireVenueAccess() {
-  if (isDemoHost()) {
-    return {
-      name: "Demo Venue",
-      canManageVenue: true,
-    };
-  }
+function normalizeSettings(settings = {}) {
+  const tabs = (Array.isArray(settings.tabs) && settings.tabs.length ? settings.tabs : DEFAULT_SETTINGS_TABS).map(
+    (tab) => (tab === "Sahalar" || tab === "Tesis Bilgileri" ? (tab === "Sahalar" ? "Alan Bilgileri" : "İşletme Detayları") : tab),
+  );
+  const businessType = settings.selects?.find((item) => item.label === "İşletme Tipi")?.value || "";
 
+  return {
+    ...settings,
+    tabs,
+    businessName: settings.businessName || "",
+    questions: Array.isArray(settings.questions) ? settings.questions : [],
+    selects: Array.isArray(settings.selects) ? settings.selects : [],
+    contact: {
+      authorizedName: "",
+      phone: "",
+      whatsapp: "",
+      email: "",
+      website: "",
+      instagram: "",
+      ...(settings.contact || {}),
+    },
+    details: {
+      category: businessType,
+      district: "",
+      description: "",
+      workingHours: "",
+      cancellationPolicy: "",
+      ...(settings.details || {}),
+    },
+    media: {
+      logoUrl: "",
+      coverUrl: "",
+      gallery: [],
+      ...(settings.media || {}),
+      gallery: Array.isArray(settings.media?.gallery) ? settings.media.gallery : [],
+    },
+    areas: Array.isArray(settings.areas) && settings.areas.length
+      ? settings.areas
+      : [{ name: "Ana alan", type: "Saha / oda / masa", capacity: "", price: "", isActive: true }],
+    payment: {
+      invoiceTitle: "",
+      taxOffice: "",
+      taxNumber: "",
+      iban: "",
+      paymentMethod: "Kapora komisyon (%7 tyee)",
+      ...(settings.payment || {}),
+    },
+    contracts: {
+      termsAccepted: false,
+      kvkkAccepted: false,
+      notes: "",
+      ...(settings.contracts || {}),
+    },
+  };
+}
+
+function getInitials(value = "") {
+  const words = String(value)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return "Z";
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toLocaleUpperCase("tr-TR");
+}
+
+function getVenueDisplayName() {
+  const settingsName = venueState.dashboard?.settings?.businessName?.trim();
+  const venueFallback = venueState.dashboard?.venue?.name?.trim();
+  return settingsName || venueFallback || "tyee işletme";
+}
+
+function renderVenueIdentity() {
+  if (!venueState.dashboard) return;
+
+  const displayName = getVenueDisplayName();
+  venueTitle.textContent = `${displayName} yönetim paneli`;
+  venueAvatar.textContent = getInitials(displayName);
+  venueName.textContent = displayName;
+  venueBranch.textContent = venueState.dashboard.venue?.branch || "";
+}
+
+async function requireVenueAccess() {
   const token = getToken();
 
   if (!token) {
@@ -131,7 +212,7 @@ async function requireVenueAccess() {
 
   if (!response.ok) {
     authWall.classList.remove("hidden");
-    localStorage.removeItem("zuvu_token");
+    localStorage.removeItem("tyee_token");
     setTimeout(() => {
       window.location.href = "/index.html";
     }, 1200);
@@ -355,9 +436,9 @@ function renderWeeklySchedule(board, days) {
 
           let modeLabel = "Açık";
           let modeMeta = "";
-          let modeClass = "is-zuvu";
-          let actionLabel = "zuvu satışına aç";
-          let badgeMarkup = buildSlotBadge("R", "is-zuvu");
+          let modeClass = "is-tyee";
+          let actionLabel = "tyee satışına aç";
+          let badgeMarkup = buildSlotBadge("R", "is-tyee");
 
           if (mode === "closed") {
             modeLabel = "Kapalı";
@@ -389,7 +470,7 @@ function renderWeeklySchedule(board, days) {
           const popoverClass = `slot-popover${popoverEdgeClass}${popoverVerticalClass}`;
           const slotMainMarkup =
             mode === "rezerv"
-              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">zuvu</span>`
+              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">tyee</span>`
               : `<strong>${modeLabel}</strong>${badgeMarkup}${modeMeta ? `<span>${modeMeta}</span>` : ""}`;
 
           return `
@@ -405,9 +486,9 @@ function renderWeeklySchedule(board, days) {
                           <span>${actionLabel}</span>
                         </div>
                         <div class="slot-options" aria-label="Slot durumu seç">
-                          <button class="slot-option slot-option-zuvu ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="zuvu">
+                          <button class="slot-option slot-option-tyee ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="tyee">
                             <span class="slot-option-icon">R</span>
-                            <span>zuvu</span>
+                            <span>tyee</span>
                           </button>
                           <button class="slot-option slot-option-closed ${mode === "closed" ? "is-active" : ""}" type="button" data-mode="closed" data-slot-key="${slotKey}" aria-label="Kapalı">
                             <span class="slot-option-icon">K</span>
@@ -547,6 +628,7 @@ function renderSubscriptions(items) {
 }
 
 function renderTransactions(items) {
+  const displayName = getVenueDisplayName();
   transactionsBody.innerHTML = items
     .map(
       (item) => `
@@ -554,7 +636,7 @@ function renderTransactions(items) {
           <td>#${item.id}</td>
           <td>${item.type}</td>
           <td>${statusPill(item.status)}</td>
-          <td>${item.venue}</td>
+          <td>${displayName || item.venue}</td>
           <td>${item.field}</td>
           <td><span class="channel-pill">${item.channel}</span></td>
           <td>${item.customer}</td>
@@ -576,7 +658,7 @@ function renderTransactions(items) {
 }
 
 function renderReportSummary(items) {
-  reportSummaryGrid.innerHTML = items
+  const markup = items
     .map(
       (item) => `
         <article class="report-summary-card">
@@ -587,19 +669,39 @@ function renderReportSummary(items) {
       `,
     )
     .join("");
+
+  if (reportSummaryGrid) reportSummaryGrid.innerHTML = markup;
+  if (reportsSummaryGrid) reportsSummaryGrid.innerHTML = markup;
 }
 
 function renderSettingsTabs(items) {
+  const activeTab = items.includes(venueState.activeSettingsTab) ? venueState.activeSettingsTab : items[0];
+  venueState.activeSettingsTab = activeTab;
   settingsTabs.innerHTML = items
     .map(
-      (item, index) => `
-        <button class="settings-tab ${index === 0 ? "is-active" : ""}" type="button">${item}</button>
+      (item) => `
+        <button class="settings-tab ${item === activeTab ? "is-active" : ""}" type="button" data-settings-tab="${escapeHtml(item)}">${item}</button>
       `,
     )
     .join("");
 }
 
 function renderSettingsOnboarding(settings) {
+  const normalized = normalizeSettings(settings);
+  const activeTab = venueState.activeSettingsTab;
+  const renderers = {
+    "Genel Bilgiler": renderGeneralSettings,
+    "İletişim Bilgileri": renderContactSettings,
+    "İşletme Detayları": renderDetailSettings,
+    Medya: renderMediaSettings,
+    "Alan Bilgileri": renderAreaSettings,
+    "Ödeme Bilgileri": renderPaymentSettings,
+    Sözleşmeler: renderContractSettings,
+  };
+  settingsOnboardingForm.innerHTML = (renderers[activeTab] || renderGeneralSettings)(normalized);
+}
+
+function renderGeneralSettings(settings) {
   const location = settings.location || {};
   const questionsMarkup = settings.questions
     .map(
@@ -639,7 +741,7 @@ function renderSettingsOnboarding(settings) {
     )
     .join("");
 
-  settingsOnboardingForm.innerHTML = `
+  return `
     <label class="settings-input-field">
       <span>İşletme Adı</span>
       <input id="settings-business-name" type="text" value="${escapeHtml(settings.businessName)}" />
@@ -674,6 +776,250 @@ function renderSettingsOnboarding(settings) {
         <span>${location.mapUrl ? "Harita bağlantısı kaydedildi" : "Harita entegrasyonu burada konum akışıyla bağlanacak"}</span>
       </div>
     </div>
+    <div class="settings-save-row">
+      <button class="solid-button" data-settings-save type="button">Ayarları kaydet</button>
+      <span class="venue-save-status" data-settings-status></span>
+    </div>
+  `;
+}
+
+function renderContactSettings(settings) {
+  const contact = settings.contact;
+  return `
+    <div class="settings-form-grid">
+      <label class="settings-input-field">
+        <span>Yetkili kişi</span>
+        <input id="settings-contact-authorized-name" type="text" value="${escapeHtml(contact.authorizedName)}" />
+      </label>
+      <label class="settings-input-field">
+        <span>Telefon</span>
+        <input id="settings-contact-phone" type="tel" value="${escapeHtml(contact.phone)}" placeholder="05xx xxx xx xx" />
+      </label>
+      <label class="settings-input-field">
+        <span>WhatsApp</span>
+        <input id="settings-contact-whatsapp" type="tel" value="${escapeHtml(contact.whatsapp)}" placeholder="05xx xxx xx xx" />
+      </label>
+      <label class="settings-input-field">
+        <span>E-posta</span>
+        <input id="settings-contact-email" type="email" value="${escapeHtml(contact.email)}" />
+      </label>
+      <label class="settings-input-field">
+        <span>Web sitesi</span>
+        <input id="settings-contact-website" type="url" value="${escapeHtml(contact.website)}" placeholder="https://..." />
+      </label>
+      <label class="settings-input-field">
+        <span>Instagram</span>
+        <input id="settings-contact-instagram" type="text" value="${escapeHtml(contact.instagram)}" placeholder="@isletme" />
+      </label>
+    </div>
+    ${settingsSaveMarkup()}
+  `;
+}
+
+function renderDetailSettings(settings) {
+  const details = settings.details;
+  const location = settings.location || {};
+  return `
+    <div class="settings-form-grid">
+      <label class="settings-select-field">
+        <span>Kategori</span>
+        <select id="settings-detail-category">
+          ${["Pet Kuaför", "Güzellik Merkezi", "Halı Saha", "Padel Kort", "Direksiyon Dersi", "Özel Ders", "Masaj & Spa", "Yoga & Pilates", "Diğer"]
+            .map((option) => `<option ${option === details.category ? "selected" : ""}>${option}</option>`)
+            .join("")}
+        </select>
+      </label>
+      <label class="settings-input-field">
+        <span>İlçe / bölge</span>
+        <input id="settings-detail-district" type="text" value="${escapeHtml(details.district)}" placeholder="Kadıköy, Beşiktaş..." />
+      </label>
+    </div>
+    <label class="settings-input-field">
+      <span>İşletme açıklaması</span>
+      <textarea id="settings-detail-description" rows="4" placeholder="Müşterinin göreceği kısa açıklama">${escapeHtml(details.description)}</textarea>
+    </label>
+    <div class="settings-form-grid">
+      <label class="settings-input-field">
+        <span>Çalışma saatleri</span>
+        <input id="settings-detail-working-hours" type="text" value="${escapeHtml(details.workingHours)}" placeholder="Hafta içi 09:00 - 22:00" />
+      </label>
+      <label class="settings-input-field">
+        <span>İptal politikası</span>
+        <input id="settings-detail-cancellation" type="text" value="${escapeHtml(details.cancellationPolicy)}" placeholder="Rezervasyondan 2 saat öncesine kadar" />
+      </label>
+    </div>
+    <div class="settings-location-block">
+      <strong>Harita ve konum</strong>
+      <div class="settings-location-status">${escapeHtml(settings.locationStatus || "Girilmemiş")}</div>
+      <label class="settings-select-field">
+        <span>Açık adres</span>
+        <input id="settings-location-address" type="text" value="${escapeHtml(location.address || "")}" placeholder="Cadde, sokak, bina no" />
+      </label>
+      <div class="settings-form-grid">
+        <label class="settings-select-field">
+          <span>Enlem</span>
+          <input id="settings-location-lat" type="text" value="${escapeHtml(location.lat || "")}" placeholder="41.0082" />
+        </label>
+        <label class="settings-select-field">
+          <span>Boylam</span>
+          <input id="settings-location-lng" type="text" value="${escapeHtml(location.lng || "")}" placeholder="28.9784" />
+        </label>
+      </div>
+      <label class="settings-select-field">
+        <span>Harita bağlantısı</span>
+        <input id="settings-location-map-url" type="url" value="${escapeHtml(location.mapUrl || "")}" placeholder="Google Maps bağlantısı" />
+      </label>
+    </div>
+    ${settingsSaveMarkup()}
+  `;
+}
+
+function renderMediaSettings(settings) {
+  const media = settings.media;
+  const galleryMarkup = media.gallery.length
+    ? media.gallery
+        .map(
+          (item, index) => `
+            <article class="settings-media-card">
+              <img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.name || "İşletme görseli")}" />
+              <div>
+                <strong>${escapeHtml(item.name || `Görsel ${index + 1}`)}</strong>
+                <button class="ghost-button" type="button" data-media-remove="${index}">Kaldır</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="settings-empty-box">Henüz görsel eklenmedi.</div>`;
+
+  return `
+    <div class="settings-form-grid">
+      <label class="settings-input-field">
+        <span>Logo URL</span>
+        <input id="settings-media-logo-url" type="url" value="${escapeHtml(media.logoUrl)}" placeholder="https://..." />
+      </label>
+      <label class="settings-input-field">
+        <span>Kapak görseli URL</span>
+        <input id="settings-media-cover-url" type="url" value="${escapeHtml(media.coverUrl)}" placeholder="https://..." />
+      </label>
+    </div>
+    <label class="settings-upload-box">
+      <span>Resim ekle</span>
+      <input type="file" accept="image/*" multiple data-media-upload />
+      <small>Görseller önizleme için küçültülerek kaydedilir.</small>
+    </label>
+    <div class="settings-media-grid">${galleryMarkup}</div>
+    ${settingsSaveMarkup()}
+  `;
+}
+
+function renderAreaSettings(settings) {
+  const areasMarkup = settings.areas
+    .map(
+      (area, index) => `
+        <article class="settings-area-card" data-area-card="${index}">
+          <div class="settings-area-head">
+            <strong>Alan ${index + 1}</strong>
+            <label class="settings-switch">
+              <input type="checkbox" data-area-active="${index}" ${area.isActive ? "checked" : ""} />
+              <span>Aktif</span>
+            </label>
+          </div>
+          <div class="settings-form-grid">
+            <label class="settings-input-field">
+              <span>Alan adı</span>
+              <input data-area-name="${index}" type="text" value="${escapeHtml(area.name)}" placeholder="Saha 1, Oda 2, Masa A..." />
+            </label>
+            <label class="settings-input-field">
+              <span>Alan tipi</span>
+              <input data-area-type="${index}" type="text" value="${escapeHtml(area.type)}" placeholder="Saha, oda, masa, eğitmen..." />
+            </label>
+            <label class="settings-input-field">
+              <span>Kapasite</span>
+              <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity)}" placeholder="2 kişi, 12 kişi..." />
+            </label>
+            <label class="settings-input-field">
+              <span>Başlangıç fiyatı</span>
+              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺750 / saat" />
+            </label>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="settings-note">Bu alan halı saha, güzellik odası, pet kuaför masası, derslik veya eğitmen gibi tüm sektörlerde kullanılacak jenerik kapasite bilgisidir.</div>
+    <div class="settings-area-list">${areasMarkup}</div>
+    <div class="settings-save-row">
+      <button class="ghost-button" type="button" data-area-add>+ Alan ekle</button>
+      <button class="solid-button" data-settings-save type="button">Ayarları kaydet</button>
+      <span class="venue-save-status" data-settings-status></span>
+    </div>
+  `;
+}
+
+function renderPaymentSettings(settings) {
+  const payment = settings.payment;
+  return `
+    <label class="settings-input-field">
+      <span>Fatura ünvanı</span>
+      <input id="settings-payment-invoice-title" type="text" value="${escapeHtml(payment.invoiceTitle)}" />
+    </label>
+    <div class="settings-form-grid">
+      <label class="settings-input-field">
+        <span>Vergi dairesi</span>
+        <input id="settings-payment-tax-office" type="text" value="${escapeHtml(payment.taxOffice)}" />
+      </label>
+      <label class="settings-input-field">
+        <span>Vergi numarası</span>
+        <input id="settings-payment-tax-number" type="text" value="${escapeHtml(payment.taxNumber)}" />
+      </label>
+    </div>
+    <label class="settings-input-field">
+      <span>IBAN</span>
+      <input id="settings-payment-iban" type="text" value="${escapeHtml(payment.iban)}" placeholder="TR..." />
+    </label>
+    <label class="settings-select-field">
+      <span>Ödeme yöntemi</span>
+      <select id="settings-payment-method">
+        ${[
+            "Kapora komisyon (%7 tyee)",
+            "Tam online ödeme (%7 tyee + hakediş)",
+            "Sadece rezervasyon (ay sonu FAST)",
+          ]
+          .map((option) => `<option ${option === payment.paymentMethod ? "selected" : ""}>${option}</option>`)
+          .join("")}
+      </select>
+    </label>
+    ${settingsSaveMarkup()}
+  `;
+}
+
+function renderContractSettings(settings) {
+  const contracts = settings.contracts;
+  return `
+    <div class="settings-question">
+      <strong>Sözleşme durumları</strong>
+      <label class="settings-radio">
+        <input id="settings-contract-terms" type="checkbox" ${contracts.termsAccepted ? "checked" : ""} />
+        <span>İşletme kullanım sözleşmesi onaylandı</span>
+      </label>
+      <label class="settings-radio">
+        <input id="settings-contract-kvkk" type="checkbox" ${contracts.kvkkAccepted ? "checked" : ""} />
+        <span>KVKK metni onaylandı</span>
+      </label>
+    </div>
+    <label class="settings-input-field">
+      <span>Sözleşme / evrak notu</span>
+      <textarea id="settings-contract-notes" rows="5" placeholder="Eksik evrak, özel madde veya takip notu">${escapeHtml(contracts.notes)}</textarea>
+    </label>
+    ${settingsSaveMarkup()}
+  `;
+}
+
+function settingsSaveMarkup() {
+  return `
     <div class="settings-save-row">
       <button class="solid-button" data-settings-save type="button">Ayarları kaydet</button>
       <span class="venue-save-status" data-settings-status></span>
@@ -779,28 +1125,100 @@ function renderBillingAddresses(items) {
 }
 
 function collectSettingsPayload() {
-  const current = venueState.dashboard.settings;
-  return {
-    ...current,
-    businessName: document.querySelector("#settings-business-name")?.value.trim() || "",
-    questions: (current.questions || []).map((item, index) => ({
+  const current = normalizeSettings(venueState.dashboard.settings);
+  const valueOf = (selector) => document.querySelector(selector)?.value.trim() || "";
+  const checked = (selector) => Boolean(document.querySelector(selector)?.checked);
+  const next = { ...current };
+
+  if (venueState.activeSettingsTab === "Genel Bilgiler") {
+    next.businessName = valueOf("#settings-business-name");
+    next.questions = (current.questions || []).map((item, index) => ({
       ...item,
       value: document.querySelector(`input[name="settings-q-${index}"]:checked`)?.value === "true",
-    })),
-    selects: (current.selects || []).map((item, index) => ({
+    }));
+    next.selects = (current.selects || []).map((item, index) => ({
       ...item,
       value: document.querySelector(`[data-settings-select-index="${index}"]`)?.value || item.value,
-    })),
-    locationStatus: document.querySelector("#settings-location-address")?.value.trim()
-      ? "Girilmiş"
-      : "Girilmemiş",
-    location: {
-      address: document.querySelector("#settings-location-address")?.value.trim() || "",
-      lat: document.querySelector("#settings-location-lat")?.value.trim() || "",
-      lng: document.querySelector("#settings-location-lng")?.value.trim() || "",
-      mapUrl: document.querySelector("#settings-location-map-url")?.value.trim() || "",
-    },
-  };
+    }));
+    next.locationStatus = valueOf("#settings-location-address") ? "Girilmiş" : "Girilmemiş";
+    next.location = {
+      ...(current.location || {}),
+      address: valueOf("#settings-location-address"),
+      lat: valueOf("#settings-location-lat"),
+      lng: valueOf("#settings-location-lng"),
+      mapUrl: valueOf("#settings-location-map-url"),
+    };
+  }
+
+  if (venueState.activeSettingsTab === "İletişim Bilgileri") {
+    next.contact = {
+      authorizedName: valueOf("#settings-contact-authorized-name"),
+      phone: valueOf("#settings-contact-phone"),
+      whatsapp: valueOf("#settings-contact-whatsapp"),
+      email: valueOf("#settings-contact-email"),
+      website: valueOf("#settings-contact-website"),
+      instagram: valueOf("#settings-contact-instagram"),
+    };
+  }
+
+  if (venueState.activeSettingsTab === "İşletme Detayları") {
+    next.details = {
+      category: valueOf("#settings-detail-category"),
+      district: valueOf("#settings-detail-district"),
+      description: valueOf("#settings-detail-description"),
+      workingHours: valueOf("#settings-detail-working-hours"),
+      cancellationPolicy: valueOf("#settings-detail-cancellation"),
+    };
+    next.locationStatus = valueOf("#settings-location-address") ? "Girilmiş" : "Girilmemiş";
+    next.location = {
+      ...(current.location || {}),
+      address: valueOf("#settings-location-address"),
+      lat: valueOf("#settings-location-lat"),
+      lng: valueOf("#settings-location-lng"),
+      mapUrl: valueOf("#settings-location-map-url"),
+    };
+  }
+
+  if (venueState.activeSettingsTab === "Medya") {
+    next.media = {
+      ...current.media,
+      logoUrl: valueOf("#settings-media-logo-url"),
+      coverUrl: valueOf("#settings-media-cover-url"),
+    };
+  }
+
+  if (venueState.activeSettingsTab === "Alan Bilgileri") {
+    next.areas = Array.from(document.querySelectorAll("[data-area-card]")).map((card) => {
+      const index = card.dataset.areaCard;
+      return {
+        name: valueOf(`[data-area-name="${index}"]`),
+        type: valueOf(`[data-area-type="${index}"]`),
+        capacity: valueOf(`[data-area-capacity="${index}"]`),
+        price: valueOf(`[data-area-price="${index}"]`),
+        isActive: checked(`[data-area-active="${index}"]`),
+      };
+    });
+  }
+
+  if (venueState.activeSettingsTab === "Ödeme Bilgileri") {
+    next.payment = {
+      invoiceTitle: valueOf("#settings-payment-invoice-title"),
+      taxOffice: valueOf("#settings-payment-tax-office"),
+      taxNumber: valueOf("#settings-payment-tax-number"),
+      iban: valueOf("#settings-payment-iban"),
+      paymentMethod: valueOf("#settings-payment-method"),
+    };
+  }
+
+  if (venueState.activeSettingsTab === "Sözleşmeler") {
+    next.contracts = {
+      termsAccepted: checked("#settings-contract-terms"),
+      kvkkAccepted: checked("#settings-contract-kvkk"),
+      notes: valueOf("#settings-contract-notes"),
+    };
+  }
+
+  return normalizeSettings(next);
 }
 
 function collectProfilePayload() {
@@ -817,46 +1235,50 @@ function setSaveStatus(selector, message, isError = false) {
   node.classList.toggle("is-error", isError);
 }
 
-function renderDropdown(container, items) {
-  const viewMap = {
-    "Profil Ayarları": "profile",
-    Değerlendirmeler: "reviews",
-    "Fatura Adresleri": "billing",
-    Takvim: "calendar",
-    "Haftalık Abonelik Satış": "subscriptions",
-    İşlemler: "transactions",
-    Raporlama: "transactions",
-    Ayarlar: "settings",
-  };
-
-  container.innerHTML = items
-    .map((item) => {
-      if (item === "Çıkış Yap") {
-        return `<button class="dropdown-item dropdown-item-danger" type="button" data-action="logout">${item}</button>`;
-      }
-
-      const target = viewMap[item] || "overview";
-      return `<button class="dropdown-item" type="button" data-view-target="${target}">${item}</button>`;
-    })
-    .join("");
-}
-
 function setView(viewId) {
-  navItems.forEach((item) => item.classList.toggle("is-active", item.dataset.view === viewId));
+  navItems.forEach((item) => {
+    item.classList.toggle("is-active", item.dataset.view === viewId && !item.dataset.action);
+  });
   sections.forEach((section) => section.classList.toggle("hidden", section.id !== `${viewId}-view`));
 }
 
-function setManagerMenuOpen(isOpen) {
-  venueState.isManagerMenuOpen = isOpen;
-  managerMenu?.classList.toggle("is-open", isOpen);
-  managerMenuTrigger?.setAttribute("aria-expanded", isOpen ? "true" : "false");
-  managerMenuItems?.classList.toggle("is-visible", isOpen);
+function setNavGroupOpen(activeGroup) {
+  navGroups.forEach((group) => {
+    const shouldOpen = group === activeGroup && !group.classList.contains("is-open");
+    group.classList.toggle("is-open", shouldOpen);
+    group.querySelector(".venue-nav-heading")?.setAttribute("aria-expanded", String(shouldOpen));
+  });
+}
+
+function imageFileToGalleryItem(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const maxSize = 900;
+        const ratio = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(image.width * ratio);
+        canvas.height = Math.round(image.height * ratio);
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve({
+          name: file.name,
+          src: canvas.toDataURL("image/jpeg", 0.76),
+        });
+      };
+      image.onerror = reject;
+      image.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 async function loadVenueDashboard() {
   await requireVenueAccess();
-  const venueId = new URLSearchParams(window.location.search).get("venue") || "zincirlikuyu-arena";
-  const response = await fetch(`/api/venue/bootstrap?venue=${encodeURIComponent(venueId)}`, {
+  const response = await fetch("/api/venue/bootstrap", {
     headers: getAuthHeaders(),
   });
   if (!response.ok) {
@@ -864,17 +1286,14 @@ async function loadVenueDashboard() {
     throw new Error("İşletme paneli verisi yüklenemedi.");
   }
   const payload = await response.json();
+  payload.settings = normalizeSettings(payload.settings || {});
   venueState.dashboard = payload;
-  venueState.venueId = payload.id || venueId;
+  venueState.venueId = payload.id || "";
   venueState.slotModes = payload.slotState?.slotModes || {};
   venueState.manualEntries = payload.slotState?.manualEntries || {};
 
-  venueTitle.textContent = `${payload.venue.name} yönetim paneli`;
-  venueAvatar.textContent = payload.venue.avatarLabel;
-  venueName.textContent = payload.venue.name;
-  venueBranch.textContent = payload.venue.branch;
+  renderVenueIdentity();
 
-  renderDropdown(managerMenuItems, payload.managerMenu?.length ? payload.managerMenu : DEFAULT_MANAGER_MENU);
   renderStats(payload.stats);
   renderOverview(payload.stats);
   renderQuickActions(payload.quickActions);
@@ -896,37 +1315,24 @@ async function loadVenueDashboard() {
 }
 
 function bindVenueInteractions() {
-  topbarLinks.forEach((link) => {
-    link.addEventListener("click", () => {
-      const target = link.dataset.viewTarget;
-      if (target) {
-        setView(target);
-      }
+  navGroupTriggers.forEach((trigger) => {
+    trigger.addEventListener("click", () => {
+      const group = trigger.closest(".venue-nav-group");
+      if (group) setNavGroupOpen(group);
     });
   });
 
-  managerMenuTrigger?.addEventListener("click", (event) => {
-    event.stopPropagation();
-    setManagerMenuOpen(!venueState.isManagerMenuOpen);
-  });
+  navItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      if (item.dataset.action === "logout") {
+        localStorage.removeItem("tyee_token");
+        window.location.href = "/index.html";
+        return;
+      }
 
-  managerMenuItems?.addEventListener("click", (event) => {
-    const button = event.target.closest(".dropdown-item");
-    if (!button) return;
-
-    if (button.dataset.action === "logout") {
-      localStorage.removeItem("zuvu_token");
-      setManagerMenuOpen(false);
-      window.location.href = "/index.html";
-      return;
-    }
-
-    const target = button.dataset.viewTarget;
-    if (target) {
-      setView(target);
-    }
-
-    setManagerMenuOpen(false);
+      const target = item.dataset.view;
+      if (target) setView(target);
+    });
   });
 
   calendarBoardSecondary?.addEventListener("click", (event) => {
@@ -968,27 +1374,11 @@ function bindVenueInteractions() {
   });
 
   document.addEventListener("click", (event) => {
-    if (!event.target.closest("#manager-menu") && venueState.isManagerMenuOpen) {
-      setManagerMenuOpen(false);
-    }
-
     if (!event.target.closest(".schedule-slot-cell") && venueState.dashboard) {
       if (venueState.selectedSlotKey) {
         venueState.selectedSlotKey = "";
         renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
       }
-    }
-  });
-
-  window.addEventListener("resize", () => {
-    if (venueState.isManagerMenuOpen) {
-      setManagerMenuOpen(true);
-    }
-  });
-
-  window.addEventListener("scroll", () => {
-    if (venueState.isManagerMenuOpen) {
-      setManagerMenuOpen(true);
     }
   });
 
@@ -1032,7 +1422,42 @@ function bindVenueInteractions() {
     closeSalesModal();
   });
 
+  settingsTabs?.addEventListener("click", (event) => {
+    const tab = event.target.closest("[data-settings-tab]");
+    if (!tab || !venueState.dashboard) return;
+    venueState.dashboard.settings = collectSettingsPayload();
+    venueState.activeSettingsTab = tab.dataset.settingsTab;
+    renderSettingsTabs(venueState.dashboard.settings.tabs);
+    renderSettingsOnboarding(venueState.dashboard.settings);
+  });
+
   settingsOnboardingForm?.addEventListener("click", async (event) => {
+    const removeMediaButton = event.target.closest("[data-media-remove]");
+    if (removeMediaButton && venueState.dashboard) {
+      venueState.dashboard.settings = collectSettingsPayload();
+      const settings = normalizeSettings(venueState.dashboard.settings);
+      settings.media.gallery.splice(Number(removeMediaButton.dataset.mediaRemove), 1);
+      venueState.dashboard.settings = settings;
+      renderSettingsOnboarding(settings);
+      return;
+    }
+
+    const addAreaButton = event.target.closest("[data-area-add]");
+    if (addAreaButton && venueState.dashboard) {
+      venueState.dashboard.settings = collectSettingsPayload();
+      const settings = normalizeSettings(venueState.dashboard.settings);
+      settings.areas.push({
+        name: `Alan ${settings.areas.length + 1}`,
+        type: "Saha / oda / masa",
+        capacity: "",
+        price: "",
+        isActive: true,
+      });
+      venueState.dashboard.settings = settings;
+      renderSettingsOnboarding(settings);
+      return;
+    }
+
     const button = event.target.closest("[data-settings-save]");
     if (!button || !venueState.dashboard) return;
 
@@ -1043,11 +1468,33 @@ function bindVenueInteractions() {
         method: "PATCH",
         body: JSON.stringify({ venueId: venueState.venueId, settings }),
       });
-      venueState.dashboard.settings = payload.settings;
-      renderSettingsOnboarding(payload.settings);
+      venueState.dashboard.settings = normalizeSettings(payload.settings);
+      renderVenueIdentity();
+      renderSettingsTabs(venueState.dashboard.settings.tabs);
+      renderSettingsOnboarding(venueState.dashboard.settings);
+      renderTransactions(venueState.dashboard.transactions || []);
       setSaveStatus("[data-settings-status]", "Kaydedildi");
     } catch (error) {
       setSaveStatus("[data-settings-status]", error.message, true);
+    }
+  });
+
+  settingsOnboardingForm?.addEventListener("change", async (event) => {
+    const input = event.target.closest("[data-media-upload]");
+    if (!input || !venueState.dashboard || !input.files?.length) return;
+
+    setSaveStatus("[data-settings-status]", "Görsel hazırlanıyor...");
+    try {
+      venueState.dashboard.settings = collectSettingsPayload();
+      const settings = normalizeSettings(venueState.dashboard.settings);
+      const files = Array.from(input.files).filter((file) => file.type.startsWith("image/"));
+      const nextImages = await Promise.all(files.map(imageFileToGalleryItem));
+      settings.media.gallery = [...settings.media.gallery, ...nextImages];
+      venueState.dashboard.settings = settings;
+      renderSettingsOnboarding(settings);
+      setSaveStatus("[data-settings-status]", "Görsel eklendi. Kaydetmeyi unutma.");
+    } catch (error) {
+      setSaveStatus("[data-settings-status]", "Görsel eklenemedi.", true);
     }
   });
 
@@ -1098,12 +1545,6 @@ function bindVenueInteractions() {
     }
   });
 }
-
-navItems.forEach((item) => {
-  item.addEventListener("click", () => {
-    setView(item.dataset.view);
-  });
-});
 
 bindVenueInteractions();
 

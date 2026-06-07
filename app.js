@@ -1,10 +1,10 @@
 const listingGrid = document.querySelector("#listing-grid");
 const filterPillsContainer = document.querySelector("#filter-pills");
 const categoryRail = document.querySelector("#category-rail");
+const categoryNext = document.querySelector("#category-next");
 const searchPanel = document.querySelector("#search-panel");
 const queryInput = document.querySelector("#search-query");
 const citySelect = document.querySelector("#search-city");
-const timeInput = document.querySelector("#search-time");
 const heroMetrics = document.querySelector("#hero-metrics");
 const hotSlots = document.querySelector("#hot-slots");
 const resultsSummary = document.querySelector("#results-summary");
@@ -40,6 +40,7 @@ const authEntryBack = document.querySelector("#auth-entry-back");
 const authRoleChoices = document.querySelectorAll("[data-role-choice]");
 const authEntryChoices = document.querySelectorAll("[data-entry-choice]");
 const popularSearches = document.querySelector(".popular-searches");
+const businessNavLink = document.querySelector("#business-nav-link");
 const nearbyMapTrigger = document.querySelector("#nearby-map-trigger");
 const nearbyMapModal = document.querySelector("#nearby-map-modal");
 const nearbyMapClose = document.querySelector("#nearby-map-close");
@@ -47,25 +48,29 @@ const nearbyMapDismiss = document.querySelector("#nearby-map-dismiss");
 const nearbyLocate = document.querySelector("#nearby-locate");
 const nearbyMapStatus = document.querySelector("#nearby-map-status");
 const nearbyResults = document.querySelector("#nearby-results");
-const featuredMapOpen = document.querySelector("#featured-map-open");
 const inlineNearbyMap = document.querySelector("#inline-nearby-map");
 const inlineNearbyResults = document.querySelector("#inline-nearby-results");
 const inlineNearbyLocate = document.querySelector("#inline-nearby-locate");
 const inlineMapExpand = document.querySelector("#inline-map-expand");
 const inlineMapStatus = document.querySelector("#inline-map-status");
+const notificationShell = document.querySelector("#notification-shell");
+const notificationCount = document.querySelector("#notification-count");
+const notificationStatus = document.querySelector("#notification-status");
+const notificationItems = document.querySelectorAll("[data-notification-id]");
+const notificationStorageKey = "tyee_read_notifications_v1";
+let notificationReadTimer = null;
 
 const state = {
   category: "all",
   city: "all",
   query: "",
-  time: "Bugün, 19:00",
   categories: [],
   featuredListings: [],
   authMode: "login",
   authEntry: "customer",
   authStep: "form",
   pendingRegistration: null,
-  token: localStorage.getItem("zuvu_token") || "",
+  token: localStorage.getItem("tyee_token") || "",
   user: null,
   nearbyMarkers: {
     modal: [],
@@ -75,6 +80,7 @@ const state = {
     modal: null,
     inline: null,
   },
+  nearbyItems: [],
   nearbyUserMarker: null,
   nearbyOrigin: { lat: 41.0351, lng: 29.0268 },
 };
@@ -119,6 +125,68 @@ function setInlineNearbyStatus(message) {
   if (inlineMapStatus) inlineMapStatus.textContent = message;
 }
 
+function getReadNotificationIds() {
+  try {
+    const value = JSON.parse(localStorage.getItem(notificationStorageKey) || "[]");
+    return new Set(Array.isArray(value) ? value : []);
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function saveReadNotificationIds(readIds) {
+  localStorage.setItem(notificationStorageKey, JSON.stringify([...readIds]));
+}
+
+function updateNotificationUi() {
+  if (!notificationItems.length) return;
+
+  const readIds = getReadNotificationIds();
+  let unreadCount = 0;
+
+  notificationItems.forEach((item) => {
+    const isRead = readIds.has(item.dataset.notificationId);
+    item.classList.toggle("is-read", isRead);
+    item.setAttribute("aria-pressed", isRead ? "true" : "false");
+    if (!isRead) unreadCount += 1;
+  });
+
+  if (notificationCount) {
+    notificationCount.textContent = String(unreadCount);
+    notificationCount.classList.toggle("is-hidden", unreadCount === 0);
+  }
+
+  const bellButton = notificationShell?.querySelector(".bell-button");
+  if (bellButton) {
+    bellButton.setAttribute(
+      "aria-label",
+      unreadCount ? `Bildirimler, ${unreadCount} okunmamış` : "Bildirimler, okunmamış bildirim yok",
+    );
+  }
+
+  if (notificationStatus) {
+    notificationStatus.textContent = unreadCount
+      ? `${unreadCount} okunmamış bildirim var.`
+      : "Tüm bildirimler okundu.";
+  }
+}
+
+function markNotificationRead(notificationId) {
+  if (!notificationId) return;
+  const readIds = getReadNotificationIds();
+  readIds.add(notificationId);
+  saveReadNotificationIds(readIds);
+  updateNotificationUi();
+}
+
+function markAllNotificationsRead() {
+  if (!notificationItems.length) return;
+  const readIds = getReadNotificationIds();
+  notificationItems.forEach((item) => readIds.add(item.dataset.notificationId));
+  saveReadNotificationIds(readIds);
+  updateNotificationUi();
+}
+
 function clearNearbyMarkers() {
   state.nearbyMarkers.modal = [];
   state.nearbyMarkers.inline = [];
@@ -151,9 +219,15 @@ function projectNearbyPoint(point, bounds) {
   };
 }
 
+function buildGoogleMapsEmbedUrl(point, markerGroup = "modal") {
+  const zoom = markerGroup === "inline" ? 13 : 14;
+  const query = `${point.lat},${point.lng}`;
+  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&output=embed`;
+}
+
 function buildMapIcon(item) {
   return L.divIcon({
-    className: "zuvu-map-pin",
+    className: "tyee-map-pin",
     html: `<span>${item.icon || "✦"}</span>`,
     iconSize: [42, 52],
     iconAnchor: [21, 50],
@@ -163,7 +237,7 @@ function buildMapIcon(item) {
 
 function buildUserIcon() {
   return L.divIcon({
-    className: "zuvu-user-pin",
+    className: "tyee-user-pin",
     html: "<span>⌖</span>",
     iconSize: [54, 54],
     iconAnchor: [27, 27],
@@ -233,25 +307,14 @@ function ensureInteractiveMap(container, markerGroup = "modal") {
 function renderNearbyMapCanvas(map, origin, items = [], markerGroup = "modal") {
   if (!map) return;
 
-  const latSpan = markerGroup === "inline" ? 0.06 : 0.075;
-  const lngSpan = markerGroup === "inline" ? 0.1 : 0.13;
-  const bbox = [
-    origin.lng - lngSpan,
-    origin.lat - latSpan,
-    origin.lng + lngSpan,
-    origin.lat + latSpan,
-  ].map((value) => value.toFixed(5));
-  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
-    bbox.join(","),
-  )}&layer=mapnik&marker=${encodeURIComponent(`${origin.lat},${origin.lng}`)}`;
-
+  const src = buildGoogleMapsEmbedUrl(origin, markerGroup);
   map.innerHTML = `
     ${
       markerGroup === "inline"
         ? `<button class="map-expand-button" id="inline-map-expand" type="button" aria-label="Haritayı büyüt">🔍</button>`
         : ""
     }
-    <iframe class="nearby-map-frame" title="Yakındaki sokak haritası" src="${src}" loading="eager"></iframe>
+    <iframe class="nearby-map-frame" title="Yakındaki Google haritası" src="${src}" loading="eager" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
   `;
 
   state.nearbyMarkers[markerGroup] = [];
@@ -299,6 +362,7 @@ async function getNearbyItems(origin = state.nearbyOrigin) {
 async function loadNearbyMap(origin = state.nearbyOrigin) {
   setNearbyStatus("Yakındaki işletmeler hesaplanıyor...");
   const items = await getNearbyItems(origin);
+  state.nearbyItems = items;
 
   clearNearbyMarkers();
   renderNearbyMapCanvas(document.querySelector("#nearby-map"), origin, items, "modal");
@@ -308,7 +372,7 @@ async function loadNearbyMap(origin = state.nearbyOrigin) {
   renderNearbyResults(inlineNearbyResults, items, 4);
   setNearbyStatus(
     items.length
-      ? `${items.length} işletme kategori ikonlarıyla haritada gösteriliyor.`
+      ? `${items.length} işletme Google Maps üzerinde konuma göre hesaplandı.`
       : "Bu konuma yakın işletme bulunamadı.",
   );
   setInlineNearbyStatus(items.length ? `${items.length} yakın seçenek` : "Yakın işletme bulunamadı");
@@ -317,6 +381,7 @@ async function loadNearbyMap(origin = state.nearbyOrigin) {
 async function loadInlineNearbyMap(origin = state.nearbyOrigin) {
   setInlineNearbyStatus("Yakındaki işletmeler hesaplanıyor...");
   const items = await getNearbyItems(origin);
+  state.nearbyItems = items;
   renderNearbyMapCanvas(inlineNearbyMap, origin, items, "inline");
   renderNearbyResults(inlineNearbyResults, items, 4);
   setInlineNearbyStatus(items.length ? `${items.length} yakın seçenek` : "Yakın işletme bulunamadı");
@@ -374,6 +439,7 @@ function renderHeroMetrics(items = []) {
 }
 
 function renderHotSlots(items = []) {
+  if (!hotSlots) return;
   hotSlots.innerHTML = items
     .map(
       (item) => `
@@ -496,12 +562,13 @@ function renderListings(items = []) {
 }
 
 function highlightNearbyMarker(markerId, group = "modal") {
-  const markers = state.nearbyMarkers[group] || [];
-  const marker = markers.find((item) => item.zuvuId === markerId);
-  const slot = state.nearbyMapInstances[group];
-  if (!marker || !slot) return;
-  slot.map.setView(marker.getLatLng(), group === "inline" ? 14 : 15, { animate: true });
-  marker.openPopup();
+  const item = state.nearbyItems.find((nearbyItem) => nearbyItem.id === markerId);
+  const target = group === "inline" ? inlineNearbyMap : document.querySelector("#nearby-map");
+  if (!item || !target) return;
+  renderNearbyMapCanvas(target, { lat: item.lat, lng: item.lng }, state.nearbyItems, group);
+  const message = `${item.name} Google Maps üzerinde açıldı.`;
+  if (group === "inline") setInlineNearbyStatus(message);
+  else setNearbyStatus(message);
 }
 
 async function fetchJson(url) {
@@ -556,7 +623,6 @@ async function loadListings() {
     category: state.category,
     city: state.city,
     query: state.query,
-    time: state.time,
   });
 
   const payload = await fetchJson(`/api/listings?${params.toString()}`);
@@ -589,6 +655,16 @@ function openAuthModal(mode = "login") {
   authModal.setAttribute("aria-hidden", "false");
 }
 
+function openVenueLoginModal(message = "") {
+  openAuthModal("login");
+  state.authEntry = "venue";
+  state.authStep = "form";
+  authTitle.textContent = "İşletme girişi";
+  showAuthFormStep();
+  authFeedback.textContent = message;
+  authFeedback.classList.remove("is-success");
+}
+
 function closeAuthModal() {
   authModal.classList.add("hidden");
   authModal.setAttribute("aria-hidden", "true");
@@ -609,6 +685,12 @@ function closeAccountMenu() {
   loginTrigger.setAttribute("aria-expanded", "false");
 }
 
+function closeHeaderPopovers() {
+  document.querySelectorAll(".header-popover-shell[open]").forEach((node) => {
+    node.removeAttribute("open");
+  });
+}
+
 function toggleAccountMenu() {
   const willOpen = accountMenu.classList.contains("hidden");
   if (!willOpen) {
@@ -616,6 +698,7 @@ function toggleAccountMenu() {
     return;
   }
 
+  closeHeaderPopovers();
   accountMenu.classList.remove("hidden");
   accountMenu.setAttribute("aria-hidden", "false");
   loginTrigger.setAttribute("aria-expanded", "true");
@@ -626,6 +709,7 @@ function updateAuthUi() {
     const needsVerification = !state.user.emailVerified || (state.user.phone && !state.user.phoneVerified);
     accountLabel.textContent = state.user.name;
     avatarMini.textContent = getInitials(state.user.name);
+    avatarMini.classList.remove("hidden");
     loginTrigger.classList.add("is-authenticated");
     accountMenuCopy.innerHTML = `
       <strong>${state.user.name}</strong>
@@ -648,8 +732,9 @@ function updateAuthUi() {
     accountEnableVenue.classList.toggle("hidden", state.user.canManageVenue);
     accountAdmin.classList.toggle("hidden", !state.user.canAccessAdmin);
   } else {
-    accountLabel.textContent = "Giriş Yap";
-    avatarMini.textContent = "R";
+    accountLabel.textContent = "Giriş Yap / Kayıt Ol";
+    avatarMini.textContent = "";
+    avatarMini.classList.add("hidden");
     loginTrigger.classList.remove("is-authenticated");
     accountDashboard.classList.add("hidden");
     accountEnableVenue.classList.add("hidden");
@@ -673,7 +758,7 @@ async function loadCurrentUser() {
     state.user = payload.user;
     updateAuthUi();
   } catch (error) {
-    localStorage.removeItem("zuvu_token");
+    localStorage.removeItem("tyee_token");
     state.token = "";
     state.user = null;
     updateAuthUi();
@@ -691,6 +776,12 @@ function handleCategoryClick(event) {
 
 filterPillsContainer.addEventListener("click", handleCategoryClick);
 categoryRail.addEventListener("click", handleCategoryClick);
+categoryNext?.addEventListener("click", () => {
+  categoryRail.scrollBy({
+    left: Math.max(320, categoryRail.clientWidth * 0.72),
+    behavior: "smooth",
+  });
+});
 
 popularSearches.addEventListener("click", (event) => {
   const button = event.target.closest("[data-search]");
@@ -707,7 +798,6 @@ searchPanel.addEventListener("submit", (event) => {
   event.preventDefault();
   state.query = queryInput.value.trim();
   state.city = citySelect.value;
-  state.time = timeInput.value.trim();
   state.category = getActiveCategory();
   loadListings();
   listingGrid.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -723,13 +813,7 @@ citySelect.addEventListener("change", () => {
   loadListings();
 });
 
-timeInput.addEventListener("change", () => {
-  state.time = timeInput.value.trim();
-  loadListings();
-});
-
 nearbyMapTrigger.addEventListener("click", openNearbyMap);
-featuredMapOpen.addEventListener("click", openNearbyMap);
 nearbyLocate.addEventListener("click", requestNearbyLocation);
 inlineNearbyLocate.addEventListener("click", requestNearbyLocation);
 inlineMapExpand?.addEventListener("click", openNearbyMap);
@@ -744,6 +828,32 @@ inlineNearbyResults?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-marker-id]");
   if (!button) return;
   highlightNearbyMarker(button.dataset.markerId, "inline");
+});
+
+notificationItems.forEach((item) => {
+  item.addEventListener("click", () => {
+    markNotificationRead(item.dataset.notificationId);
+  });
+});
+updateNotificationUi();
+
+document.querySelectorAll(".header-popover-shell").forEach((shell) => {
+  shell.addEventListener("toggle", () => {
+    if (shell === notificationShell) {
+      window.clearTimeout(notificationReadTimer);
+      if (shell.open) {
+        notificationReadTimer = window.setTimeout(() => {
+          if (notificationShell?.open) markAllNotificationsRead();
+        }, 800);
+      }
+    }
+
+    if (!shell.open) return;
+    closeAccountMenu();
+    document.querySelectorAll(".header-popover-shell[open]").forEach((node) => {
+      if (node !== shell) node.removeAttribute("open");
+    });
+  });
 });
 
 loginTrigger.addEventListener("click", () => {
@@ -785,20 +895,34 @@ accountEnableVenue.addEventListener("click", async () => {
 });
 
 accountLogout.addEventListener("click", () => {
-  localStorage.removeItem("zuvu_token");
+  localStorage.removeItem("tyee_token");
   state.token = "";
   state.user = null;
   authForm.reset();
+  closeAccountMenu();
   updateAuthUi();
+});
+
+businessNavLink?.addEventListener("click", (event) => {
+  if (state.user?.canManageVenue) return;
+
+  event.preventDefault();
+  if (state.user && !state.user.canManageVenue) {
+    openVenueLoginModal("Bu hesapta işletme modu açık değil. İşletme paneli için işletme hesabı ile giriş yapmalısın.");
+    return;
+  }
+
+  openVenueLoginModal("İşletme paneline girmek için giriş yapmalısın.");
 });
 
 authClose.addEventListener("click", closeAuthModal);
 authCloseButton.addEventListener("click", closeAuthModal);
 
 document.addEventListener("click", (event) => {
-  if (!state.user) return;
   if (event.target.closest(".account-shell")) return;
+  if (event.target.closest(".header-popover-shell")) return;
   closeAccountMenu();
+  closeHeaderPopovers();
 });
 
 authTabs.forEach((tab) => {
@@ -848,7 +972,7 @@ authRoleChoices.forEach((button) => {
 
       state.token = response.token;
       state.user = response.user;
-      localStorage.setItem("zuvu_token", response.token);
+      localStorage.setItem("tyee_token", response.token);
       updateAuthUi();
       authFeedback.textContent = response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.";
       authFeedback.classList.add("is-success");
@@ -872,6 +996,7 @@ authForm.addEventListener("submit", async (event) => {
   const payload = {
     email: authEmail.value.trim(),
     password: authPassword.value,
+    loginType: state.authEntry === "venue" ? "venue" : "customer",
   };
 
   if (isRegister) {
@@ -892,7 +1017,7 @@ authForm.addEventListener("submit", async (event) => {
 
     state.token = response.token;
     state.user = response.user;
-    localStorage.setItem("zuvu_token", response.token);
+    localStorage.setItem("tyee_token", response.token);
     updateAuthUi();
     authFeedback.textContent = "Giriş başarılı.";
     authFeedback.classList.add("is-success");

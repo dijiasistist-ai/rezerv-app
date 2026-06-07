@@ -12,10 +12,14 @@ const {
 
 const {
   appendDevEmail,
-  appendDevSms,
+  deleteAdminAccessRule,
+  deleteUserById,
+  deleteVenueRecord,
   findUserByEmail,
   findUserByEmailVerificationToken,
   findUserById,
+  getAdminAccessRules,
+  getDeletedVenueIds,
   getUsers,
   getDevOutbox,
   getVenueOverlay,
@@ -23,14 +27,23 @@ const {
   migrateLegacyUsers,
   normalizeEmail,
   saveVenueOverlay,
+  upsertAdminAccessRule,
   upsertUser,
   verifyPassword,
   ensureSeedUser,
 } = require("./data/runtime-store");
+const { getMessagingStatus, sendMessage } = require("./services/messaging");
+const {
+  PAYMENT_MODES,
+  calculateReservationBilling,
+  summarizeMonthlyCommission,
+} = require("./services/reservation-billing");
 
 const app = express();
 const port = Number(process.env.PORT || 8091);
 const sessions = new Map();
+
+app.set("trust proxy", true);
 
 function createToken(bytes = 24) {
   return crypto.randomBytes(bytes).toString("hex");
@@ -51,8 +64,38 @@ function normalizeUser(user) {
     isAdmin: Boolean(user.isAdmin),
     emailVerified: Boolean(user.emailVerified),
     phoneVerified: Boolean(user.phoneVerified),
-    venueId: user.venueId || "zincirlikuyu-arena",
+    venueId: getUserVenueId(user),
   };
+}
+
+function createVenueIdFromUser(user) {
+  const base = user?.id || normalizeEmail(user?.email || "venue");
+  return `venue-${String(base).replace(/[^a-z0-9-]/gi, "-").toLowerCase()}`;
+}
+
+function getUserVenueId(user) {
+  if (!user?.canManageVenue) return user?.venueId || "";
+  const email = normalizeEmail(user.email || "");
+  const reservedDefaultOwners = new Set(["hysnyildiz@gmail.com", "firma@tyee.app", "admin@tyee.app"]);
+  if (user.venueId && (user.venueId !== "zincirlikuyu-arena" || reservedDefaultOwners.has(email) || user.isAdmin)) {
+    return user.venueId;
+  }
+  return createVenueIdFromUser(user);
+}
+
+function resolveVenueIdForRequest(req, requestedVenueId = "") {
+  const requested = String(requestedVenueId || "").trim();
+  if (req.user?.isAdmin && requested) return requested;
+  return getUserVenueId(req.user) || "zincirlikuyu-arena";
+}
+
+function getInitials(value = "") {
+  const words = String(value).trim().split(/\s+/).filter(Boolean);
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toLocaleUpperCase("tr-TR") || "İ";
 }
 
 function publicBaseUrl(req) {
@@ -61,16 +104,41 @@ function publicBaseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
 }
 
-function verificationEmailTemplate({ name, verifyUrl }) {
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function verificationEmailTemplate({ name, verifyUrl, accountType = "customer" }) {
+  const safeName = escapeHtml(name);
+  const safeVerifyUrl = escapeHtml(verifyUrl);
+  const isVenue = accountType === "venue";
+  const headline = isVenue ? "İşletmeni tyee'da görmek çok güzel." : "tyee'a hoş geldin.";
+  const intro = isVenue
+    ? "Seni gördüğümüze çok sevindik. İşletme hesabın hazır; profilini, lokasyonunu ve hizmetlerini tamamlayarak ilk rezervasyon akışına yaklaşabilirsin."
+    : "Seni gördüğümüze çok sevindik. Artık yakınındaki hizmetleri keşfetmeye, karşılaştırmaya ve zamanı geldiğinde kolayca rezervasyon yapmaya hazırsın.";
+  const nextStep = isVenue
+    ? "Başlamak için e-postanı doğrula; ardından işletme panelindeki bilgileri birlikte netleştireceğiz."
+    : "Başlamak için e-postanı doğrula; sonra tyee deneyimini senin için daha kişisel hale getireceğiz.";
+
   return {
-    subject: "zuvu e-posta doğrulama",
-    text: `Merhaba ${name}, zuvu hesabını doğrulamak için bu bağlantıyı aç: ${verifyUrl}`,
+    subject: isVenue ? "tyee işletme hesabına hoş geldin" : "tyee'a hoş geldin",
+    text: `Merhaba ${name},\n\n${intro}\n\n${nextStep}\n\nE-postanı doğrula: ${verifyUrl}\n\ntyee ekibi`,
     html: `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
-        <h1 style="margin:0 0 12px;font-size:24px">zuvu hesabını doğrula</h1>
-        <p>Merhaba ${name}, hesabını tamamlamak için aşağıdaki bağlantıya tıkla.</p>
-        <a href="${verifyUrl}" style="display:inline-block;margin:18px 0;padding:12px 18px;border-radius:10px;background:#04a7f4;color:#fff;text-decoration:none;font-weight:700">E-postamı doğrula</a>
-        <p style="font-size:13px;color:#667085">Bu e-posta geliştirme ortamında dev posta kutusuna kaydedilir. Gerçek gönderim için mail sağlayıcısı bağlanacak.</p>
+      <div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:auto;padding:32px;color:#111827;background:#ffffff">
+        <div style="border:1px solid #e7edf5;border-radius:18px;padding:30px;background:#fbfdff">
+          <p style="margin:0 0 10px;color:#248be8;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase">tyee</p>
+          <h1 style="margin:0 0 14px;font-size:28px;line-height:1.15;color:#07123d">${headline}</h1>
+          <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">Merhaba ${safeName},</p>
+          <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">${intro}</p>
+          <p style="margin:0 0 22px;font-size:16px;line-height:1.65;color:#344054">${nextStep}</p>
+          <a href="${safeVerifyUrl}" style="display:inline-block;margin:0 0 24px;padding:13px 18px;border-radius:12px;background:#248be8;color:#fff;text-decoration:none;font-weight:800">E-postamı doğrula</a>
+          <p style="margin:0;font-size:14px;line-height:1.55;color:#667085">Sevgiler,<br /><strong style="color:#111827">tyee ekibi</strong></p>
+        </div>
       </div>
     `,
   };
@@ -78,7 +146,7 @@ function verificationEmailTemplate({ name, verifyUrl }) {
 
 function passwordResetEmailTemplate({ name, resetToken }) {
   return {
-    subject: "zuvu şifre sıfırlama",
+    subject: "tyee şifre sıfırlama",
     text: `Merhaba ${name}, şifre sıfırlama kodun: ${resetToken}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
@@ -94,7 +162,11 @@ function sendVerificationEmail(req, user) {
   const verifyUrl = `${publicBaseUrl(req)}/verify-email?token=${encodeURIComponent(
     user.emailVerificationToken,
   )}`;
-  const email = verificationEmailTemplate({ name: user.name, verifyUrl });
+  const email = verificationEmailTemplate({
+    name: user.name,
+    verifyUrl,
+    accountType: user.canManageVenue ? "venue" : "customer",
+  });
   return appendDevEmail({
     to: user.email,
     template: "email-verification",
@@ -102,31 +174,32 @@ function sendVerificationEmail(req, user) {
   });
 }
 
-function sendPhoneVerification(user) {
+async function sendPhoneVerification(user) {
   if (!user.phone || !user.phoneVerificationCode) return null;
-  return appendDevSms({
+  return sendMessage({
+    channel: "sms",
     to: user.phone,
     template: "phone-verification",
-    body: `zuvu doğrulama kodun: ${user.phoneVerificationCode}`,
+    body: `tyee doğrulama kodun: ${user.phoneVerificationCode}`,
   });
 }
 
 function seedUsers() {
   migrateLegacyUsers();
-  ensureSeedUser("demo@zuvu.app", { name: "Demo Kullanıcı", password: "123456" });
-  ensureSeedUser("firma@zuvu.app", {
+  ensureSeedUser("demo@tyee.app", { name: "Demo Kullanıcı", password: "123456" });
+  ensureSeedUser("firma@tyee.app", {
     name: "Zincirlikuyu Arena",
     password: "123456",
     canManageVenue: true,
   });
-  ensureSeedUser("admin@zuvu.app", {
+  ensureSeedUser("admin@tyee.app", {
     name: "admin",
     password: "123456",
     canManageVenue: true,
     isAdmin: true,
   });
 
-  const adminUser = findUserByEmail("admin@zuvu.app");
+  const adminUser = findUserByEmail("admin@tyee.app");
   if (adminUser && (!adminUser.isAdmin || !adminUser.canManageVenue || adminUser.name !== "admin")) {
     upsertUser({
       ...adminUser,
@@ -140,7 +213,7 @@ function seedUsers() {
 
 seedUsers();
 
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "8mb" }));
 app.use(
   express.static(__dirname, {
     setHeaders(res, filePath) {
@@ -154,6 +227,81 @@ app.use(
 function isLocalDemoRequest(req) {
   const host = String(req.hostname || req.get("host") || "").toLocaleLowerCase("tr-TR");
   return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function splitEnvList(value = "") {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getClientIp(req) {
+  const forwarded = String(req.get("x-forwarded-for") || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)[0];
+  return String(forwarded || req.ip || req.socket?.remoteAddress || "")
+    .replace(/^::ffff:/, "")
+    .replace(/^::1$/, "127.0.0.1");
+}
+
+function getEnvAdminAccessRules() {
+  const emails = splitEnvList(process.env.ADMIN_ALLOWED_EMAILS).map(normalizeEmail);
+  const emailForRule = (email = "") => normalizeEmail(email || emails[0] || "");
+  const ipRules = splitEnvList(process.env.ADMIN_ALLOWED_IPS).map((ipAddress, index) => ({
+    id: `env-ip-${index}`,
+    label: `Render env IP ${index + 1}`,
+    email: emailForRule(),
+    ipAddress,
+    mobileToken: "",
+    note: "Environment variable ile tanımlandı.",
+    isActive: true,
+    source: "env",
+  }));
+  const mobileRules = splitEnvList(process.env.ADMIN_MOBILE_ACCESS_TOKENS || process.env.ADMIN_MOBILE_ACCESS_TOKEN).map(
+    (mobileToken, index) => ({
+      id: `env-mobile-${index}`,
+      label: `Mobil uygulama ${index + 1}`,
+      email: emailForRule(),
+      ipAddress: "",
+      mobileToken,
+      note: "Mobil uygulama erişimi için environment variable.",
+      isActive: true,
+      source: "env",
+    }),
+  );
+
+  return [...ipRules, ...mobileRules];
+}
+
+function getAllAdminAccessRules() {
+  return [...getEnvAdminAccessRules(), ...getAdminAccessRules()];
+}
+
+function safeAdminAccessRule(rule) {
+  return {
+    ...rule,
+    mobileToken: rule.mobileToken ? "••••••••" : "",
+    source: rule.source || "panel",
+  };
+}
+
+function matchesAdminAccessRule(rule, { user, ipAddress, mobileToken }) {
+  if (!rule?.isActive) return false;
+  const ruleEmail = normalizeEmail(rule.email || "");
+  const userEmail = normalizeEmail(user?.email || "");
+  const emailMatches = !ruleEmail || ruleEmail === userEmail;
+  const ipMatches = Boolean(rule.ipAddress) && String(rule.ipAddress).trim() === ipAddress;
+  const mobileMatches = Boolean(rule.mobileToken) && String(rule.mobileToken) === String(mobileToken || "");
+
+  return emailMatches && (ipMatches || mobileMatches);
+}
+
+function hasAdminNetworkAccess(req, user) {
+  const ipAddress = getClientIp(req);
+  const mobileToken = String(req.get("x-admin-mobile-token") || "").trim();
+  return getAllAdminAccessRules().some((rule) => matchesAdminAccessRule(rule, { user, ipAddress, mobileToken }));
 }
 
 function getUserFromRequest(req) {
@@ -176,12 +324,6 @@ function requireAuth(req, res, next) {
 }
 
 function requireVenueAccess(req, res, next) {
-  if (isLocalDemoRequest(req)) {
-    req.user = findUserByEmail("firma@zuvu.app");
-    next();
-    return;
-  }
-
   const user = getUserFromRequest(req);
   if (!user) {
     res.status(401).json({ error: "İşletme paneli için giriş yapmalısın." });
@@ -196,12 +338,6 @@ function requireVenueAccess(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (isLocalDemoRequest(req)) {
-    req.user = findUserByEmail("admin@zuvu.app");
-    next();
-    return;
-  }
-
   const user = getUserFromRequest(req);
   if (!user) {
     res.status(401).json({ error: "Yönetici girişi gerekli." });
@@ -211,7 +347,15 @@ function requireAdmin(req, res, next) {
     res.status(403).json({ error: "Yönetici yetkin yok." });
     return;
   }
+  if (!isLocalDemoRequest(req) && !hasAdminNetworkAccess(req, user)) {
+    res.status(403).json({
+      error: "Bu IP veya mobil cihaz admin erişim listesinde değil.",
+      ipAddress: getClientIp(req),
+    });
+    return;
+  }
   req.user = user;
+  req.adminAccess = { local: isLocalDemoRequest(req), ipAddress: getClientIp(req) };
   next();
 }
 
@@ -221,9 +365,26 @@ function createSession(user) {
   return token;
 }
 
-function mergeVenuePayload(venueId) {
+function mergeVenuePayload(venueId, user = null) {
   const payload = getVenueDashboardPayload(venueId);
   const overlay = getVenueOverlay(venueId);
+  const isTemplateFallback = payload.id !== venueId;
+
+  if (isTemplateFallback) {
+    payload.id = venueId;
+    payload.venue = {
+      ...(payload.venue || {}),
+      name: user?.name || "Yeni İşletme",
+      branch: "Konum bilgisi bekleniyor",
+      sport: "Kategori seçimi bekleniyor",
+      avatarLabel: getInitials(user?.name || "İşletme"),
+    };
+    payload.settings = {
+      ...(payload.settings || {}),
+      businessName: user?.name || "",
+      locationStatus: "Girilmemiş",
+    };
+  }
 
   if (overlay.settings) payload.settings = overlay.settings;
   if (overlay.profile) payload.profile = overlay.profile;
@@ -240,7 +401,7 @@ function mergeVenuePayload(venueId) {
 
 function resolveLoginEmail(value = "") {
   const normalized = normalizeEmail(value);
-  if (normalized === "admin") return "admin@zuvu.app";
+  if (normalized === "admin") return "admin@tyee.app";
   return normalized;
 }
 
@@ -269,21 +430,24 @@ function formatAdminUser(user) {
 }
 
 function getAdminBusinessDirectory() {
-  return getAdminDashboardPayload().venues.map((venue) => {
-    const dashboard = getVenueDashboardPayload(venue.id);
-    return {
-      ...venue,
-      contactName: dashboard.profile?.fullName || venue.manager || "",
-      contactEmail: dashboard.profile?.email || "",
-      contactPhone: dashboard.profile?.phone || "",
-      sport: dashboard.venue?.sport || venue.category,
-      settingsStatus: dashboard.settings?.locationStatus || "Kontrol bekliyor",
-      reportUrl: `/api/admin/reports?venueId=${encodeURIComponent(venue.id)}`,
-    };
-  });
+  const deletedVenueIds = new Set(getDeletedVenueIds());
+  return getAdminDashboardPayload().venues
+    .filter((venue) => !deletedVenueIds.has(venue.id))
+    .map((venue) => {
+      const dashboard = getVenueDashboardPayload(venue.id);
+      return {
+        ...venue,
+        contactName: dashboard.profile?.fullName || venue.manager || "",
+        contactEmail: dashboard.profile?.email || "",
+        contactPhone: dashboard.profile?.phone || "",
+        sport: dashboard.venue?.sport || venue.category,
+        settingsStatus: dashboard.settings?.locationStatus || "Kontrol bekliyor",
+        reportUrl: `/api/admin/reports?venueId=${encodeURIComponent(venue.id)}`,
+      };
+    });
 }
 
-function buildAdminBootstrap() {
+function buildAdminBootstrap(req = null) {
   const users = getUsers().map(formatAdminUser);
   const businesses = getAdminBusinessDirectory();
   const customers = users.filter((user) => !user.isAdmin && !user.canManageVenue);
@@ -294,6 +458,11 @@ function buildAdminBootstrap() {
     users,
     customers,
     businesses,
+    access: {
+      currentIp: req ? getClientIp(req) : "",
+      isLocal: req ? Boolean(req.adminAccess?.local) : false,
+      rules: getAllAdminAccessRules().map(safeAdminAccessRule),
+    },
     reportDefaults: {
       periods: ["Bu ay", "Son 30 gün", "Bu çeyrek", "Yıllık"],
       venues: [{ id: "all", name: "Tüm kurumlar" }, ...businesses.map((item) => ({ id: item.id, name: item.name }))],
@@ -363,12 +532,12 @@ function createAdminReport({ venueId = "all", period = "Bu ay" } = {}) {
     ],
     operational: [
       { label: "Kapasite kullanımı", value: "%0", note: "0/0 dolu slot" },
-      { label: "zuvu satışına açık slot", value: "0", note: "Marketplace'e açılmış kapasite" },
+      { label: "tyee satışına açık slot", value: "0", note: "Marketplace'e açılmış kapasite" },
       { label: "Manuel işlem", value: "0", note: "İşletme veya nakit/EFT kanalı" },
       { label: "Aktif abonelik", value: "0", note: "0 toplam abonelik" },
     ],
     recommendations: [
-      "Online ödeme payı düşük kurumlarda resepsiyon akışını zuvu rezervasyona taşı.",
+      "Online ödeme payı düşük kurumlarda resepsiyon akışını tyee rezervasyona taşı.",
       "Boş prime-time slotları için son dakika kampanya ve bildirim kuralı tanımla.",
       "Abonelik müşterilerini kurum bazlı yenileme raporuna bağla.",
       "Eksik profil, lokasyon ve medya alanlarını yayına almadan önce kalite kontrol listesine ekle.",
@@ -390,7 +559,7 @@ app.get("/api/bootstrap", (_req, res) => {
   res.json({
     ...payload,
     brand: {
-      name: "zuvu",
+      name: "tyee",
       tagline: "Rezervasyon marketplace",
     },
   });
@@ -412,7 +581,37 @@ app.get("/api/nearby", (req, res) => {
   res.json(getNearbyMapPayload({ lat, lng }));
 });
 
-app.post("/api/auth/register", (req, res) => {
+app.get("/api/reservations/billing-preview", (_req, res) => {
+  const sampleTotal = 4000;
+  const examples = [
+    PAYMENT_MODES.COMMISSION_DEPOSIT,
+    PAYMENT_MODES.FULL_ONLINE,
+    PAYMENT_MODES.VENUE_PAYMENT,
+  ].map((paymentMode) =>
+    calculateReservationBilling({
+      totalAmount: sampleTotal,
+      paymentMode,
+    }),
+  );
+
+  res.json({
+    commissionRate: 0.07,
+    sampleTotal,
+    examples,
+    monthlyFastExample: summarizeMonthlyCommission({
+      reservations: [{ totalAmount: sampleTotal, paymentMode: PAYMENT_MODES.VENUE_PAYMENT }],
+      periodEnd: new Date("2026-06-30T20:59:59.000Z"),
+      now: new Date("2026-07-10T12:00:00.000Z"),
+    }),
+    overdueFastExample: summarizeMonthlyCommission({
+      reservations: [{ totalAmount: sampleTotal, paymentMode: PAYMENT_MODES.VENUE_PAYMENT }],
+      periodEnd: new Date("2026-06-30T20:59:59.000Z"),
+      now: new Date("2026-07-20T12:00:00.000Z"),
+    }),
+  });
+});
+
+app.post("/api/auth/register", async (req, res) => {
   const name = String(req.body.name || "").trim();
   const email = normalizeEmail(req.body.email || "");
   const phone = String(req.body.phone || "").trim();
@@ -429,15 +628,16 @@ app.post("/api/auth/register", (req, res) => {
     return;
   }
 
+  const userId = crypto.randomUUID();
   const user = upsertUser({
-    id: crypto.randomUUID(),
+    id: userId,
     name,
     email,
     phone,
     passwordHash: hashPassword(password),
     canManageVenue: role === "venue",
     isAdmin: false,
-    venueId: "zincirlikuyu-arena",
+    venueId: role === "venue" ? createVenueIdFromUser({ id: userId, email }) : "",
     emailVerified: false,
     phoneVerified: !phone,
     emailVerificationToken: createToken(18),
@@ -446,7 +646,7 @@ app.post("/api/auth/register", (req, res) => {
   });
 
   sendVerificationEmail(req, user);
-  sendPhoneVerification(user);
+  await sendPhoneVerification(user);
 
   const token = createSession(user);
   res.status(201).json({
@@ -461,10 +661,52 @@ app.post("/api/auth/register", (req, res) => {
 app.post("/api/auth/login", (req, res) => {
   const email = resolveLoginEmail(req.body.email || "");
   const password = String(req.body.password || "");
+  const loginType = req.body.loginType === "venue" ? "venue" : req.body.loginType === "customer" ? "customer" : "";
   const user = findUserByEmail(email);
 
   if (!user || !verifyPassword(password, user.passwordHash || user.password)) {
     res.status(401).json({ error: "E-posta veya şifre hatalı." });
+    return;
+  }
+
+  if (loginType === "customer" && user.canManageVenue && !user.isAdmin) {
+    res.status(403).json({
+      error: "Bu e-posta işletme hesabı olarak kayıtlı. Lütfen İşletme girişi ile devam et.",
+    });
+    return;
+  }
+
+  if (loginType === "venue" && !user.canManageVenue && !user.isAdmin) {
+    res.status(403).json({
+      error: "Bu e-posta bireysel müşteri hesabı olarak kayıtlı. İşletme paneli için işletme hesabı gerekli.",
+    });
+    return;
+  }
+
+  const token = createSession(user);
+  res.json({ token, user: normalizeUser(user) });
+});
+
+app.post("/api/auth/admin-login", (req, res) => {
+  const email = resolveLoginEmail(req.body.email || "");
+  const password = String(req.body.password || "");
+  const user = findUserByEmail(email);
+
+  if (!user || !verifyPassword(password, user.passwordHash || user.password)) {
+    res.status(401).json({ error: "E-posta veya şifre hatalı." });
+    return;
+  }
+
+  if (!user.isAdmin) {
+    res.status(403).json({ error: "Bu kullanıcı admin paneli için yetkili değil." });
+    return;
+  }
+
+  if (!isLocalDemoRequest(req) && !hasAdminNetworkAccess(req, user)) {
+    res.status(403).json({
+      error: "Bu IP veya mobil cihaz admin erişim listesinde değil.",
+      ipAddress: getClientIp(req),
+    });
     return;
   }
 
@@ -480,7 +722,7 @@ app.post("/api/auth/enable-venue", requireAuth, (req, res) => {
   const user = upsertUser({
     ...req.user,
     canManageVenue: true,
-    venueId: req.user.venueId || "zincirlikuyu-arena",
+    venueId: getUserVenueId({ ...req.user, canManageVenue: true }),
   });
   res.json({ user: normalizeUser(user) });
 });
@@ -576,13 +818,13 @@ app.post("/api/auth/password-reset/confirm", (req, res) => {
 });
 
 app.get("/api/venue/bootstrap", requireVenueAccess, (req, res) => {
-  const venueId = String(req.query.venue || req.user?.venueId || "zincirlikuyu-arena");
-  res.json(mergeVenuePayload(venueId));
+  const venueId = resolveVenueIdForRequest(req, req.query.venue);
+  res.json(mergeVenuePayload(venueId, req.user));
 });
 
 app.patch("/api/venue/slot-state", requireVenueAccess, (req, res) => {
   const body = req.body || {};
-  const venueId = String(body.venueId || req.user?.venueId || "zincirlikuyu-arena");
+  const venueId = resolveVenueIdForRequest(req, body.venueId);
   const overlay = saveVenueOverlay(venueId, {
     slotModes: body.slotModes && typeof body.slotModes === "object" ? body.slotModes : {},
     manualEntries:
@@ -593,7 +835,7 @@ app.patch("/api/venue/slot-state", requireVenueAccess, (req, res) => {
 
 app.patch("/api/venue/settings", requireVenueAccess, (req, res) => {
   const body = req.body || {};
-  const venueId = String(body.venueId || req.user?.venueId || "zincirlikuyu-arena");
+  const venueId = resolveVenueIdForRequest(req, body.venueId);
   const settings = body.settings;
   if (!settings || typeof settings !== "object") {
     res.status(400).json({ error: "Ayar bilgisi eksik." });
@@ -605,7 +847,7 @@ app.patch("/api/venue/settings", requireVenueAccess, (req, res) => {
 
 app.patch("/api/venue/profile", requireVenueAccess, (req, res) => {
   const body = req.body || {};
-  const venueId = String(body.venueId || req.user?.venueId || "zincirlikuyu-arena");
+  const venueId = resolveVenueIdForRequest(req, body.venueId);
   const profile = body.profile;
   if (!profile || typeof profile !== "object") {
     res.status(400).json({ error: "Profil bilgisi eksik." });
@@ -617,7 +859,7 @@ app.patch("/api/venue/profile", requireVenueAccess, (req, res) => {
 
 app.post("/api/venue/billing-addresses", requireVenueAccess, (req, res) => {
   const body = req.body || {};
-  const venueId = String(body.venueId || req.user?.venueId || "zincirlikuyu-arena");
+  const venueId = resolveVenueIdForRequest(req, body.venueId);
   const overlay = getVenueOverlay(venueId);
   const billingAddresses = Array.isArray(overlay.billingAddresses) ? overlay.billingAddresses : [];
   const item = {
@@ -637,8 +879,8 @@ app.post("/api/venue/billing-addresses", requireVenueAccess, (req, res) => {
   res.status(201).json({ billingAddresses: nextAddresses });
 });
 
-app.get("/api/admin/bootstrap", requireAdmin, (_req, res) => {
-  res.json(buildAdminBootstrap());
+app.get("/api/admin/bootstrap", requireAdmin, (req, res) => {
+  res.json(buildAdminBootstrap(req));
 });
 
 app.get("/api/admin/search", requireAdmin, (req, res) => {
@@ -673,12 +915,121 @@ app.patch("/api/admin/users/:id/role", requireAdmin, (req, res) => {
     ...target,
     canManageVenue: role === "venue",
     isAdmin: false,
-    venueId: role === "venue" ? target.venueId || "zincirlikuyu-arena" : target.venueId || "",
+    venueId: role === "venue" ? getUserVenueId({ ...target, canManageVenue: true }) : target.venueId || "",
   });
 
   res.json({
     message: role === "venue" ? "Kullanıcı işletme yetkilisi yapıldı." : "Kullanıcı bireysel müşteri yapıldı.",
     user: formatAdminUser(updated),
+  });
+});
+
+app.delete("/api/admin/users/:id", requireAdmin, (req, res) => {
+  const target = findUserById(String(req.params.id || ""));
+
+  if (!target) {
+    res.status(404).json({ error: "Kullanıcı bulunamadı." });
+    return;
+  }
+
+  if (target.isAdmin) {
+    res.status(400).json({ error: "Admin hesabı silinemez." });
+    return;
+  }
+
+  const deleted = deleteUserById(target.id);
+  if (!deleted || deleted.protected) {
+    res.status(400).json({ error: "Kullanıcı silinemedi." });
+    return;
+  }
+
+  sessions.forEach((session, token) => {
+    if (session.userId === target.id) sessions.delete(token);
+  });
+
+  res.json({
+    message: "Kullanıcı hesabı silindi.",
+    user: formatAdminUser(target),
+  });
+});
+
+app.delete("/api/admin/businesses/:id", requireAdmin, (req, res) => {
+  const venueId = String(req.params.id || "").trim();
+  const business = getAdminBusinessDirectory().find((item) => item.id === venueId);
+
+  if (!business) {
+    res.status(404).json({ error: "İşletme kaydı bulunamadı." });
+    return;
+  }
+
+  deleteVenueRecord(venueId);
+
+  res.json({
+    message: "İşletme kaydı dizinden kaldırıldı. Bağlı kullanıcı hesabı ayrıca silinebilir.",
+    business,
+  });
+});
+
+app.post("/api/admin/access-rules", requireAdmin, (req, res) => {
+  const body = req.body || {};
+  const label = String(body.label || "").trim();
+  const email = normalizeEmail(body.email || "");
+  const ipAddress = String(body.ipAddress || "").trim();
+  const mobileToken = String(body.mobileToken || "").trim();
+  const note = String(body.note || "").trim();
+  const isActive = body.isActive !== false;
+
+  if (!label) {
+    res.status(400).json({ error: "Yetkili adı gerekli." });
+    return;
+  }
+
+  if (!ipAddress && !mobileToken) {
+    res.status(400).json({ error: "IP adresi veya mobil uygulama anahtarı gerekli." });
+    return;
+  }
+
+  const rule = upsertAdminAccessRule({
+    label,
+    email,
+    ipAddress,
+    mobileToken,
+    note,
+    isActive,
+  });
+
+  res.status(201).json({
+    message: "Admin erişim yetkilisi eklendi.",
+    rule: safeAdminAccessRule(rule),
+    access: {
+      currentIp: getClientIp(req),
+      rules: getAllAdminAccessRules().map(safeAdminAccessRule),
+    },
+  });
+});
+
+app.delete("/api/admin/access-rules/:id", requireAdmin, (req, res) => {
+  const id = String(req.params.id || "");
+  const rule = getAllAdminAccessRules().find((item) => item.id === id);
+
+  if (!rule) {
+    res.status(404).json({ error: "Yetkili erişim kaydı bulunamadı." });
+    return;
+  }
+
+  if (rule.source === "env") {
+    res.status(400).json({ error: "Environment variable ile gelen kayıt panelden silinemez." });
+    return;
+  }
+
+  deleteAdminAccessRule(id);
+
+  res.json({
+    message: "Admin erişim yetkilisi silindi.",
+    access: {
+      currentIp: getClientIp(req),
+      rules: getAllAdminAccessRules().map(safeAdminAccessRule),
+    },
   });
 });
 
@@ -708,12 +1059,12 @@ app.post("/api/admin/password-reset", requireAdmin, (req, res) => {
   appendDevEmail({
     to: updated.email,
     template: "admin-password-reset",
-    subject: "zuvu geçici şifre",
-    text: `Merhaba ${updated.name}, zuvu hesabın için geçici şifre: ${password}`,
+    subject: "tyee geçici şifre",
+    text: `Merhaba ${updated.name}, tyee hesabın için geçici şifre: ${password}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
         <h1 style="margin:0 0 12px;font-size:24px">Geçici şifre oluşturuldu</h1>
-        <p>Merhaba ${updated.name}, zuvu hesabın için geçici şifren aşağıdadır.</p>
+        <p>Merhaba ${updated.name}, tyee hesabın için geçici şifren aşağıdadır.</p>
         <strong style="display:inline-block;font-size:22px;letter-spacing:2px">${password}</strong>
       </div>
     `,
@@ -726,11 +1077,11 @@ app.post("/api/admin/password-reset", requireAdmin, (req, res) => {
   });
 });
 
-app.post("/api/admin/notifications", requireAdmin, (req, res) => {
+app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
   const body = req.body || {};
-  const channel = body.channel === "sms" ? "sms" : "email";
+  const channel = ["sms", "whatsapp", "email"].includes(body.channel) ? body.channel : "email";
   const targetType = String(body.targetType || "all");
-  const subject = String(body.subject || "zuvu bildirimi").trim();
+  const subject = String(body.subject || "tyee bildirimi").trim();
   const message = String(body.message || "").trim();
 
   if (!message) {
@@ -744,34 +1095,53 @@ app.post("/api/admin/notifications", requireAdmin, (req, res) => {
   if (targetType === "venue") recipients = users.filter((user) => user.canManageVenue);
   if (body.targetId) recipients = users.filter((user) => user.id === body.targetId || user.venueId === body.targetId);
 
-  const delivered = recipients
-    .map((recipient) => {
-      if (channel === "sms" && recipient.phone) {
-        return appendDevSms({
-          to: recipient.phone,
-          template: "admin-notification",
-          body: message,
-        });
-      }
+  const delivered = (
+    await Promise.all(
+      recipients.map((recipient) => {
+        if (channel === "sms") {
+          if (!recipient.phone) return null;
+          return sendMessage({
+            channel: "sms",
+            to: recipient.phone,
+            template: "admin-notification",
+            body: message,
+          });
+        }
 
-      return appendDevEmail({
-        to: recipient.email,
-        template: "admin-notification",
-        subject,
-        text: message,
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
-            <h1 style="margin:0 0 12px;font-size:24px">${subject}</h1>
-            <p>${message}</p>
-          </div>
-        `,
-      });
-    })
+        if (channel === "whatsapp") {
+          if (!recipient.phone) return null;
+          return sendMessage({
+            channel: "whatsapp",
+            to: recipient.phone,
+            template: "admin-notification",
+            body: message,
+          });
+        }
+
+        return appendDevEmail({
+          to: recipient.email,
+          template: "admin-notification",
+          subject,
+          text: message,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
+              <h1 style="margin:0 0 12px;font-size:24px">${subject}</h1>
+              <p>${message}</p>
+            </div>
+          `,
+        });
+      }),
+    )
+  )
     .filter(Boolean);
+  const skippedCount = recipients.length - delivered.length;
 
   res.status(201).json({
-    message: `${delivered.length} bildirim dev kutusuna kaydedildi.`,
+    message: `${delivered.length} bildirim hazırlandı${
+      skippedCount ? `, ${skippedCount} alıcıda telefon olmadığı için atlandı` : ""
+    }. SMS: ${getMessagingStatus().sms}, WhatsApp: ${getMessagingStatus().whatsapp}.`,
     deliveredCount: delivered.length,
+    skippedCount,
   });
 });
 
@@ -797,5 +1167,5 @@ app.use((req, res, next) => {
 });
 
 app.listen(port, () => {
-  console.log(`zuvu local server: http://127.0.0.1:${port}`);
+  console.log(`tyee local server: http://127.0.0.1:${port}`);
 });

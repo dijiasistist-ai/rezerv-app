@@ -1,4 +1,8 @@
 const authWall = document.querySelector("#admin-auth-wall");
+const adminLoginForm = document.querySelector("#admin-login-form");
+const adminLoginEmail = document.querySelector("#admin-login-email");
+const adminLoginPassword = document.querySelector("#admin-login-password");
+const adminLoginFeedback = document.querySelector("#admin-login-feedback");
 const summaryGrid = document.querySelector("#summary-grid");
 const directoryCount = document.querySelector("#directory-count");
 const directoryResults = document.querySelector("#directory-results");
@@ -22,8 +26,19 @@ const reportPeriod = document.querySelector("#report-period");
 const reportDocument = document.querySelector("#report-document");
 const printReport = document.querySelector("#print-report");
 const adminRefresh = document.querySelector("#admin-refresh");
+const accessRuleForm = document.querySelector("#access-rule-form");
+const accessLabel = document.querySelector("#access-label");
+const accessEmail = document.querySelector("#access-email");
+const accessIp = document.querySelector("#access-ip");
+const accessMobileToken = document.querySelector("#access-mobile-token");
+const accessNote = document.querySelector("#access-note");
+const accessActive = document.querySelector("#access-active");
+const accessFeedback = document.querySelector("#access-feedback");
+const accessList = document.querySelector("#access-list");
+const accessCurrentIp = document.querySelector("#access-current-ip");
+const adminLogout = document.querySelector("#admin-logout");
 
-const token = localStorage.getItem("zuvu_token") || "";
+let token = localStorage.getItem("tyee_token") || "";
 
 const state = {
   data: null,
@@ -54,13 +69,28 @@ async function apiRequest(url, options = {}) {
     },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "İstek tamamlanamadı.");
+  if (!response.ok) {
+    const error = new Error(payload.error || "İstek tamamlanamadı.");
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
   return payload;
 }
 
 function showAuthWall(message = "Bu alan yalnızca admin kullanıcısı ile açılır.") {
   authWall.classList.remove("hidden");
   authWall.querySelector("p").textContent = message;
+  if (adminLoginFeedback) {
+    adminLoginFeedback.textContent = "";
+    adminLoginFeedback.classList.remove("is-success");
+  }
+  window.setTimeout(() => adminLoginEmail?.focus(), 40);
+}
+
+function hideAuthWall() {
+  authWall.classList.add("hidden");
+  if (adminLoginPassword) adminLoginPassword.value = "";
 }
 
 function renderSummary(items = []) {
@@ -89,20 +119,28 @@ function resultMeta(item) {
   return `${item.email || "-"} · ${item.type || "-"}`;
 }
 
+function getRoleBadge(item) {
+  if (item.resultType === "business") return { className: "business", label: "İşletme kaydı" };
+  if (item.isAdmin || item.role === "admin") return { className: "admin", label: "Admin" };
+  if (item.canManageVenue || item.role === "venue") return { className: "venue", label: "İşletme hesabı" };
+  return { className: "customer", label: "Bireysel hesap" };
+}
+
 function renderResults(items = []) {
   state.results = items;
   directoryCount.textContent = `${items.length} kayıt`;
   directoryResults.innerHTML = items.length
     ? items
-        .map(
-          (item, index) => `
-            <button class="result-item${state.selected?.id === item.id ? " is-active" : ""}" type="button" data-result-index="${index}">
-              <span>${item.resultType === "business" ? "İşletme" : item.resultType === "customer" ? "Müşteri" : "Kullanıcı"}</span>
+        .map((item, index) => {
+          const badge = getRoleBadge(item);
+          return `
+            <button class="result-item result-item-${badge.className}${state.selected?.id === item.id ? " is-active" : ""}" type="button" data-result-index="${index}">
+              <span class="role-badge role-badge-${badge.className}">${escapeHtml(badge.label)}</span>
               <strong>${escapeHtml(resultTitle(item))}</strong>
               <small>${escapeHtml(resultMeta(item))}</small>
             </button>
-          `,
-        )
+          `;
+        })
         .join("")
     : `<div class="empty-copy">Kayıt bulunamadı.</div>`;
 }
@@ -146,6 +184,30 @@ function renderRoleEditor(item) {
   `;
 }
 
+function renderDangerActions(item) {
+  if (item.resultType === "business") {
+    return `
+      <div class="danger-zone">
+        <strong>Tehlikeli işlem</strong>
+        <span>Bu işletme kaydı platform dizininden kaldırılır. Bağlı kullanıcı hesabı ayrıca silinir.</span>
+        <button class="danger-button" type="button" data-delete-business-id="${escapeHtml(item.id)}">İşletmeyi sil</button>
+        <p class="form-feedback" id="delete-feedback"></p>
+      </div>
+    `;
+  }
+
+  if (item.isAdmin) return "";
+
+  return `
+    <div class="danger-zone">
+      <strong>Tehlikeli işlem</strong>
+      <span>Kullanıcı hesabı ve aktif oturumları silinir. Bu işlem geri alınamaz.</span>
+      <button class="danger-button" type="button" data-delete-user-id="${escapeHtml(item.id)}">Kullanıcıyı sil</button>
+      <p class="form-feedback" id="delete-feedback"></p>
+    </div>
+  `;
+}
+
 function renderDetail(item) {
   state.selected = item;
   if (!item) {
@@ -154,6 +216,7 @@ function renderDetail(item) {
   }
 
   if (item.email) resetEmail.value = item.email;
+  const badge = getRoleBadge(item);
 
   const rows =
     item.resultType === "business"
@@ -181,13 +244,52 @@ function renderDetail(item) {
 
   detailBody.innerHTML = `
     <div class="detail-title">
-      <span>${item.resultType === "business" ? "İşletme kaydı" : "Kullanıcı kaydı"}</span>
+      <span class="role-badge role-badge-${badge.className}">${escapeHtml(badge.label)}</span>
       <h3>${escapeHtml(resultTitle(item))}</h3>
     </div>
     ${detailRows(rows)}
     ${renderRoleEditor(item)}
+    ${renderDangerActions(item)}
   `;
   renderResults(state.results);
+}
+
+function renderAccessRules(access = {}) {
+  if (!accessList || !accessCurrentIp) return;
+  accessCurrentIp.textContent = access.currentIp ? `Bu oturum IP: ${access.currentIp}` : "IP okunamadı";
+  const rules = access.rules || [];
+  accessList.innerHTML = rules.length
+    ? rules
+        .map(
+          (rule) => `
+            <article class="access-item${rule.isActive ? "" : " is-passive"}">
+              <div>
+                <strong>${escapeHtml(rule.label)}</strong>
+                <span>${escapeHtml(rule.email || "E-posta sınırı yok")}</span>
+              </div>
+              <div>
+                <small>IP</small>
+                <span>${escapeHtml(rule.ipAddress || "-")}</span>
+              </div>
+              <div>
+                <small>Mobil</small>
+                <span>${escapeHtml(rule.mobileToken || "-")}</span>
+              </div>
+              <div>
+                <small>Kaynak</small>
+                <span>${escapeHtml(rule.source === "env" ? "Render env" : "Panel")}</span>
+              </div>
+              <p>${escapeHtml(rule.note || (rule.isActive ? "Aktif" : "Pasif"))}</p>
+              ${
+                rule.source === "env"
+                  ? `<span class="access-lock">Env kaydı</span>`
+                  : `<button class="danger-button is-compact" type="button" data-delete-access-id="${escapeHtml(rule.id)}">Sil</button>`
+              }
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty-copy">Henüz admin erişim yetkilisi yok. Canlı ortamda en az bir IP veya mobil anahtar tanımlanmalı.</div>`;
 }
 
 async function runSearch() {
@@ -227,7 +329,7 @@ function renderReport(report) {
   reportDocument.innerHTML = `
     <header class="report-cover">
       <div>
-        <span>zuvu profesyonel rapor</span>
+        <span>tyee profesyonel rapor</span>
         <h3>${escapeHtml(report.title)}</h3>
         <p>${escapeHtml(report.scope)} · ${escapeHtml(report.period)}</p>
       </div>
@@ -296,7 +398,7 @@ async function loadReport() {
 }
 
 async function loadAdmin() {
-  if (!token && !isLocalDemoHost()) {
+  if (!token) {
     showAuthWall();
     return;
   }
@@ -305,6 +407,7 @@ async function loadAdmin() {
   state.data = data;
   renderSummary(data.summary || []);
   renderReportOptions(data.reportDefaults || {});
+  renderAccessRules(data.access || {});
   renderResults([...(data.businesses || []).map((item) => ({ ...item, resultType: "business" })), ...(data.customers || []).map((item) => ({ ...item, resultType: "customer" }))]);
   if (state.results.length) renderDetail(state.results[0]);
   await loadReport();
@@ -345,6 +448,40 @@ detailBody.addEventListener("submit", async (event) => {
     }
   } catch (error) {
     feedback.textContent = error.message;
+  }
+});
+
+detailBody.addEventListener("click", async (event) => {
+  const userButton = event.target.closest("[data-delete-user-id]");
+  const businessButton = event.target.closest("[data-delete-business-id]");
+  if (!userButton && !businessButton) return;
+
+  const feedback = detailBody.querySelector("#delete-feedback");
+  if (feedback) {
+    feedback.textContent = "";
+    feedback.classList.remove("is-success");
+  }
+
+  const isBusiness = Boolean(businessButton);
+  const id = isBusiness ? businessButton.dataset.deleteBusinessId : userButton.dataset.deleteUserId;
+  const label = resultTitle(state.selected || {});
+  const confirmed = window.confirm(`${label} kaydı silinsin mi? Bu işlem geri alınamaz.`);
+  if (!confirmed) return;
+
+  try {
+    const payload = await apiRequest(
+      isBusiness
+        ? `/api/admin/businesses/${encodeURIComponent(id)}`
+        : `/api/admin/users/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (feedback) {
+      feedback.textContent = payload.message;
+      feedback.classList.add("is-success");
+    }
+    await loadAdmin();
+  } catch (error) {
+    if (feedback) feedback.textContent = error.message;
   }
 });
 
@@ -397,6 +534,54 @@ notificationForm.addEventListener("submit", async (event) => {
   }
 });
 
+if (accessRuleForm) {
+  accessRuleForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    accessFeedback.textContent = "";
+    accessFeedback.classList.remove("is-success");
+
+    try {
+      const payload = await apiRequest("/api/admin/access-rules", {
+        method: "POST",
+        body: JSON.stringify({
+          label: accessLabel.value.trim(),
+          email: accessEmail.value.trim(),
+          ipAddress: accessIp.value.trim(),
+          mobileToken: accessMobileToken.value.trim(),
+          note: accessNote.value.trim(),
+          isActive: accessActive.checked,
+        }),
+      });
+      accessFeedback.textContent = payload.message;
+      accessFeedback.classList.add("is-success");
+      accessRuleForm.reset();
+      accessActive.checked = true;
+      renderAccessRules(payload.access || {});
+    } catch (error) {
+      accessFeedback.textContent = error.message;
+    }
+  });
+}
+
+if (accessList) {
+  accessList.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-delete-access-id]");
+    if (!button) return;
+    const confirmed = window.confirm("Bu admin erişim yetkilisi silinsin mi?");
+    if (!confirmed) return;
+
+    try {
+      const payload = await apiRequest(`/api/admin/access-rules/${encodeURIComponent(button.dataset.deleteAccessId)}`, {
+        method: "DELETE",
+      });
+      renderAccessRules(payload.access || {});
+    } catch (error) {
+      accessFeedback.textContent = error.message;
+      accessFeedback.classList.remove("is-success");
+    }
+  });
+}
+
 reportForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await loadReport();
@@ -405,6 +590,43 @@ reportForm.addEventListener("submit", async (event) => {
 printReport.addEventListener("click", () => window.print());
 adminRefresh.addEventListener("click", () => window.location.reload());
 
+if (adminLoginForm) {
+  adminLoginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    adminLoginFeedback.textContent = "";
+    adminLoginFeedback.classList.remove("is-success");
+
+    try {
+      const payload = await apiRequest("/api/auth/admin-login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: adminLoginEmail.value.trim(),
+          password: adminLoginPassword.value,
+        }),
+      });
+      token = payload.token;
+      localStorage.setItem("tyee_token", token);
+      hideAuthWall();
+      await loadAdmin();
+    } catch (error) {
+      adminLoginFeedback.textContent = error.message;
+      adminLoginFeedback.classList.remove("is-success");
+    }
+  });
+}
+
+if (adminLogout) {
+  adminLogout.addEventListener("click", () => {
+    token = "";
+    localStorage.removeItem("tyee_token");
+    showAuthWall("Admin oturumu kapatıldı.");
+  });
+}
+
 loadAdmin().catch((error) => {
+  if (error.status === 401 || error.status === 403) {
+    localStorage.removeItem("tyee_token");
+    token = "";
+  }
   showAuthWall(error.message);
 });

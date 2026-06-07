@@ -601,7 +601,7 @@ button {
   gap: 4px;
 }
 
-.schedule-choice.is-zuvu,
+.schedule-choice.is-tyee,
 .schedule-choice.is-rezerv {
   color: var(--brand-dark);
 }
@@ -666,7 +666,7 @@ button {
   font-weight: 900;
 }
 
-.slot-badge.is-zuvu,
+.slot-badge.is-tyee,
 .slot-badge.is-rezerv {
   background: #e8f7ff;
   color: var(--brand-dark);
@@ -706,7 +706,7 @@ button {
   font-weight: 900;
 }
 
-.slot-channel-badge.is-zuvu,
+.slot-channel-badge.is-tyee,
 .slot-channel-badge.is-rezerv {
   background: #e8f7ff;
   color: var(--brand-dark);
@@ -874,12 +874,18 @@ button {
 
 .settings-input-field input,
 .settings-select-field input,
-.settings-select-field select {
+.settings-select-field select,
+.settings-input-field textarea {
   min-height: 42px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 9px 11px;
   background: #fff;
+}
+
+.settings-input-field textarea {
+  min-height: 120px;
+  resize: vertical;
 }
 
 .settings-radio-row {
@@ -948,6 +954,94 @@ button {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.settings-note,
+.settings-empty-box,
+.settings-upload-box {
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fff;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.settings-upload-box {
+  display: grid;
+  gap: 8px;
+  border-style: dashed;
+}
+
+.settings-upload-box span {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.settings-upload-box small {
+  color: var(--muted);
+}
+
+.settings-media-grid,
+.settings-area-list {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-media-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.settings-media-card,
+.settings-area-card {
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.settings-media-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  background: #eef2f7;
+}
+
+.settings-media-card div,
+.settings-area-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+}
+
+.settings-media-card strong,
+.settings-area-head strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.settings-area-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.settings-area-card .settings-form-grid {
+  gap: 12px;
+}
+
+.settings-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .venue-save-status {
@@ -1170,7 +1264,7 @@ button {
   color: var(--muted);
 }
 
-/* zuvu dashboard refresh */
+/* tyee dashboard refresh */
 body {
   color: #182033;
   background:
@@ -1198,17 +1292,15 @@ a {
   height: calc(100vh - 24px);
   padding: 14px;
   border-right: 1px solid #edf1f7;
-  background:
-    linear-gradient(180deg, rgba(239, 249, 255, 0.95), rgba(255, 255, 255, 0) 260px),
-    #fff;
+  background: #fff;
   color: var(--ink);
 }
 
 .venue-brand {
   display: grid;
   align-items: start;
-  gap: 0;
-  min-height: 72px;
+  gap: 2px;
+  min-height: 86px;
   margin-bottom: 14px;
   padding: 0 6px 12px;
   border-bottom: 1px solid #edf1f7;
@@ -1217,7 +1309,8 @@ a {
 
 .venue-logo {
   display: block;
-  width: 178px;
+  width: 152px;
+  max-width: 100%;
   height: auto;
   border-radius: 8px;
   object-fit: contain;
@@ -1225,8 +1318,8 @@ a {
 
 .venue-brand small {
   display: block;
-  margin-top: -10px;
-  margin-left: 55px;
+  margin-top: 0;
+  margin-left: 40px;
   color: #344054;
   font-size: 11px;
   font-weight: 800;
@@ -1279,6 +1372,108 @@ a {
 .venue-nav-item.is-active::before {
   background: var(--brand);
   box-shadow: 0 0 0 5px rgba(4, 167, 244, 0.12);
+}
+
+.venue-nav-group {
+  display: grid;
+  gap: 7px;
+}
+
+.venue-nav-heading {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  margin: 8px 0 0;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  padding: 0 32px 0 12px;
+  background: #fff;
+  color: #8a94a6;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.venue-nav-heading::after {
+  content: "›";
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  color: #667085;
+  font-size: 18px;
+  line-height: 1;
+  transform: translateY(-50%) rotate(0deg);
+  transition: transform 0.18s ease;
+}
+
+.venue-nav-heading:hover {
+  border-color: #b9e7ff;
+  color: var(--brand-dark);
+}
+
+.venue-nav-heading[aria-expanded="true"] {
+  border-color: #d9eefb;
+  background: #f7fcff;
+  color: var(--brand-dark);
+}
+
+.venue-nav-heading[aria-expanded="true"]::after {
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.venue-nav-group-body {
+  display: none;
+  gap: 7px;
+}
+
+.venue-nav-group.is-open .venue-nav-group-body {
+  display: grid;
+}
+
+.venue-nav-subitem {
+  margin-left: 14px;
+  min-height: 38px;
+  padding-left: 32px;
+  font-size: 12px;
+}
+
+.venue-nav-subitem::before {
+  left: 13px;
+  width: 6px;
+  height: 6px;
+}
+
+.venue-nav-subitem:hover,
+.venue-nav-subitem.is-active {
+  border-color: transparent;
+  background: transparent;
+  color: var(--brand-dark);
+  box-shadow: none;
+}
+
+.venue-nav-subitem.is-active::before {
+  background: var(--brand);
+  box-shadow: 0 0 0 5px rgba(4, 167, 244, 0.1);
+}
+
+.venue-nav-logout {
+  margin-top: 12px;
+  color: #d84a3a;
+}
+
+.venue-nav-logout:hover {
+  border-color: rgba(216, 74, 58, 0.25);
+  background: #fff4f2;
+  color: #d84a3a;
+}
+
+.venue-nav-logout::before {
+  background: #d84a3a;
 }
 
 .sidebar-summary {
@@ -1768,14 +1963,14 @@ a {
   font-size: 7px;
 }
 
-#calendar-view .slot-zuvu .schedule-choice {
+#calendar-view .slot-tyee .schedule-choice {
   justify-content: center;
   background: transparent;
   color: transparent;
   box-shadow: none;
 }
 
-#calendar-view .slot-zuvu .schedule-choice::before {
+#calendar-view .slot-tyee .schedule-choice::before {
   content: none;
 }
 
@@ -1803,12 +1998,12 @@ a {
 }
 
 #calendar-view .schedule-slot-cell.is-selected .open-slot-dot,
-#calendar-view .slot-zuvu:hover .open-slot-dot {
+#calendar-view .slot-tyee:hover .open-slot-dot {
   opacity: 1;
 }
 
-#calendar-view .slot-zuvu strong,
-#calendar-view .slot-zuvu .slot-channel-badge {
+#calendar-view .slot-tyee strong,
+#calendar-view .slot-tyee .slot-channel-badge {
   position: absolute;
   width: 1px;
   height: 1px;

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: zuvu-app
+    name: tyee-app
     runtime: node
     buildCommand: npm install
     startCommand: npm start

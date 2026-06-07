@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>zuvu İşletme Paneli</title>
-    <link rel="stylesheet" href="/venue.css?v=20260606-font-1" />
+    <title>tyee İşletme Paneli</title>
+    <link rel="stylesheet" href="/venue.css?v=20260607-sidebar-logo-white-1" />
   </head>
   <body>
     <div class="venue-auth-wall hidden" id="venue-auth-wall">
@@ -68,18 +68,41 @@
     <div class="venue-layout">
       <aside class="venue-sidebar">
         <a class="venue-brand" href="/index.html">
-          <img class="venue-logo" src="/assets/zuvu-logo.png" alt="zuvu" />
+          <img class="venue-logo" src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
           <span>
             <small>İşletme Paneli</small>
           </span>
         </a>
 
-        <nav class="venue-nav">
-          <button class="venue-nav-item is-active" data-view="overview">Genel Bakış</button>
-          <button class="venue-nav-item" data-view="calendar">Takvim</button>
-          <button class="venue-nav-item" data-view="subscriptions">Abonelikler</button>
-          <button class="venue-nav-item" data-view="transactions">İşlemler</button>
-          <button class="venue-nav-item" data-view="settings">Ayarlar</button>
+        <nav class="venue-nav" aria-label="İşletme paneli menüsü">
+          <div class="venue-nav-group">
+            <button class="venue-nav-heading" type="button" aria-expanded="false">Panel</button>
+            <div class="venue-nav-group-body">
+              <button class="venue-nav-item is-active" data-view="overview">Genel Bakış</button>
+            </div>
+          </div>
+
+          <div class="venue-nav-group">
+            <button class="venue-nav-heading" type="button" aria-expanded="false">Operasyon</button>
+            <div class="venue-nav-group-body">
+              <button class="venue-nav-item" data-view="calendar">Takvim</button>
+              <button class="venue-nav-item" data-view="subscriptions">Abonelikler</button>
+              <button class="venue-nav-item" data-view="transactions">İşlemler</button>
+              <button class="venue-nav-item" data-view="reviews">Değerlendirmeler</button>
+              <button class="venue-nav-item" data-view="reports">Raporlama</button>
+            </div>
+          </div>
+
+          <div class="venue-nav-group">
+            <button class="venue-nav-heading" type="button" aria-expanded="false">Ayarlar</button>
+            <div class="venue-nav-group-body">
+              <button class="venue-nav-item venue-nav-subitem" data-view="settings">İşletme Bilgileri</button>
+              <button class="venue-nav-item venue-nav-subitem" data-view="profile">Profil Ayarları</button>
+              <button class="venue-nav-item venue-nav-subitem" data-view="billing">Fatura Adresleri</button>
+            </div>
+          </div>
+
+          <button class="venue-nav-item venue-nav-logout" type="button" data-action="logout">Çıkış Yap</button>
         </nav>
 
         <div class="sidebar-summary">
@@ -94,7 +117,7 @@
       <main class="venue-main">
         <header class="venue-topbar">
           <div>
-            <p class="eyebrow">zuvu işletme konsolu</p>
+            <p class="eyebrow">tyee işletme konsolu</p>
             <h1 id="venue-title">Venue Console</h1>
             <span class="topbar-subtitle">Rezervasyon, takvim, abonelik ve tahsilat akışını tek panelde yönet.</span>
           </div>
@@ -102,13 +125,6 @@
           <div class="topbar-actions">
             <div class="menu-cluster">
               <a class="menu-chip marketplace-link" href="/index.html">Marketplace</a>
-              <button class="menu-chip topbar-link" type="button" data-view-target="settings">Tesisler</button>
-              <button class="menu-chip topbar-link" type="button" data-view-target="calendar">Rezervasyonlar</button>
-
-              <div class="dropdown" id="manager-menu">
-                <button class="menu-chip has-caret" type="button" id="manager-menu-trigger">Yönetici</button>
-                <div class="dropdown-panel" id="manager-menu-items"></div>
-              </div>
             </div>
 
             <div class="venue-profile">
@@ -286,7 +302,7 @@
                     <th>Müşteri</th>
                     <th>İşletme türü</th>
                     <th>Tutar</th>
-                    <th>Kapora</th>
+                    <th>Tahsilat / Kapora</th>
                     <th>Komisyon</th>
                     <th>Hakediş</th>
                     <th>Tarih</th>
@@ -300,6 +316,22 @@
                 <tbody id="transactions-body"></tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="reports-view">
+          <div class="section-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Raporlama</p>
+                <h2>Finansal ve operasyonel raporlar</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-button">Filtrele</button>
+                <button class="solid-button">Rapor indir</button>
+              </div>
+            </div>
+            <div class="report-summary-grid" id="reports-summary-grid"></div>
           </div>
         </section>
 
@@ -386,6 +418,6 @@
       </main>
     </div>
 
-    <script src="/venue.js?v=20260605-calendar5"></script>
+    <script src="/venue.js?v=20260607-venue-user-isolation-1"></script>
   </body>
 </html>
