@@ -23,6 +23,8 @@ const salesSubscription = document.querySelector("#sales-subscription");
 const overviewList = document.querySelector("#overview-list");
 const subscriptionsBody = document.querySelector("#subscriptions-body");
 const transactionsBody = document.querySelector("#transactions-body");
+const sidebarSummaryTitle = document.querySelector(".sidebar-summary strong");
+const sidebarSummaryMeta = document.querySelector(".sidebar-summary small");
 const reportSummaryGrid = document.querySelector("#report-summary-grid");
 const reportsSummaryGrid = document.querySelector("#reports-summary-grid");
 const settingsTabs = document.querySelector("#settings-tabs");
@@ -552,6 +554,16 @@ function renderWeeklySchedule(board, days) {
 }
 
 function renderQuickActions(items) {
+  if (!items.length) {
+    quickActions.innerHTML = `
+      <div class="quick-action is-empty">
+        <strong>Henüz hızlı işlem yok</strong>
+        <span>Boş</span>
+      </div>
+    `;
+    return;
+  }
+
   quickActions.innerHTML = items
     .map(
       (item) => `
@@ -564,7 +576,20 @@ function renderQuickActions(items) {
     .join("");
 }
 
-function renderOverview(items) {
+function renderOverview(payload) {
+  if (payload.isFreshVenue) {
+    overviewList.innerHTML = `
+      <article class="overview-item is-empty">
+        <div>
+          <strong>Henüz operasyon verisi yok</strong>
+          <p>Rezervasyon, abonelik ve tahsilat kaydı oluştuğunda bu alan otomatik dolacak.</p>
+        </div>
+        <span>0 işlem</span>
+      </article>
+    `;
+    return;
+  }
+
   const notes = [
     {
       title: "En yoğun pencere",
@@ -603,6 +628,17 @@ function renderOverview(items) {
     .join("");
 }
 
+function renderSidebarSummary(payload) {
+  if (!sidebarSummaryTitle || !sidebarSummaryMeta) return;
+  if (payload.isFreshVenue) {
+    sidebarSummaryTitle.textContent = "Başlangıç";
+    sidebarSummaryMeta.textContent = "Henüz slot açılmadı";
+    return;
+  }
+  sidebarSummaryTitle.textContent = "Bugün müsait";
+  sidebarSummaryMeta.textContent = "18 slot marketplace'e açık";
+}
+
 function statusPill(status) {
   const isActive = status === "Aktif";
   return `<span class="status-pill ${isActive ? "is-active" : "is-passive"}">${status}</span>`;
@@ -637,6 +673,15 @@ function renderSubscriptions(items) {
 }
 
 function renderTransactions(items) {
+  if (!items.length) {
+    transactionsBody.innerHTML = `
+      <tr>
+        <td colspan="18" class="empty-table-cell">Henüz işlem kaydı yok.</td>
+      </tr>
+    `;
+    return;
+  }
+
   const displayName = getVenueDisplayName();
   transactionsBody.innerHTML = items
     .map(
@@ -1302,9 +1347,10 @@ async function loadVenueDashboard() {
   venueState.manualEntries = payload.slotState?.manualEntries || {};
 
   renderVenueIdentity();
+  renderSidebarSummary(payload);
 
   renderStats(payload.stats);
-  renderOverview(payload.stats);
+  renderOverview(payload);
   renderQuickActions(payload.quickActions);
   renderWeeklySchedule(calendarBoardSecondary, payload.weekDays);
   renderSubscriptions(payload.subscriptions);

@@ -372,6 +372,7 @@ function mergeVenuePayload(venueId, user = null) {
 
   if (isTemplateFallback) {
     payload.id = venueId;
+    payload.isFreshVenue = true;
     payload.venue = {
       ...(payload.venue || {}),
       name: user?.name || "Yeni İşletme",
@@ -385,6 +386,11 @@ function mergeVenuePayload(venueId, user = null) {
       locationStatus: "Girilmemiş",
     };
     payload.subscriptions = [];
+    payload.transactions = [];
+    payload.quickActions = [];
+    payload.weekDays = (payload.weekDays || []).map((day) => ({ ...day, slots: [] }));
+  } else {
+    payload.isFreshVenue = false;
   }
 
   if (overlay.settings) payload.settings = overlay.settings;
