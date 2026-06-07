@@ -51,6 +51,7 @@ const venueState = {
   dashboard: null,
 };
 
+const DEFAULT_LOCATION_CENTER = { lat: 41.0082, lng: 28.9784 };
 const WEEKDAY_SHORT = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cts"];
 const MONTH_SHORT = [
   "Oca",
@@ -183,6 +184,119 @@ function getVenueDisplayName() {
   const settingsName = venueState.dashboard?.settings?.businessName?.trim();
   const venueFallback = venueState.dashboard?.venue?.name?.trim();
   return settingsName || venueFallback || "tyee işletme";
+}
+
+function toCoordinate(value, fallback) {
+  const number = Number(String(value || "").replace(",", "."));
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function locationPickerMarkup(location = {}) {
+  return `
+    <div class="settings-map-picker">
+      <div class="settings-map-toolbar">
+        <div>
+          <strong>Haritada konumu seç</strong>
+          <span>Haritada işletmenin yerini tıkla, pin ve koordinatlar otomatik güncellensin.</span>
+        </div>
+        <button class="ghost-button settings-location-use-me" type="button">Konumumu kullan</button>
+      </div>
+      <div class="settings-map-canvas" id="settings-location-map" aria-label="İşletme konumu haritası">
+        <div class="settings-map-surface">
+          <span>Harita yükleniyor...</span>
+        </div>
+      </div>
+      <small class="settings-map-hint">Pin seçildikten sonra Ayarları kaydet butonuna basınca konum ana sayfadaki Yakınımda haritasına eklenir.</small>
+    </div>
+  `;
+}
+
+function updateLocationInputs(lat, lng) {
+  const latInput = document.querySelector("#settings-location-lat");
+  const lngInput = document.querySelector("#settings-location-lng");
+  const status = document.querySelector(".settings-location-status");
+  if (latInput) latInput.value = Number(lat).toFixed(6);
+  if (lngInput) lngInput.value = Number(lng).toFixed(6);
+  if (status) status.textContent = "Konum seçildi";
+}
+
+function setupLocationPicker(settings) {
+  const container = document.querySelector("#settings-location-map");
+  if (!container) return;
+
+  if (!window.L) {
+    container.innerHTML = "<span>Harita kütüphanesi yüklenemedi. Enlem ve boylamı manuel girebilirsin.</span>";
+    return;
+  }
+
+  const location = settings.location || {};
+  const lat = toCoordinate(location.lat, DEFAULT_LOCATION_CENTER.lat);
+  const lng = toCoordinate(location.lng, DEFAULT_LOCATION_CENTER.lng);
+  container.innerHTML = `<div class="settings-map-surface"></div>`;
+  const surface = container.querySelector(".settings-map-surface");
+
+  const map = L.map(surface, {
+    center: [lat, lng],
+    zoom: location.lat && location.lng ? 15 : 11,
+    scrollWheelZoom: true,
+    attributionControl: false,
+    zoomControl: true,
+  });
+
+  const tileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap &copy; CARTO",
+    keepBuffer: 4,
+    updateWhenIdle: false,
+  }).addTo(map);
+  tileLayer.on("tileerror", () => setTimeout(() => tileLayer.redraw(), 300));
+  L.control.attribution({ prefix: false }).addAttribution("&copy; OpenStreetMap &copy; CARTO").addTo(map);
+
+  const marker = L.marker([lat, lng], {
+    draggable: true,
+    title: "İşletme konumu",
+  }).addTo(map);
+
+  const setPoint = (point) => {
+    marker.setLatLng(point);
+    updateLocationInputs(point.lat, point.lng);
+  };
+
+  map.on("click", (event) => setPoint(event.latlng));
+  marker.on("dragend", () => setPoint(marker.getLatLng()));
+
+  document.querySelector(".settings-location-use-me")?.addEventListener("click", () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition((position) => {
+      const point = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      };
+      map.setView([point.lat, point.lng], 16);
+      setPoint(point);
+    });
+  });
+
+  const refresh = () => {
+    map.invalidateSize({ pan: false });
+    tileLayer.redraw();
+  };
+  requestAnimationFrame(refresh);
+  [160, 420, 900].forEach((delay) => setTimeout(refresh, delay));
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        refresh();
+      },
+      { threshold: 0.15 },
+    );
+    observer.observe(container);
+  }
+
+  container.addEventListener("mouseenter", refresh);
+  window.addEventListener("scroll", refresh, { passive: true });
 }
 
 function renderVenueIdentity() {
@@ -753,6 +867,9 @@ function renderSettingsOnboarding(settings) {
     Sözleşmeler: renderContractSettings,
   };
   settingsOnboardingForm.innerHTML = (renderers[activeTab] || renderGeneralSettings)(normalized);
+  if (activeTab === "Genel Bilgiler" || activeTab === "İşletme Detayları") {
+    requestAnimationFrame(() => setupLocationPicker(normalized));
+  }
 }
 
 function renderGeneralSettings(settings) {
@@ -812,6 +929,7 @@ function renderGeneralSettings(settings) {
         <span>Açık adres</span>
         <input id="settings-location-address" type="text" value="${escapeHtml(location.address || "")}" placeholder="Cadde, sokak, bina no" />
       </label>
+      ${locationPickerMarkup(location)}
       <div class="settings-form-grid">
         <label class="settings-select-field">
           <span>Enlem</span>
@@ -821,13 +939,6 @@ function renderGeneralSettings(settings) {
           <span>Boylam</span>
           <input id="settings-location-lng" type="text" value="${escapeHtml(location.lng || "")}" placeholder="28.9784" />
         </label>
-      </div>
-      <label class="settings-select-field">
-        <span>Harita bağlantısı</span>
-        <input id="settings-location-map-url" type="url" value="${escapeHtml(location.mapUrl || "")}" placeholder="Google Maps bağlantısı" />
-      </label>
-      <div class="settings-map-placeholder">
-        <span>${location.mapUrl ? "Harita bağlantısı kaydedildi" : "Harita entegrasyonu burada konum akışıyla bağlanacak"}</span>
       </div>
     </div>
     <div class="settings-save-row">
@@ -909,6 +1020,7 @@ function renderDetailSettings(settings) {
         <span>Açık adres</span>
         <input id="settings-location-address" type="text" value="${escapeHtml(location.address || "")}" placeholder="Cadde, sokak, bina no" />
       </label>
+      ${locationPickerMarkup(location)}
       <div class="settings-form-grid">
         <label class="settings-select-field">
           <span>Enlem</span>
@@ -919,10 +1031,6 @@ function renderDetailSettings(settings) {
           <input id="settings-location-lng" type="text" value="${escapeHtml(location.lng || "")}" placeholder="28.9784" />
         </label>
       </div>
-      <label class="settings-select-field">
-        <span>Harita bağlantısı</span>
-        <input id="settings-location-map-url" type="url" value="${escapeHtml(location.mapUrl || "")}" placeholder="Google Maps bağlantısı" />
-      </label>
     </div>
     ${settingsSaveMarkup()}
   `;
@@ -1194,7 +1302,8 @@ function collectSettingsPayload() {
       ...item,
       value: document.querySelector(`[data-settings-select-index="${index}"]`)?.value || item.value,
     }));
-    next.locationStatus = valueOf("#settings-location-address") ? "Girilmiş" : "Girilmemiş";
+    const hasLocation = Boolean(valueOf("#settings-location-address") || (valueOf("#settings-location-lat") && valueOf("#settings-location-lng")));
+    next.locationStatus = hasLocation ? "Girilmiş" : "Girilmemiş";
     next.location = {
       ...(current.location || {}),
       address: valueOf("#settings-location-address"),
@@ -1223,7 +1332,8 @@ function collectSettingsPayload() {
       workingHours: valueOf("#settings-detail-working-hours"),
       cancellationPolicy: valueOf("#settings-detail-cancellation"),
     };
-    next.locationStatus = valueOf("#settings-location-address") ? "Girilmiş" : "Girilmemiş";
+    const hasLocation = Boolean(valueOf("#settings-location-address") || (valueOf("#settings-location-lat") && valueOf("#settings-location-lng")));
+    next.locationStatus = hasLocation ? "Girilmiş" : "Girilmemiş";
     next.location = {
       ...(current.location || {}),
       address: valueOf("#settings-location-address"),

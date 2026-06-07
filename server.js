@@ -614,10 +614,84 @@ app.get("/api/listings", (req, res) => {
   res.json({ total: items.length, items });
 });
 
+function getDistanceKm(origin, target) {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const earthKm = 6371;
+  const dLat = toRad(target.lat - origin.lat);
+  const dLng = toRad(target.lng - origin.lng);
+  const lat1 = toRad(origin.lat);
+  const lat2 = toRad(target.lat);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalizeVenueCategory(value = "") {
+  const normalized = String(value || "").toLocaleLowerCase("tr-TR");
+  if (normalized.includes("pet")) return { id: "pet-kuafor", label: "Pet Kuaför", icon: "🐾" };
+  if (normalized.includes("güzellik") || normalized.includes("guzellik")) return { id: "guzellik", label: "Güzellik Merkezi", icon: "💄" };
+  if (normalized.includes("halı") || normalized.includes("hali") || normalized.includes("futbol")) return { id: "hali-saha", label: "Halı Saha", icon: "⚽" };
+  if (normalized.includes("padel")) return { id: "padel", label: "Padel Kort", icon: "🎾" };
+  if (normalized.includes("direksiyon")) return { id: "direksiyon", label: "Direksiyon Dersi", icon: "🚘" };
+  if (normalized.includes("ders")) return { id: "ozel-ders", label: "Özel Ders", icon: "🎓" };
+  if (normalized.includes("masaj") || normalized.includes("spa")) return { id: "masaj", label: "Masaj & Spa", icon: "🪷" };
+  if (normalized.includes("fizyoterapi")) return { id: "fizyoterapi", label: "Fizyoterapi", icon: "🧘" };
+  if (normalized.includes("yoga") || normalized.includes("pilates")) return { id: "yoga", label: "Yoga & Pilates", icon: "🧘‍♀️" };
+  return { id: "diger", label: value || "İşletme", icon: "📍" };
+}
+
+function getRuntimeVenueMapItems(origin) {
+  return getUsers()
+    .filter((user) => user.canManageVenue && !user.isAdmin)
+    .map((user) => {
+      const venueId = getUserVenueId(user);
+      const overlay = getVenueOverlay(venueId);
+      const settings = overlay.settings || {};
+      const location = settings.location || {};
+      const lat = Number(location.lat);
+      const lng = Number(location.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      if (lat < 35 || lat > 43 || lng < 25 || lng > 45) return null;
+
+      const details = settings.details || {};
+      const category = normalizeVenueCategory(details.category || settings.venue?.sport || "");
+      const distanceKm = getDistanceKm(origin, { lat, lng });
+      return {
+        id: venueId,
+        name: settings.businessName || user.name || "İşletme",
+        category: category.id,
+        categoryLabel: category.label,
+        icon: category.icon,
+        cityLabel: details.district || location.address || "Konum seçildi",
+        lat,
+        lng,
+        distanceKm: Number(distanceKm.toFixed(2)),
+        distanceLabel: `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`,
+        nextSlot: "Yakında",
+        priceLabel: "0",
+        mediaClass: "media-field",
+        source: "venue-settings",
+      };
+    })
+    .filter(Boolean);
+}
+
 app.get("/api/nearby", (req, res) => {
   const lat = Number(req.query.lat || 41.0351);
   const lng = Number(req.query.lng || 29.0268);
-  res.json(getNearbyMapPayload({ lat, lng }));
+  const origin = { lat, lng };
+  const payload = getNearbyMapPayload(origin);
+  const byId = new Map(payload.items.map((item) => [item.id, item]));
+
+  getRuntimeVenueMapItems(payload.origin).forEach((item) => {
+    byId.set(item.id, item);
+  });
+
+  res.json({
+    ...payload,
+    items: [...byId.values()].sort((a, b) => a.distanceKm - b.distanceKm),
+  });
 });
 
 app.get("/api/reservations/billing-preview", (_req, res) => {

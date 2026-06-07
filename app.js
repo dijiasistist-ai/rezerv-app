@@ -188,6 +188,13 @@ function markAllNotificationsRead() {
 }
 
 function clearNearbyMarkers() {
+  Object.values(state.nearbyMapInstances).forEach((slot) => {
+    if (!slot?.map) return;
+    (slot.markers || []).forEach((marker) => marker.remove());
+    if (slot.userMarker) slot.userMarker.remove();
+    slot.markers = [];
+    slot.userMarker = null;
+  });
   state.nearbyMarkers.modal = [];
   state.nearbyMarkers.inline = [];
   state.nearbyUserMarker = null;
@@ -276,8 +283,8 @@ function ensureInteractiveMap(container, markerGroup = "modal") {
       attributionControl: false,
     });
 
-    const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap",
+    const tileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; OpenStreetMap &copy; CARTO",
       maxZoom: 19,
       keepBuffer: 6,
       updateWhenIdle: false,
@@ -286,7 +293,7 @@ function ensureInteractiveMap(container, markerGroup = "modal") {
     tileLayer.addTo(map);
     tileLayer.on("tileerror", () => setTimeout(() => tileLayer.redraw(), 300));
 
-    L.control.attribution({ prefix: false }).addAttribution("&copy; OpenStreetMap").addTo(map);
+    L.control.attribution({ prefix: false }).addAttribution("&copy; OpenStreetMap &copy; CARTO").addTo(map);
 
     state.nearbyMapInstances[markerGroup] = {
       map,
@@ -307,20 +314,49 @@ function ensureInteractiveMap(container, markerGroup = "modal") {
 function renderNearbyMapCanvas(map, origin, items = [], markerGroup = "modal") {
   if (!map) return;
 
-  const src = buildGoogleMapsEmbedUrl(origin, markerGroup);
-  map.innerHTML = `
-    ${
-      markerGroup === "inline"
-        ? `<button class="map-expand-button" id="inline-map-expand" type="button" aria-label="Haritayı büyüt">🔍</button>`
-        : ""
-    }
-    <iframe class="nearby-map-frame" title="Yakındaki Google haritası" src="${src}" loading="eager" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
-  `;
-
-  state.nearbyMarkers[markerGroup] = [];
-  if (markerGroup === "inline") {
-    map.querySelector("#inline-map-expand")?.addEventListener("click", openNearbyMap);
+  if (!window.L) {
+    map.innerHTML = `
+      <div class="nearby-map-art">
+        <span>Harita yüklenemedi</span>
+      </div>
+    `;
+    return;
   }
+
+  const slot = ensureInteractiveMap(map, markerGroup);
+  if (!slot?.map) return;
+
+  (slot.markers || []).forEach((marker) => marker.remove());
+  if (slot.userMarker) slot.userMarker.remove();
+  slot.markers = [];
+
+  slot.map.setView([origin.lat, origin.lng], markerGroup === "inline" ? 12 : 13, { animate: false });
+  slot.userMarker = L.marker([origin.lat, origin.lng], { icon: buildUserIcon(), interactive: false }).addTo(slot.map);
+
+  items.forEach((item) => {
+    const marker = L.marker([item.lat, item.lng], {
+      icon: buildMapIcon(item),
+      title: item.name,
+    })
+      .addTo(slot.map)
+      .bindPopup(
+        `<strong>${item.name}</strong><br /><span>${item.categoryLabel} · ${item.cityLabel}</span><br /><small>${item.distanceLabel}</small>`,
+      );
+    marker.tyeeId = item.id;
+    slot.markers.push(marker);
+  });
+
+  const points = [origin, ...items].map((item) => [item.lat, item.lng]);
+  if (points.length > 1) {
+    slot.map.fitBounds(points, {
+      padding: markerGroup === "inline" ? [18, 18] : [28, 28],
+      maxZoom: markerGroup === "inline" ? 13 : 14,
+      animate: false,
+    });
+  }
+
+  state.nearbyMarkers[markerGroup] = slot.markers;
+  refreshMapSlot(slot);
 }
 
 function renderNearbyResults(target, items = [], limit = 6) {
@@ -372,7 +408,7 @@ async function loadNearbyMap(origin = state.nearbyOrigin) {
   renderNearbyResults(inlineNearbyResults, items, 4);
   setNearbyStatus(
     items.length
-      ? `${items.length} işletme Google Maps üzerinde konuma göre hesaplandı.`
+      ? `${items.length} işletme haritada konuma göre hesaplandı.`
       : "Bu konuma yakın işletme bulunamadı.",
   );
   setInlineNearbyStatus(items.length ? `${items.length} yakın seçenek` : "Yakın işletme bulunamadı");
@@ -566,7 +602,9 @@ function highlightNearbyMarker(markerId, group = "modal") {
   const target = group === "inline" ? inlineNearbyMap : document.querySelector("#nearby-map");
   if (!item || !target) return;
   renderNearbyMapCanvas(target, { lat: item.lat, lng: item.lng }, state.nearbyItems, group);
-  const message = `${item.name} Google Maps üzerinde açıldı.`;
+  const marker = state.nearbyMapInstances[group]?.markers?.find((candidate) => candidate.tyeeId === markerId);
+  if (marker) marker.openPopup();
+  const message = `${item.name} haritada seçildi.`;
   if (group === "inline") setInlineNearbyStatus(message);
   else setNearbyStatus(message);
 }
