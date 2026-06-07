@@ -71,6 +71,37 @@ Render Environment Variables:
 
 Turkiye numaralari `05xx...` girilirse sistem otomatik `+90...` formatina cevirir.
 
+## E-posta
+
+Kullanici ve isletme kayitlarinda dogrulama/hos geldin e-postasi gonderilir. E-posta
+saglayici ayari yoksa mesajlar `data/runtime/dev-mailbox.json` icine `dev-queued`
+olarak kaydedilir; canli e-posta gitmez.
+
+Desteklenen canli ayarlar:
+
+SMTP:
+
+- `EMAIL_PROVIDER=smtp`
+- `EMAIL_FROM` veya `SMTP_FROM` (`tyee <noreply@tyee.app>` gibi)
+- `SMTP_HOST`
+- `SMTP_PORT` (`587` varsayilan)
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_SECURE` (`true` veya `false`)
+- `EMAIL_REPLY_TO` veya `SMTP_REPLY_TO` opsiyonel
+
+Resend:
+
+- `EMAIL_PROVIDER=resend`
+- `RESEND_API_KEY`
+- `EMAIL_FROM` veya `RESEND_FROM`
+
+SendGrid:
+
+- `EMAIL_PROVIDER=sendgrid`
+- `SENDGRID_API_KEY`
+- `EMAIL_FROM` veya `SENDGRID_FROM`
+
 ## Rezervasyon odeme modeli
 
 Rezervasyon komisyon orani `%7` olarak `services/reservation-billing.js` icinde merkezi

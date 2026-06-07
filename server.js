@@ -11,7 +11,6 @@ const {
 } = require("./data/store");
 
 const {
-  appendDevEmail,
   deleteAdminAccessRule,
   deleteUserById,
   deleteVenueRecord,
@@ -32,6 +31,7 @@ const {
   verifyPassword,
   ensureSeedUser,
 } = require("./data/runtime-store");
+const { getEmailStatus, sendEmail } = require("./services/email");
 const { getMessagingStatus, sendMessage } = require("./services/messaging");
 const {
   PAYMENT_MODES,
@@ -167,11 +167,18 @@ function sendVerificationEmail(req, user) {
     verifyUrl,
     accountType: user.canManageVenue ? "venue" : "customer",
   });
-  return appendDevEmail({
+  return sendEmail({
     to: user.email,
     template: "email-verification",
     ...email,
   });
+}
+
+function describeEmailDelivery(emailDelivery, sentMessage, devMessage) {
+  if (emailDelivery?.status === "sent") return sentMessage;
+  if (emailDelivery?.status === "dev-queued") return devMessage;
+  if (emailDelivery?.status === "failed") return "E-posta hazırlandı ancak gönderim sağlayıcısında hata oluştu.";
+  return "E-posta gönderim durumu kaydedildi.";
 }
 
 async function sendPhoneVerification(user) {
@@ -502,6 +509,11 @@ function buildAdminBootstrap(req = null) {
       isLocal: req ? Boolean(req.adminAccess?.local) : false,
       rules: getAllAdminAccessRules().map(safeAdminAccessRule),
     },
+    messaging: {
+      email: getEmailStatus(),
+      sms: getMessagingStatus().sms,
+      whatsapp: getMessagingStatus().whatsapp,
+    },
     reportDefaults: {
       periods: ["Bu ay", "Son 30 gün", "Bu çeyrek", "Yıllık"],
       venues: [{ id: "all", name: "Tüm kurumlar" }, ...businesses.map((item) => ({ id: item.id, name: item.name }))],
@@ -758,16 +770,23 @@ app.post("/api/auth/register", async (req, res) => {
     passwordResetToken: "",
   });
 
-  sendVerificationEmail(req, user);
+  const emailDelivery = await sendVerificationEmail(req, user);
   await sendPhoneVerification(user);
 
   const token = createSession(user);
   res.status(201).json({
     token,
     user: normalizeUser(user),
-    nextStep: phone
-      ? "E-posta doğrulama linki ve SMS kodu gönderildi."
-      : "E-posta doğrulama linki gönderildi.",
+    nextStep: `${describeEmailDelivery(
+      emailDelivery,
+      "E-posta doğrulama linki gönderildi.",
+      "E-posta sağlayıcısı tanımlı olmadığı için doğrulama linki admin posta kutusuna kaydedildi.",
+    )}${phone ? " SMS doğrulama kodu hazırlandı." : ""}`,
+    emailDelivery: {
+      provider: emailDelivery.provider,
+      status: emailDelivery.status,
+      error: emailDelivery.error || "",
+    },
   });
 });
 
@@ -872,13 +891,24 @@ app.post("/api/auth/verify-email", (req, res) => {
   res.json({ user: normalizeUser(updated), message: "E-posta doğrulandı." });
 });
 
-app.post("/api/auth/resend-verification", requireAuth, (req, res) => {
+app.post("/api/auth/resend-verification", requireAuth, async (req, res) => {
   let user = req.user;
   if (!user.emailVerificationToken) {
     user = upsertUser({ ...user, emailVerificationToken: createToken(18) });
   }
-  sendVerificationEmail(req, user);
-  res.json({ message: "Doğrulama e-postası tekrar gönderildi." });
+  const emailDelivery = await sendVerificationEmail(req, user);
+  res.json({
+    message: describeEmailDelivery(
+      emailDelivery,
+      "Doğrulama e-postası tekrar gönderildi.",
+      "E-posta sağlayıcısı tanımlı olmadığı için doğrulama linki admin posta kutusuna kaydedildi.",
+    ),
+    emailDelivery: {
+      provider: emailDelivery.provider,
+      status: emailDelivery.status,
+      error: emailDelivery.error || "",
+    },
+  });
 });
 
 app.post("/api/auth/verify-phone", requireAuth, (req, res) => {
@@ -896,13 +926,13 @@ app.post("/api/auth/verify-phone", requireAuth, (req, res) => {
   res.json({ user: normalizeUser(user), message: "Telefon doğrulandı." });
 });
 
-app.post("/api/auth/password-reset/request", (req, res) => {
+app.post("/api/auth/password-reset/request", async (req, res) => {
   const email = normalizeEmail(req.body.email || "");
   const user = findUserByEmail(email);
   if (user) {
     const resetToken = createSmsCode();
     const updated = upsertUser({ ...user, passwordResetToken: resetToken });
-    appendDevEmail({
+    await sendEmail({
       to: updated.email,
       template: "password-reset",
       ...passwordResetEmailTemplate({ name: updated.name, resetToken }),
@@ -1146,7 +1176,7 @@ app.delete("/api/admin/access-rules/:id", requireAdmin, (req, res) => {
   });
 });
 
-app.post("/api/admin/password-reset", requireAdmin, (req, res) => {
+app.post("/api/admin/password-reset", requireAdmin, async (req, res) => {
   const target =
     (req.body.userId && findUserById(String(req.body.userId))) ||
     (req.body.email && findUserByEmail(resolveLoginEmail(req.body.email))) ||
@@ -1169,7 +1199,7 @@ app.post("/api/admin/password-reset", requireAdmin, (req, res) => {
     passwordResetToken: "",
   });
 
-  appendDevEmail({
+  const emailDelivery = await sendEmail({
     to: updated.email,
     template: "admin-password-reset",
     subject: "tyee geçici şifre",
@@ -1184,9 +1214,14 @@ app.post("/api/admin/password-reset", requireAdmin, (req, res) => {
   });
 
   res.json({
-    message: "Şifre güncellendi ve dev posta kutusuna e-posta kaydı bırakıldı.",
+    message: "Şifre güncellendi ve e-posta gönderimi hazırlandı.",
     user: formatAdminUser(updated),
     temporaryPassword: password,
+    emailDelivery: {
+      provider: emailDelivery.provider,
+      status: emailDelivery.status,
+      error: emailDelivery.error || "",
+    },
   });
 });
 
@@ -1231,7 +1266,7 @@ app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
           });
         }
 
-        return appendDevEmail({
+        return sendEmail({
           to: recipient.email,
           template: "admin-notification",
           subject,
@@ -1252,7 +1287,7 @@ app.post("/api/admin/notifications", requireAdmin, async (req, res) => {
   res.status(201).json({
     message: `${delivered.length} bildirim hazırlandı${
       skippedCount ? `, ${skippedCount} alıcıda telefon olmadığı için atlandı` : ""
-    }. SMS: ${getMessagingStatus().sms}, WhatsApp: ${getMessagingStatus().whatsapp}.`,
+    }. E-posta: ${getEmailStatus().provider}, SMS: ${getMessagingStatus().sms}, WhatsApp: ${getMessagingStatus().whatsapp}.`,
     deliveredCount: delivered.length,
     skippedCount,
   });
