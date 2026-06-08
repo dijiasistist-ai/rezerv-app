@@ -707,6 +707,22 @@ function normalizeVenueCategory(value = "") {
   return { id: "diger", label: value || "İşletme", icon: "📍" };
 }
 
+function getVenueCategoryMediaClass(categoryId = "") {
+  const mediaByCategory = {
+    "pet-kuafor": "media-pet",
+    guzellik: "media-beauty",
+    "hali-saha": "media-field",
+    padel: "media-padel",
+    direksiyon: "media-driving",
+    "ozel-ders": "media-lesson",
+    masaj: "media-spa",
+    fizyoterapi: "media-physio",
+    yoga: "media-yoga",
+  };
+
+  return mediaByCategory[categoryId] || "media-field";
+}
+
 function getRuntimeVenueMapItems(origin) {
   const deletedVenueIds = new Set(getDeletedVenueIds());
   return getUsers()
@@ -738,7 +754,7 @@ function getRuntimeVenueMapItems(origin) {
         distanceLabel: `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`,
         nextSlot: "Yakında",
         priceLabel: "0",
-        mediaClass: "media-field",
+        mediaClass: getVenueCategoryMediaClass(category.id),
         source: "venue-settings",
       };
     })
