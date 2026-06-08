@@ -8,7 +8,7 @@ const PAYMENT_MODES = {
 };
 
 const PAYMENT_MODE_LABELS = {
-  [PAYMENT_MODES.COMMISSION_DEPOSIT]: "Kapora komisyon",
+  [PAYMENT_MODES.COMMISSION_DEPOSIT]: "Ön ödeme",
   [PAYMENT_MODES.FULL_ONLINE]: "Tam online ödeme",
   [PAYMENT_MODES.VENUE_PAYMENT]: "Sadece rezervasyon",
 };
@@ -85,7 +85,7 @@ function calculateReservationBilling({ totalAmount = 0, paymentMode = PAYMENT_MO
     platformCommissionCollected: commissionAmount,
     venuePayoutAmount: 0,
     venueCommissionDebt: 0,
-    settlement: "Komisyon kapora adıyla alınır; kalan tutar işletmede tahsil edilir.",
+    settlement: "Ön ödeme online alınır; kalan tutar işletmede tahsil edilir.",
   };
 }
 

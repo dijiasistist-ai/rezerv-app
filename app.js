@@ -64,6 +64,22 @@ const infoTabs = document.querySelectorAll("[data-info-tab]");
 const infoPanels = document.querySelectorAll("[data-info-panel]");
 const infoHomeLinks = document.querySelectorAll("[data-info-home]");
 const infoAuthButtons = document.querySelectorAll("[data-info-auth]");
+const reservationModal = document.querySelector("#reservation-modal");
+const reservationClose = document.querySelector("#reservation-close");
+const reservationDismiss = document.querySelector("#reservation-dismiss");
+const reservationForm = document.querySelector("#reservation-form");
+const reservationTitle = document.querySelector("#reservation-title");
+const reservationSubtitle = document.querySelector("#reservation-subtitle");
+const reservationName = document.querySelector("#reservation-name");
+const reservationPhone = document.querySelector("#reservation-phone");
+const reservationEmail = document.querySelector("#reservation-email");
+const reservationTotal = document.querySelector("#reservation-total");
+const reservationDate = document.querySelector("#reservation-date");
+const reservationTime = document.querySelector("#reservation-time");
+const reservationPolicy = document.querySelector("#reservation-policy");
+const reservationPreview = document.querySelector("#reservation-preview");
+const reservationNote = document.querySelector("#reservation-note");
+const reservationFeedback = document.querySelector("#reservation-feedback");
 const notificationStorageKey = "tyee_read_notifications_v1";
 let notificationReadTimer = null;
 
@@ -90,6 +106,9 @@ const state = {
   nearbyItems: [],
   nearbyUserMarker: null,
   nearbyOrigin: { lat: 41.0351, lng: 29.0268 },
+  reservationDraft: null,
+  reservationPolicy: null,
+  reservationPolicyRequest: 0,
 };
 
 const fallbackCategories = [
@@ -209,6 +228,20 @@ function leaveInfoViewForAnchor(href = "/#hero") {
 
 function formatPrice(value) {
   return new Intl.NumberFormat("tr-TR").format(value);
+}
+
+function parseMoney(value = 0) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const normalized = String(value || "")
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatCurrency(value = 0) {
+  return `₺${formatPrice(Math.round(Number(value || 0)))}`;
 }
 
 function getInitials(name = "Dilek Yıldız") {
@@ -727,7 +760,7 @@ function renderNearbyListings(items = state.nearbyItems) {
               <div class="nearby-facility-foot">
                 <em>₺${item.priceLabel || "0"}</em>
                 <small>${item.nextSlot || "Yakında"} müsait</small>
-                <button class="solid-button" type="button">Tesise Git</button>
+                <button class="solid-button" data-reservation-id="${item.id}" type="button">Rezervasyon Yap</button>
               </div>
             </div>
           </article>
@@ -783,7 +816,7 @@ function renderListings(items = []) {
               <strong>₺${item.priceLabel || formatPrice(item.price)}</strong>
               <span>/ ${item.priceUnit}</span>
             </div>
-            <button class="solid-button card-cta" type="button">${item.cta}</button>
+            <button class="solid-button card-cta" data-listing-reservation-id="${item.id}" type="button">${item.cta}</button>
           </div>
         </article>
       `;
@@ -836,6 +869,160 @@ async function apiRequest(url, options = {}) {
   }
 
   return payload;
+}
+
+function normalizeReservationItem(item = {}) {
+  const totalAmount = parseMoney(item.price || item.priceLabel || 1000) || 1000;
+  const time = String(item.nextSlot || item.availability?.nextSlot || item.eveningTime || "19:00").match(/\d{1,2}:\d{2}/)?.[0] || "19:00";
+
+  return {
+    id: item.id,
+    venueId: item.venueId || item.id,
+    listingId: item.listingId || item.id,
+    name: item.name || "İşletme",
+    category: item.category || "",
+    categoryLabel: item.categoryLabel || "Hizmet",
+    cityLabel: item.cityLabel || "Konum seçildi",
+    totalAmount,
+    serviceTime: time,
+  };
+}
+
+function getTomorrowIsoDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function getPaymentPolicyText(policy) {
+  const mode = policy?.paymentMode || "commission_deposit";
+  if (mode === "venue_payment") {
+    return {
+      title: "Sadece rezervasyon",
+      body: "Bu işletme online ödeme istemiyor. Tutar işletmede ödenecek.",
+    };
+  }
+  if (mode === "full_online") {
+    return {
+      title: "Tam online ödeme",
+      body: "Rezervasyon tutarı online alınacak, işletme hakedişi panelde oluşacak.",
+    };
+  }
+  return {
+    title: "Ön ödeme",
+    body: "Rezervasyonu tamamlamak için küçük bir online ön ödeme alınacak. Kalan tutar işletmede ödenecek.",
+  };
+}
+
+function renderReservationPolicy() {
+  const policyText = getPaymentPolicyText(state.reservationPolicy);
+  if (reservationPolicy) {
+    reservationPolicy.innerHTML = `
+      <strong>${policyText.title}</strong>
+      <span>${policyText.body}</span>
+    `;
+  }
+
+  const billing = state.reservationPolicy?.billing;
+  if (!reservationPreview || !billing) {
+    if (reservationPreview) {
+      reservationPreview.innerHTML = `
+        <article>
+          <small>Ödeme özeti</small>
+          <strong>Hazırlanıyor</strong>
+        </article>
+      `;
+    }
+    return;
+  }
+
+  const onlineLabel = billing.customerOnlinePayment > 0 ? "Online alınacak" : "Online ödeme";
+  const venueLabel = billing.customerVenuePayment > 0 ? "İşletmede ödenecek" : "İşletmede ödeme";
+  reservationPreview.innerHTML = `
+    <article>
+      <small>${onlineLabel}</small>
+      <strong>${formatCurrency(billing.customerOnlinePayment)}</strong>
+    </article>
+    <article>
+      <small>${venueLabel}</small>
+      <strong>${formatCurrency(billing.customerVenuePayment)}</strong>
+    </article>
+    <article>
+      <small>Toplam hizmet bedeli</small>
+      <strong>${formatCurrency(billing.totalAmount)}</strong>
+    </article>
+    <article>
+      <small>Rezervasyon modeli</small>
+      <strong>${billing.paymentModeLabel}</strong>
+    </article>
+  `;
+}
+
+async function loadReservationPolicy() {
+  if (!state.reservationDraft) return;
+  const requestId = state.reservationPolicyRequest + 1;
+  state.reservationPolicyRequest = requestId;
+  state.reservationPolicy = null;
+  renderReservationPolicy();
+
+  const params = new URLSearchParams({
+    venueId: state.reservationDraft.venueId,
+    totalAmount: String(parseMoney(reservationTotal?.value || state.reservationDraft.totalAmount)),
+  });
+
+  try {
+    const payload = await fetchJson(`/api/reservations/payment-policy?${params.toString()}`);
+    if (state.reservationPolicyRequest !== requestId) return;
+    state.reservationPolicy = payload;
+    renderReservationPolicy();
+  } catch (error) {
+    if (reservationPolicy) {
+      reservationPolicy.innerHTML = `
+        <strong>Ödeme politikası alınamadı</strong>
+        <span>Lütfen birazdan tekrar dene.</span>
+      `;
+    }
+  }
+}
+
+function openReservationModal(item = {}) {
+  const draft = normalizeReservationItem(item);
+  state.reservationDraft = draft;
+  state.reservationPolicy = null;
+  closeHeaderPopovers();
+  closeAccountMenu();
+
+  if (reservationTitle) reservationTitle.textContent = draft.name;
+  if (reservationSubtitle) {
+    reservationSubtitle.textContent = `${draft.categoryLabel} · ${draft.cityLabel}`;
+  }
+  if (reservationName) reservationName.value = state.user?.name || "";
+  if (reservationPhone) reservationPhone.value = state.user?.phone || "";
+  if (reservationEmail) reservationEmail.value = state.user?.email || "";
+  if (reservationTotal) reservationTotal.value = String(Math.round(draft.totalAmount));
+  if (reservationDate) {
+    reservationDate.min = new Date().toISOString().slice(0, 10);
+    reservationDate.value = getTomorrowIsoDate();
+  }
+  if (reservationTime) reservationTime.value = draft.serviceTime;
+  if (reservationNote) reservationNote.value = "";
+  if (reservationFeedback) {
+    reservationFeedback.textContent = "";
+    reservationFeedback.classList.remove("is-success");
+  }
+
+  reservationModal?.classList.remove("hidden");
+  reservationModal?.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  loadReservationPolicy();
+}
+
+function closeReservationModal() {
+  reservationModal?.classList.add("hidden");
+  reservationModal?.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+  state.reservationDraft = null;
+  state.reservationPolicy = null;
 }
 
 async function loadBootstrap() {
@@ -1079,9 +1266,70 @@ inlineNearbyResults?.addEventListener("click", (event) => {
 });
 
 listingGrid?.addEventListener("click", (event) => {
+  const reservationButton = event.target.closest("[data-reservation-id], [data-listing-reservation-id]");
+  if (reservationButton) {
+    event.preventDefault();
+    const itemId = reservationButton.dataset.reservationId || reservationButton.dataset.listingReservationId;
+    const item =
+      state.nearbyItems.find((candidate) => candidate.id === itemId) ||
+      state.featuredListings.find((candidate) => candidate.id === itemId);
+    if (item) openReservationModal(item);
+    return;
+  }
+
   const card = event.target.closest(".nearby-facility-card[data-marker-id]");
   if (!card) return;
   highlightNearbyMarker(card.dataset.markerId, "inline");
+});
+
+reservationClose?.addEventListener("click", closeReservationModal);
+reservationDismiss?.addEventListener("click", closeReservationModal);
+reservationTotal?.addEventListener("input", () => {
+  window.clearTimeout(reservationTotal.refreshTimer);
+  reservationTotal.refreshTimer = window.setTimeout(loadReservationPolicy, 250);
+});
+
+reservationForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!state.reservationDraft) return;
+
+  reservationFeedback.textContent = "";
+  reservationFeedback.classList.remove("is-success");
+
+  try {
+    const response = await apiRequest("/api/reservations", {
+      method: "POST",
+      body: JSON.stringify({
+        venueId: state.reservationDraft.venueId,
+        listingId: state.reservationDraft.listingId,
+        venueName: state.reservationDraft.name,
+        listingName: state.reservationDraft.name,
+        category: state.reservationDraft.category,
+        categoryLabel: state.reservationDraft.categoryLabel,
+        serviceLabel: state.reservationDraft.categoryLabel,
+        customerName: reservationName.value.trim(),
+        customerPhone: reservationPhone.value.trim(),
+        customerEmail: reservationEmail.value.trim(),
+        totalAmount: reservationTotal.value,
+        serviceDate: reservationDate.value,
+        serviceTime: reservationTime.value,
+        note: reservationNote.value.trim(),
+      }),
+    });
+
+    state.reservationPolicy = {
+      paymentMode: response.reservation.paymentMode,
+      paymentModeLabel: response.reservation.paymentModeLabel,
+      billing: response.reservation.billing,
+    };
+    renderReservationPolicy();
+    reservationFeedback.textContent = response.message || "Rezervasyon oluşturuldu.";
+    reservationFeedback.classList.add("is-success");
+    window.setTimeout(closeReservationModal, 900);
+  } catch (error) {
+    reservationFeedback.textContent = error.message;
+    reservationFeedback.classList.remove("is-success");
+  }
 });
 
 infoLinks.forEach((link) => {

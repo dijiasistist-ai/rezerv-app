@@ -10,6 +10,7 @@ const smsPath = path.join(runtimeDir, "dev-sms.json");
 const venuesPath = path.join(runtimeDir, "venues.json");
 const adminAccessPath = path.join(runtimeDir, "admin-access.json");
 const deletedVenuesPath = path.join(runtimeDir, "deleted-venues.json");
+const reservationsPath = path.join(runtimeDir, "reservations.json");
 
 const bundledLegacyUsers = [
   {
@@ -325,7 +326,28 @@ function deleteAdminAccessRule(id) {
   return nextRules.length !== rules.length;
 }
 
+function getReservations() {
+  return readJson(reservationsPath, []);
+}
+
+function saveReservations(reservations) {
+  writeJson(reservationsPath, reservations);
+}
+
+function addReservation(reservation) {
+  const reservations = getReservations();
+  const nextReservation = {
+    id: reservation.id || crypto.randomUUID(),
+    createdAt: reservation.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...reservation,
+  };
+  saveReservations([nextReservation, ...reservations].slice(0, 1000));
+  return nextReservation;
+}
+
 module.exports = {
+  addReservation,
   appendDevEmail,
   appendDevSms,
   deleteAdminAccessRule,
@@ -336,6 +358,7 @@ module.exports = {
   findUserById,
   getAdminAccessRules,
   getDeletedVenueIds,
+  getReservations,
   getUsers,
   getDevOutbox,
   getVenueOverlay,

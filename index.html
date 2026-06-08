@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/styles.css?v=20260608-hero-breathing-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260608-reservations-2" />
   </head>
   <body>
     <div class="page-shell">
@@ -551,6 +551,62 @@
       </section>
     </div>
 
+    <div class="reservation-modal hidden" id="reservation-modal" aria-hidden="true">
+      <div class="reservation-backdrop" id="reservation-close"></div>
+      <section class="reservation-dialog" aria-label="Rezervasyon oluştur">
+        <div class="reservation-header">
+          <div>
+            <p class="eyebrow">Rezervasyon</p>
+            <h2 id="reservation-title">Rezervasyon oluştur</h2>
+            <span id="reservation-subtitle">İşletmenin belirlediği rezervasyon politikasına göre ilerle.</span>
+          </div>
+          <button class="icon-button" id="reservation-dismiss" type="button" aria-label="Kapat">×</button>
+        </div>
+
+        <form class="reservation-form" id="reservation-form">
+          <div class="reservation-grid">
+            <label>
+              <span>Ad soyad</span>
+              <input id="reservation-name" type="text" required />
+            </label>
+            <label>
+              <span>Telefon</span>
+              <input id="reservation-phone" type="tel" required />
+            </label>
+            <label>
+              <span>E-posta</span>
+              <input id="reservation-email" type="email" />
+            </label>
+            <label>
+              <span>Toplam bedel</span>
+              <input id="reservation-total" type="number" min="1" step="1" value="1000" required />
+            </label>
+            <label>
+              <span>Tarih</span>
+              <input id="reservation-date" type="date" required />
+            </label>
+            <label>
+              <span>Saat</span>
+              <input id="reservation-time" type="time" value="19:00" required />
+            </label>
+          </div>
+
+          <div class="reservation-policy" id="reservation-policy">
+            <strong>İşletme ödeme politikası yükleniyor</strong>
+            <span>Rezervasyon tutarına göre ödeme özeti hazırlanacak.</span>
+          </div>
+
+          <div class="reservation-preview" id="reservation-preview"></div>
+          <label class="reservation-note">
+            <span>Not</span>
+            <textarea id="reservation-note" placeholder="Opsiyonel not"></textarea>
+          </label>
+          <p class="reservation-feedback" id="reservation-feedback"></p>
+          <button class="solid-button reservation-submit" type="submit">Rezervasyonu Oluştur</button>
+        </form>
+      </section>
+    </div>
+
     <div class="auth-modal hidden" id="auth-modal" aria-hidden="true">
       <div class="auth-backdrop" id="auth-close"></div>
       <div class="auth-dialog">
@@ -653,6 +709,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260608-pet-paw-pin-2"></script>
+    <script src="/app.js?v=20260608-reservations-2"></script>
   </body>
 </html>

@@ -116,7 +116,7 @@ const BUSINESS_CONTRACT_SECTIONS = [
     title: "5. Ödeme modelleri ve tyee komisyonu",
     body: [
       "Platformda temel komisyon oranı, aksi yazılı olarak kararlaştırılmadıkça rezervasyon veya paket tutarının yüzde yedisidir. Örnek olarak 4.000 TL tutarlı bir rezervasyonda tyee platform payı 280 TL'dir.",
-      "Kapora komisyon modelinde, müşteriden rezervasyon sırasında yüzde yedilik tutar kapora/platform payı olarak alınabilir. Kalan hizmet bedeli işletme tarafından hizmet yerinde veya işletmenin kendi ödeme yöntemiyle tahsil edilir.",
+      "Ön ödeme modelinde, müşteriden rezervasyon sırasında yüzde yedilik tutar online alınır. Kalan hizmet bedeli işletme tarafından hizmet yerinde veya işletmenin kendi ödeme yöntemiyle tahsil edilir.",
       "Tam online ödeme modelinde, müşteriden hizmet bedelinin tamamı alınır. tyee yüzde yedilik platform payını mahsup eder; kalan hakediş, kart ödeme kuruluşu ve banka süreçleri tamamlandıktan sonra işletmenin kayıtlı IBAN hesabına aktarılır.",
       "Sadece rezervasyon modelinde online tahsilat yapılmaz. Hizmet bedeli işletme tarafından tahsil edilir. tyee, ay sonunda işletmeye rezervasyon listesini ve komisyon tutarını bildirir. İşletme bildirilen komisyonu FAST/EFT ile öder.",
       "Ay sonu FAST modelinde ödeme bildirimi sonrası işletmeye on beş gün süre tanınır. Bu sürede ödeme yapılmazsa hatırlatma bildirimi gönderilebilir, hesap pasife çekilebilir, yeni rezervasyon alma yetkisi sınırlandırılabilir ve alacak takibi başlatılabilir.",
@@ -282,7 +282,7 @@ function normalizeSettings(settings = {}) {
       taxOffice: "",
       taxNumber: "",
       iban: "",
-      paymentMethod: "Kapora komisyon (%7 tyee)",
+      paymentMethod: "Ön ödeme",
       ...(settings.payment || {}),
     },
     contracts: {
@@ -1253,7 +1253,7 @@ function renderPaymentSettings(settings) {
       <span>Ödeme yöntemi</span>
       <select id="settings-payment-method">
         ${[
-            "Kapora komisyon (%7 tyee)",
+            "Ön ödeme",
             "Tam online ödeme (%7 tyee + hakediş)",
             "Sadece rezervasyon (ay sonu FAST)",
           ]

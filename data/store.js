@@ -477,7 +477,7 @@ const venueDashboard = {
       field: "Saha 1",
       channel: "Kapora",
       customer: "Murat Bahadır",
-      businessType: "Kapora komisyon",
+      businessType: "Ön ödeme",
       amount: "₺4.000",
       deposit: "₺280",
       commission: "₺280",

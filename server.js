@@ -11,6 +11,7 @@ const {
 } = require("./data/store");
 
 const {
+  addReservation,
   deleteAdminAccessRule,
   deleteUserById,
   deleteVenueRecord,
@@ -19,6 +20,7 @@ const {
   findUserById,
   getAdminAccessRules,
   getDeletedVenueIds,
+  getReservations,
   getUsers,
   getDevOutbox,
   getVenueOverlay,
@@ -478,6 +480,19 @@ function mergeVenuePayload(venueId, user = null) {
   if (overlay.billingAddresses) payload.billingAddresses = overlay.billingAddresses;
   if (overlay.media) payload.media = overlay.media;
 
+  const venueReservations = getReservationsForVenue(venueId);
+  if (venueReservations.length) {
+    const reservationTransactions = venueReservations.map(formatReservationTransaction);
+    payload.transactions = [...reservationTransactions, ...(payload.transactions || [])];
+    payload.reportSummary = buildReservationSummary(venueReservations);
+    payload.stats = [
+      { label: "Bu hafta ciro", value: payload.reportSummary[0].value, delta: `${venueReservations.length} işlem` },
+      { label: "Toplam rezervasyon", value: String(venueReservations.length), delta: "+ canlı" },
+      { label: "Komisyon", value: payload.reportSummary[1].value, delta: "tyee payı" },
+      { label: "FAST borcu", value: payload.reportSummary[3].value, delta: "ay sonu" },
+    ];
+  }
+
   payload.slotState = {
     slotModes: overlay.slotModes || {},
     manualEntries: overlay.manualEntries || {},
@@ -494,6 +509,110 @@ function resolveLoginEmail(value = "") {
 
 function formatCurrency(value) {
   return `₺${new Intl.NumberFormat("tr-TR").format(Number(value || 0))}`;
+}
+
+function parseMoney(value = 0) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const normalized = String(value || "")
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizePaymentMode(value = "") {
+  const normalized = String(value || "").toLocaleLowerCase("tr-TR");
+  if (Object.values(PAYMENT_MODES).includes(value)) return value;
+  if (normalized.includes("tam")) return PAYMENT_MODES.FULL_ONLINE;
+  if (normalized.includes("sadece") || normalized.includes("fast") || normalized.includes("rezervasyon")) {
+    return PAYMENT_MODES.VENUE_PAYMENT;
+  }
+  return PAYMENT_MODES.COMMISSION_DEPOSIT;
+}
+
+function resolveVenuePaymentPolicy(venueId) {
+  const overlay = venueId ? getVenueOverlay(venueId) : {};
+  const payment = overlay.settings?.payment || {};
+  const paymentMode = normalizePaymentMode(payment.paymentMethod || "");
+
+  return {
+    paymentMode,
+  };
+}
+
+function getPaymentModeChannel(paymentMode) {
+  if (paymentMode === PAYMENT_MODES.FULL_ONLINE) return "Tam Online";
+  if (paymentMode === PAYMENT_MODES.VENUE_PAYMENT) return "Sadece Rezervasyon";
+  return "Ön ödeme";
+}
+
+function formatDateTr(value) {
+  if (!value) return "-";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+}
+
+function formatDateTimeTr(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatReservationTransaction(reservation) {
+  const billing = reservation.billing || calculateReservationBilling(reservation);
+  return {
+    id: reservation.shortId || String(reservation.id || "").slice(0, 8),
+    type: "Rezervasyon",
+    status: reservation.status === "cancelled" ? "Pasif" : "Aktif",
+    venue: reservation.venueName || "İşletme",
+    field: reservation.serviceLabel || reservation.categoryLabel || "Hizmet",
+    channel: getPaymentModeChannel(reservation.paymentMode),
+    customer: reservation.customerName || reservation.customerEmail || "Misafir",
+    businessType: billing.paymentModeLabel,
+    amount: formatCurrency(billing.totalAmount),
+    deposit: formatCurrency(billing.customerOnlinePayment),
+    commission: formatCurrency(billing.commissionAmount),
+    payout: formatCurrency(billing.venuePayoutAmount),
+    date: formatDateTr(reservation.serviceDate),
+    time: reservation.serviceTime || "-",
+    createdAt: formatDateTimeTr(reservation.createdAt),
+    monthlyPackageActive: false,
+    packageName: reservation.paymentMode === PAYMENT_MODES.VENUE_PAYMENT ? "Ay sonu FAST" : "-",
+    withdrawalCount: 0,
+  };
+}
+
+function buildReservationSummary(reservations = []) {
+  const totals = reservations.reduce(
+    (summary, reservation) => {
+      const billing = reservation.billing || calculateReservationBilling(reservation);
+      summary.volume += billing.totalAmount;
+      summary.commission += billing.commissionAmount;
+      summary.payout += billing.venuePayoutAmount;
+      summary.debt += billing.venueCommissionDebt;
+      return summary;
+    },
+    { volume: 0, commission: 0, payout: 0, debt: 0 },
+  );
+
+  return [
+    { label: "Toplam işlem hacmi", value: formatCurrency(totals.volume), meta: `${reservations.length} işlem` },
+    { label: "Toplam komisyon", value: formatCurrency(totals.commission), meta: "Platform payı" },
+    { label: "Tesise ödenecek", value: formatCurrency(totals.payout), meta: "Hakediş toplamı" },
+    { label: "FAST komisyon borcu", value: formatCurrency(totals.debt), meta: "Sadece rezervasyon" },
+  ];
+}
+
+function getReservationsForVenue(venueId) {
+  return getReservations().filter((reservation) => reservation.venueId === venueId);
 }
 
 function formatAdminUser(user) {
@@ -754,6 +873,7 @@ function getRuntimeVenueMapItems(origin) {
         distanceLabel: `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`,
         nextSlot: "Yakında",
         priceLabel: "0",
+        paymentMode: resolveVenuePaymentPolicy(venueId).paymentMode,
         mediaClass: getVenueCategoryMediaClass(category.id),
         source: "venue-settings",
       };
@@ -826,6 +946,109 @@ app.get("/api/reservations/billing-preview", (_req, res) => {
       periodEnd: new Date("2026-06-30T20:59:59.000Z"),
       now: new Date("2026-07-20T12:00:00.000Z"),
     }),
+  });
+});
+
+app.get("/api/reservations/payment-options", (req, res) => {
+  const totalAmount = Math.max(parseMoney(req.query.totalAmount || req.query.total || 0), 0);
+  const examples = [
+    PAYMENT_MODES.VENUE_PAYMENT,
+    PAYMENT_MODES.COMMISSION_DEPOSIT,
+    PAYMENT_MODES.FULL_ONLINE,
+  ].map((paymentMode) => calculateReservationBilling({ totalAmount, paymentMode }));
+
+  res.json({
+    commissionRate: 0.07,
+    totalAmount,
+    options: examples,
+  });
+});
+
+app.get("/api/reservations/payment-policy", (req, res) => {
+  const venueId = String(req.query.venueId || req.query.listingId || "").trim();
+  const totalAmount = Math.max(parseMoney(req.query.totalAmount || req.query.total || 0), 0);
+  const policy = resolveVenuePaymentPolicy(venueId);
+  const billing = calculateReservationBilling({ totalAmount, ...policy });
+
+  res.json({
+    venueId,
+    commissionRate: 0.07,
+    ...policy,
+    paymentModeLabel: billing.paymentModeLabel,
+    billing,
+  });
+});
+
+app.post("/api/reservations", async (req, res) => {
+  const body = req.body || {};
+  const user = getUserFromRequest(req);
+  const venueId = String(body.venueId || body.listingId || "").trim();
+  const totalAmount = Math.max(parseMoney(body.totalAmount), 0);
+  const policy = resolveVenuePaymentPolicy(venueId);
+  const billing = calculateReservationBilling({ totalAmount, ...policy });
+  const paymentMode = policy.paymentMode;
+  const customerName = String(body.customerName || user?.name || "").trim();
+  const customerEmail = normalizeEmail(body.customerEmail || user?.email || "");
+  const customerPhone = String(body.customerPhone || user?.phone || "").trim();
+  const serviceDate = String(body.serviceDate || "").trim();
+  const serviceTime = String(body.serviceTime || "").trim();
+
+  if (!venueId) {
+    res.status(400).json({ error: "Rezervasyon için işletme bilgisi eksik." });
+    return;
+  }
+
+  if (!customerName || !customerPhone) {
+    res.status(400).json({ error: "Ad soyad ve telefon gerekli." });
+    return;
+  }
+
+  if (!serviceDate || !serviceTime) {
+    res.status(400).json({ error: "Rezervasyon tarihi ve saati gerekli." });
+    return;
+  }
+
+  if (totalAmount <= 0) {
+    res.status(400).json({ error: "Rezervasyon bedeli 0'dan büyük olmalı." });
+    return;
+  }
+
+  const reservation = addReservation({
+    id: crypto.randomUUID(),
+    shortId: String(Date.now()).slice(-6),
+    venueId,
+    listingId: String(body.listingId || venueId),
+    venueName: String(body.venueName || body.listingName || "İşletme").trim(),
+    category: String(body.category || "").trim(),
+    categoryLabel: String(body.categoryLabel || "").trim(),
+    serviceLabel: String(body.serviceLabel || body.categoryLabel || "Rezervasyon").trim(),
+    serviceDate,
+    serviceTime,
+    customerId: user?.id || "",
+    customerName,
+    customerEmail,
+    customerPhone,
+    note: String(body.note || "").trim(),
+    totalAmount: billing.totalAmount,
+    paymentMode,
+    paymentModeLabel: billing.paymentModeLabel,
+    paymentStatus:
+      paymentMode === PAYMENT_MODES.VENUE_PAYMENT ? "no_online_payment" : "sandbox_collected",
+    status: "confirmed",
+    billing,
+  });
+
+  await sendEmail({
+    to: customerEmail || "info@tyee.app",
+    template: "reservation-confirmation",
+    subject: `tyee rezervasyonun alındı: ${reservation.venueName}`,
+    text: `Merhaba ${customerName},\n\n${reservation.venueName} için ${serviceDate} ${serviceTime} rezervasyonun alındı.\n\nÖdeme modeli: ${billing.paymentModeLabel}\nToplam bedel: ${formatCurrency(billing.totalAmount)}\ntyee komisyonu: ${formatCurrency(billing.commissionAmount)}\n\n${billing.settlement}\n\ntyee ekibi`,
+  }).catch(() => null);
+
+  res.status(201).json({
+    message: "Rezervasyon oluşturuldu.",
+    reservation,
+    transaction: formatReservationTransaction(reservation),
   });
 });
 

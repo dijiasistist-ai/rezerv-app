@@ -130,7 +130,7 @@ SendGrid:
 Rezervasyon komisyon orani `%7` olarak `services/reservation-billing.js` icinde merkezi
 hesaplanir. Ornek `4.000 TL` rezervasyonda komisyon `280 TL` olur.
 
-- Kapora komisyon: Musteriden sadece `%7` komisyon kapora olarak alinir, kalan tutar isletmede tahsil edilir.
+- Ön ödeme: Müşteriden rezervasyon sırasında `%7` online ön ödeme alınır, kalan tutar işletmede tahsil edilir.
 - Tam online odeme: Musteriden tutarin tamami alinir, `%7` tyee komisyonu kalir, kalan hakedis kart odemesi cekilebilir olduktan sonra isletmeye aktarilir.
 - Sadece rezervasyon: Online tahsilat yapilmaz, odeme isletmede alinir. Rezervasyonlar ay sonunda listelenir ve komisyon tutari FAST ile istenir.
 
