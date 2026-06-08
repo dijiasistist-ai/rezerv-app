@@ -26,7 +26,6 @@ const onlineAmount = document.querySelector("#booking-online-amount");
 const totalAmount = document.querySelector("#booking-total-amount");
 const policy = document.querySelector("#booking-policy");
 const feedback = document.querySelector("#booking-feedback");
-const findSlotButton = document.querySelector("#find-slot-button");
 
 const state = {
   listing: null,
@@ -98,9 +97,14 @@ function buildServices(listing) {
   return [baseLabel, `${baseLabel} 2`, "Özel hizmet"];
 }
 
+function isTimeValue(value = "") {
+  return /^\d{1,2}:\d{2}$/.test(String(value || ""));
+}
+
 function renderSlots() {
   const listing = state.listing;
-  const preferred = listing?.availability?.nextSlot || listing?.eveningTime || "19:30";
+  const nextSlot = listing?.availability?.nextSlot || listing?.eveningTime || "";
+  const preferred = isTimeValue(nextSlot) ? nextSlot : "19:30";
   const slots = [...new Set([preferred, ...fallbackSlots])].slice(0, 16);
 
   slotGrid.innerHTML = slots
@@ -119,6 +123,7 @@ function renderSlots() {
 
 function addHour(value) {
   const [hour, minute] = value.split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "";
   return `${String((hour + 1) % 24).padStart(2, "0")}:${String(minute || 0).padStart(2, "0")}`;
 }
 
@@ -166,12 +171,15 @@ function renderReviews(listing) {
 function renderFacilities(listing) {
   const items = Array.isArray(listing.facilities) ? listing.facilities : [];
   if (!items.length) {
-    facilities.innerHTML = "";
+    facilities.innerHTML = `
+      <div class="booking-empty-info">
+        İşletme henüz tesis özelliklerini işaretlemedi. İşletme panelinde seçildikçe burada görünecek.
+      </div>
+    `;
     return;
   }
 
   facilities.innerHTML = `
-    <h3>Tesis özellikleri</h3>
     <div class="booking-facility-grid">
       ${items
         .map(
@@ -206,7 +214,8 @@ async function loadPolicy() {
 
 function renderListing(listing) {
   state.listing = listing;
-  state.selectedSlot = listing.availability?.nextSlot || listing.eveningTime || "19:30";
+  const nextSlot = listing.availability?.nextSlot || listing.eveningTime || "";
+  state.selectedSlot = isTimeValue(nextSlot) ? nextSlot : "19:30";
   heroMedia.className = `booking-hero-media ${listing.mediaClass || "media-field"}`;
   rating.textContent = listing.rating || "-";
   category.textContent = listing.categoryLabel || "Rezervasyon";
@@ -241,11 +250,6 @@ slotGrid.addEventListener("click", (event) => {
 
 prevDay.addEventListener("click", () => shiftDate(-1));
 nextDay.addEventListener("click", () => shiftDate(1));
-findSlotButton.addEventListener("click", () => {
-  const available = slotGrid.querySelector("[data-slot]:not(:disabled)");
-  available?.scrollIntoView({ behavior: "smooth", block: "center" });
-  available?.focus();
-});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

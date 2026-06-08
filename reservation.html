@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee | Rezervasyon</title>
-    <link rel="stylesheet" href="/styles.css?v=20260608-facility-features-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260609-booking-redesign-1" />
   </head>
   <body class="reservation-page-body">
     <header class="booking-topbar">
@@ -20,41 +20,19 @@
     </header>
 
     <main class="booking-page" id="booking-page">
-      <section class="booking-hero">
-        <div class="booking-hero-media media-field" id="booking-hero-media"></div>
-        <div class="booking-hero-content">
-          <span class="booking-rating" id="booking-rating">-</span>
-          <div>
+      <section class="booking-workspace">
+        <section class="booking-venue-card" aria-label="İşletme özeti">
+          <div class="booking-hero-media media-field" id="booking-hero-media"></div>
+          <div class="booking-venue-content">
+            <div class="booking-venue-topline">
+              <span class="booking-rating" id="booking-rating">-</span>
+              <button class="booking-favorite" type="button" aria-label="Favorilere ekle">♡</button>
+            </div>
             <p class="eyebrow" id="booking-category">Rezervasyon</p>
             <h1 id="booking-title">İşletme yükleniyor</h1>
-            <p id="booking-location">Konum hazırlanıyor</p>
-          </div>
-          <button class="booking-favorite" type="button" aria-label="Favorilere ekle">♡</button>
-        </div>
-      </section>
-
-      <div class="booking-layout">
-        <section class="booking-content">
-          <div class="booking-section">
-            <div class="booking-section-head">
-              <div>
-                <p class="eyebrow">İşletme</p>
-                <h2>Hizmet ve tesis bilgileri</h2>
-              </div>
-            </div>
+            <p class="booking-location" id="booking-location">Konum hazırlanıyor</p>
             <p class="booking-summary" id="booking-summary">Bilgiler yükleniyor.</p>
-            <div class="booking-chip-row" id="booking-tags"></div>
-            <div class="booking-facilities" id="booking-facilities"></div>
-          </div>
-
-          <div class="booking-section">
-            <div class="booking-section-head">
-              <div>
-                <p class="eyebrow">Yorumlar</p>
-                <h2 id="booking-reviews-title">Yorumlar</h2>
-              </div>
-            </div>
-            <div class="booking-reviews" id="booking-reviews"></div>
+            <div class="booking-chip-row booking-chip-row-compact" id="booking-tags"></div>
           </div>
         </section>
 
@@ -65,7 +43,6 @@
                 <p class="eyebrow">Rezervasyon</p>
                 <h2>Rezervasyon Yap</h2>
               </div>
-              <button class="ghost-button find-slot-button" type="button" id="find-slot-button">Boş Saat Bul</button>
             </div>
 
             <div class="booking-date-row">
@@ -112,9 +89,31 @@
             <button class="solid-button booking-submit" type="submit">Rezervasyonu Oluştur</button>
           </form>
         </aside>
-      </div>
+      </section>
+
+      <section class="booking-detail-grid">
+        <div class="booking-section">
+          <div class="booking-section-head">
+            <div>
+              <p class="eyebrow">İşletme bilgisi</p>
+              <h2>Tesis özellikleri</h2>
+            </div>
+          </div>
+          <div class="booking-facilities" id="booking-facilities"></div>
+        </div>
+
+        <div class="booking-section">
+          <div class="booking-section-head">
+            <div>
+              <p class="eyebrow">Deneyim</p>
+              <h2 id="booking-reviews-title">Yorumlar</h2>
+            </div>
+          </div>
+          <div class="booking-reviews" id="booking-reviews"></div>
+        </div>
+      </section>
     </main>
 
-    <script src="/reservation-page.js?v=20260608-facility-features-1"></script>
+    <script src="/reservation-page.js?v=20260609-booking-redesign-1"></script>
   </body>
 </html>
