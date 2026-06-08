@@ -2466,54 +2466,19 @@ button {
   width: 46px;
   height: 46px;
   border: 4px solid #fff;
-  background: linear-gradient(145deg, #fff8fb 0%, #ffd8e8 54%, #f47fb2 100%);
+  background: linear-gradient(145deg, #fffafd 0%, #ffe1ee 58%, #f783b8 100%);
   box-shadow:
     0 9px 20px rgba(111, 36, 86, 0.24),
     inset 0 -5px 12px rgba(244, 127, 178, 0.18);
 }
 
-.tyee-map-pin.is-pet-pin span i {
-  position: absolute;
-  left: 50%;
-  bottom: 9px;
-  width: 18px;
-  height: 15px;
-  border-radius: 50% 50% 46% 46%;
-  background: #7a3b8f;
-  transform: translateX(-50%);
-}
-
-.tyee-map-pin.is-pet-pin span b {
-  position: absolute;
+.tyee-map-pin.is-pet-pin .pet-paw-marker {
   display: block;
-  width: 9px;
-  height: 11px;
-  border-radius: 50%;
-  background: #7a3b8f;
-}
-
-.tyee-map-pin.is-pet-pin span b:nth-of-type(1) {
-  left: 10px;
-  top: 13px;
-  transform: rotate(-28deg);
-}
-
-.tyee-map-pin.is-pet-pin span b:nth-of-type(2) {
-  left: 18px;
-  top: 8px;
-  transform: rotate(-8deg);
-}
-
-.tyee-map-pin.is-pet-pin span b:nth-of-type(3) {
-  right: 18px;
-  top: 8px;
-  transform: rotate(8deg);
-}
-
-.tyee-map-pin.is-pet-pin span b:nth-of-type(4) {
-  right: 10px;
-  top: 13px;
-  transform: rotate(28deg);
+  width: 31px;
+  height: 31px;
+  overflow: visible;
+  fill: #5d257a;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.58));
 }
 
 .tyee-user-pin,

@@ -344,12 +344,21 @@ function projectNearbyPoint(point, bounds) {
 
 function buildMapIcon(item) {
   const isPet = item.category === "pet-kuafor";
+  const petPawIcon = `
+    <span aria-label="Pet kuaför">
+      <svg class="pet-paw-marker" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+        <circle cx="18" cy="23" r="8"></circle>
+        <circle cx="30" cy="16" r="8"></circle>
+        <circle cx="42" cy="16" r="8"></circle>
+        <circle cx="52" cy="25" r="8"></circle>
+        <path d="M17.5 44.5c0-10.2 7.7-18.5 18.5-18.5s18.5 8.3 18.5 18.5c0 6.4-4.3 10.8-10.5 10.8-3.1 0-5.4-1.4-8-1.4s-4.9 1.4-8 1.4c-6.2 0-10.5-4.4-10.5-10.8Z"></path>
+      </svg>
+    </span>
+  `;
 
   return L.divIcon({
     className: `tyee-map-pin${isPet ? " is-pet-pin" : ""}`,
-    html: isPet
-      ? `<span aria-label="Pet kuaför"><i></i><b></b><b></b><b></b><b></b></span>`
-      : `<span>${item.icon || "✦"}</span>`,
+    html: isPet ? petPawIcon : `<span>${item.icon || "✦"}</span>`,
     iconSize: isPet ? [48, 56] : [42, 52],
     iconAnchor: isPet ? [24, 54] : [21, 50],
     popupAnchor: [0, -42],
