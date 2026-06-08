@@ -79,7 +79,7 @@ function createVenueIdFromUser(user) {
 }
 
 function getUserVenueId(user) {
-  if (!user?.canManageVenue) return user?.venueId || "";
+  if (!user?.canManageVenue) return "";
   const email = normalizeEmail(user.email || "");
   const reservedDefaultOwners = new Set(["firma@tyee.app", "admin@tyee.app"]);
   if (user.venueId && (user.venueId !== "zincirlikuyu-arena" || reservedDefaultOwners.has(email) || user.isAdmin)) {
@@ -1288,12 +1288,9 @@ app.get("/api/auth/me", requireAuth, (req, res) => {
 });
 
 app.post("/api/auth/enable-venue", requireAuth, (req, res) => {
-  const user = upsertUser({
-    ...req.user,
-    canManageVenue: true,
-    venueId: getUserVenueId({ ...req.user, canManageVenue: true }),
+  res.status(403).json({
+    error: "Bireysel hesap işletme hesabına çevrilemez. İşletme paneli için ayrı işletme hesabı gerekir.",
   });
-  res.json({ user: normalizeUser(user) });
 });
 
 app.get("/verify-email", (req, res) => {

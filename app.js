@@ -14,7 +14,6 @@ const accountLabel = document.querySelector(".account-label");
 const avatarMini = document.querySelector(".avatar-mini");
 const accountMenu = document.querySelector("#account-menu");
 const accountMenuCopy = document.querySelector("#account-menu-copy");
-const accountEnableVenue = document.querySelector("#account-enable-venue");
 const accountDashboard = document.querySelector("#account-dashboard");
 const accountAdmin = document.querySelector("#account-admin");
 const accountLogout = document.querySelector("#account-logout");
@@ -40,7 +39,7 @@ const authEntryBack = document.querySelector("#auth-entry-back");
 const authRoleChoices = document.querySelectorAll("[data-role-choice]");
 const authEntryChoices = document.querySelectorAll("[data-entry-choice]");
 const popularSearches = document.querySelector(".popular-searches");
-const businessNavLink = document.querySelector("#business-nav-link");
+const businessNavLinks = document.querySelectorAll('a[href="/venue.html"]');
 const nearbyMapTrigger = document.querySelector("#nearby-map-trigger");
 const nearbyMapModal = document.querySelector("#nearby-map-modal");
 const nearbyMapClose = document.querySelector("#nearby-map-close");
@@ -1151,7 +1150,7 @@ function updateAuthUi() {
       <span>${
         state.user.canManageVenue
           ? "Bireysel rezervasyonlarını kullanabilir veya işletme paneline geçebilirsin."
-          : "Hesabın bireysel kullanım için hazır. İstersen aynı hesapta işletme modunu da açabilirsin."
+          : "Hesabın bireysel kullanım için hazır. İşletme paneli için ayrı bir işletme hesabı gerekir."
       }</span>
       ${
         needsVerification
@@ -1164,7 +1163,6 @@ function updateAuthUi() {
       }
     `;
     accountDashboard.classList.toggle("hidden", !state.user.canManageVenue);
-    accountEnableVenue.classList.toggle("hidden", state.user.canManageVenue);
     accountAdmin.classList.toggle("hidden", !state.user.canAccessAdmin);
   } else {
     accountLabel.textContent = "Giriş Yap / Kayıt Ol";
@@ -1172,7 +1170,6 @@ function updateAuthUi() {
     avatarMini.classList.add("hidden");
     loginTrigger.classList.remove("is-authenticated");
     accountDashboard.classList.add("hidden");
-    accountEnableVenue.classList.add("hidden");
     accountAdmin.classList.add("hidden");
     accountMenuCopy.innerHTML = `
       <strong>Hesap</strong>
@@ -1415,25 +1412,6 @@ accountAdmin.addEventListener("click", () => {
   window.location.href = "/admin.html";
 });
 
-accountEnableVenue.addEventListener("click", async () => {
-  try {
-    const response = await apiRequest("/api/auth/enable-venue", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-
-    state.user = response.user;
-    updateAuthUi();
-    closeAccountMenu();
-    window.location.href = "/venue.html";
-  } catch (error) {
-    closeAccountMenu();
-    openAuthModal("login");
-    authFeedback.textContent = error.message;
-    authFeedback.classList.remove("is-success");
-  }
-});
-
 accountLogout.addEventListener("click", () => {
   localStorage.removeItem("tyee_token");
   state.token = "";
@@ -1443,16 +1421,18 @@ accountLogout.addEventListener("click", () => {
   updateAuthUi();
 });
 
-businessNavLink?.addEventListener("click", (event) => {
-  if (state.user?.canManageVenue) return;
+businessNavLinks.forEach((link) => {
+  link.addEventListener("click", (event) => {
+    if (state.user?.canManageVenue) return;
 
-  event.preventDefault();
-  if (state.user && !state.user.canManageVenue) {
-    openVenueLoginModal("Bu hesapta işletme modu açık değil. İşletme paneli için işletme hesabı ile giriş yapmalısın.");
-    return;
-  }
+    event.preventDefault();
+    if (state.user && !state.user.canManageVenue) {
+      openVenueLoginModal("Bu hesap bireysel müşteri hesabı. İşletme paneli için işletme hesabı ile giriş yapmalısın.");
+      return;
+    }
 
-  openVenueLoginModal("İşletme paneline girmek için giriş yapmalısın.");
+    openVenueLoginModal("İşletme paneline girmek için işletme hesabı ile giriş yapmalısın.");
+  });
 });
 
 authClose.addEventListener("click", closeAuthModal);
@@ -1580,7 +1560,7 @@ authForm.addEventListener("submit", async (event) => {
         }
 
         authFeedback.textContent =
-          "Bu hesapta işletme modu açık değil. Bireysel giriş kullanabilir veya işletme modunu açabilirsin.";
+          "Bu hesap bireysel müşteri hesabı. İşletme paneli için işletme hesabı ile giriş yapmalısın.";
         authFeedback.classList.remove("is-success");
         return;
       }
