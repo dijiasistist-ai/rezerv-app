@@ -247,6 +247,24 @@ app.use(
   }),
 );
 
+function sendIndex(res) {
+  const filePath = path.join(__dirname, "index.html");
+  setStaticHeaders(res, filePath);
+  res.sendFile(filePath);
+}
+
+app.head("/", (_req, res) => {
+  res.status(200).end();
+});
+
+app.get("/", (_req, res) => {
+  sendIndex(res);
+});
+
+app.get("/healthz", (_req, res) => {
+  res.json({ ok: true, service: "tyee", checkedAt: new Date().toISOString() });
+});
+
 app.get("/:file", (req, res, next) => {
   const fileName = String(req.params.file || "");
   if (!publicStaticFiles.has(fileName)) {
@@ -1311,7 +1329,7 @@ app.use((req, res, next) => {
     next();
     return;
   }
-  res.sendFile(path.join(__dirname, "index.html"));
+  sendIndex(res);
 });
 
 app.listen(port, () => {
