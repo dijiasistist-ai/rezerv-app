@@ -662,6 +662,7 @@ app.get("/api/bootstrap", (_req, res) => {
   const payload = getBootstrapPayload();
   res.json({
     ...payload,
+    categories: withActiveVenueCategoryCounts(payload.categories || []),
     brand: {
       name: "tyee",
       tagline: "Rezervasyon marketplace",
@@ -742,6 +743,19 @@ function getRuntimeVenueMapItems(origin) {
       };
     })
     .filter(Boolean);
+}
+
+function withActiveVenueCategoryCounts(categories = []) {
+  const counts = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).reduce((totals, item) => {
+    totals[item.category] = (totals[item.category] || 0) + 1;
+    return totals;
+  }, {});
+  const formatter = new Intl.NumberFormat("tr-TR");
+
+  return categories.map((category) => ({
+    ...category,
+    count: formatter.format(counts[category.id] || 0),
+  }));
 }
 
 app.get("/api/nearby", (req, res) => {
