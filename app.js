@@ -1012,10 +1012,13 @@ authRoleChoices.forEach((button) => {
       state.user = response.user;
       localStorage.setItem("tyee_token", response.token);
       updateAuthUi();
+      const emailWasSent = response.emailDelivery?.status === "sent";
       authFeedback.textContent = response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.";
-      authFeedback.classList.add("is-success");
+      authFeedback.classList.toggle("is-success", emailWasSent);
       authForm.reset();
-      setTimeout(closeAuthModal, 900);
+      if (emailWasSent) {
+        setTimeout(closeAuthModal, 900);
+      }
     } catch (error) {
       authStepRole.classList.add("hidden");
       authStepForm.classList.remove("hidden");
