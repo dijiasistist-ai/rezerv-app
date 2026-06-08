@@ -578,22 +578,34 @@ function getAdminSearchResults({ type = "all", query = "" } = {}) {
   const normalizedQuery = normalizeSearchText(query);
   const payload = buildAdminBootstrap();
   const results = [];
+  const seen = new Set();
+
+  const pushUnique = (item) => {
+    const key =
+      item.resultType === "business"
+        ? `business:${item.id || item.name}`
+        : `user:${normalizeEmail(item.email || "") || item.id || item.name}`;
+
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push(item);
+  };
 
   if (type === "all" || type === "business") {
     payload.businesses.filter((item) => matchesQuery(item, normalizedQuery)).forEach((item) => {
-      results.push({ resultType: "business", ...item });
+      pushUnique({ resultType: "business", ...item });
     });
   }
 
-  if (type === "all" || type === "customer") {
+  if (type === "customer") {
     payload.customers.filter((item) => matchesQuery(item, normalizedQuery)).forEach((item) => {
-      results.push({ resultType: "customer", ...item });
+      pushUnique({ resultType: "customer", ...item });
     });
   }
 
   if (type === "all" || type === "user") {
     payload.users.filter((item) => matchesQuery(item, normalizedQuery)).forEach((item) => {
-      results.push({ resultType: "user", ...item });
+      pushUnique({ resultType: "user", ...item });
     });
   }
 

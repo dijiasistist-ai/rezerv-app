@@ -127,10 +127,24 @@ function getRoleBadge(item) {
 }
 
 function renderResults(items = []) {
-  state.results = items;
-  directoryCount.textContent = `${items.length} kayıt`;
-  directoryResults.innerHTML = items.length
-    ? items
+  const uniqueItems = [];
+  const seen = new Set();
+
+  items.forEach((item) => {
+    const key =
+      item.resultType === "business"
+        ? `business:${item.id || item.name}`
+        : `user:${(item.email || "").toLocaleLowerCase("tr-TR") || item.id || item.name}`;
+
+    if (seen.has(key)) return;
+    seen.add(key);
+    uniqueItems.push(item);
+  });
+
+  state.results = uniqueItems;
+  directoryCount.textContent = `${uniqueItems.length} kayıt`;
+  directoryResults.innerHTML = uniqueItems.length
+    ? uniqueItems
         .map((item, index) => {
           const badge = getRoleBadge(item);
           return `

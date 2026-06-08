@@ -18,6 +18,7 @@
 body {
   margin: 0;
   color: var(--ink);
+  font-size: 12.8px;
   background:
     linear-gradient(90deg, rgba(4, 167, 244, 0.1), transparent 28%, rgba(235, 79, 154, 0.1)),
     #f7f9fc;
@@ -91,7 +92,7 @@ button {
   border: 0;
   border-radius: 8px;
   padding: 11px 14px;
-  font-weight: 900;
+  font-weight: 760;
   text-decoration: none;
 }
 
@@ -131,8 +132,8 @@ button {
 .panel-heading p {
   margin: 0 0 6px;
   color: var(--brand-strong);
-  font-size: 12px;
-  font-weight: 950;
+  font-size: 10px;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
@@ -144,7 +145,7 @@ button {
 
 .admin-hero h1 {
   max-width: 780px;
-  font-size: clamp(28px, 4vw, 46px);
+  font-size: clamp(22.5px, 3.2vw, 37px);
   line-height: 1.05;
 }
 
@@ -175,15 +176,15 @@ button {
 .result-item span,
 .detail-row span,
 .report-cover span {
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 10px;
+  font-weight: 760;
   text-transform: uppercase;
 }
 
 .summary-card strong {
   display: block;
   margin: 8px 0;
-  font-size: 30px;
+  font-size: 24px;
 }
 
 .admin-workspace {
@@ -207,7 +208,7 @@ button {
 }
 
 .panel-heading h2 {
-  font-size: 22px;
+  font-size: 17.5px;
 }
 
 #directory-count {
@@ -216,8 +217,8 @@ button {
   padding: 7px 10px;
   background: #eef6ff;
   color: var(--brand-strong);
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 10px;
+  font-weight: 760;
 }
 
 .search-row,
@@ -302,8 +303,8 @@ button {
   min-height: 24px;
   border-radius: 999px;
   padding: 0 9px;
-  font-size: 11px;
-  font-weight: 950;
+  font-size: 9px;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
@@ -337,8 +338,8 @@ button {
 
 .detail-title span {
   color: var(--brand-strong);
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 10px;
+  font-weight: 760;
   text-transform: uppercase;
 }
 
@@ -357,7 +358,7 @@ button {
 
 .detail-title h3 {
   margin: 5px 0 0;
-  font-size: 24px;
+  font-size: 19px;
 }
 
 .detail-row {
@@ -389,8 +390,8 @@ button {
   display: grid;
   gap: 7px;
   color: #344054;
-  font-size: 13px;
-  font-weight: 850;
+  font-size: 10.5px;
+  font-weight: 720;
 }
 
 .role-editor select {
@@ -411,7 +412,7 @@ button {
   padding: 10px 13px;
   background: var(--ink);
   color: #fff;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .role-editor .form-feedback {
@@ -429,8 +430,8 @@ button {
 
 .role-editor.is-disabled span {
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 750;
+  font-size: 10.5px;
+  font-weight: 650;
 }
 
 .danger-zone {
@@ -449,8 +450,8 @@ button {
 
 .danger-zone span {
   color: #667085;
-  font-size: 13px;
-  font-weight: 750;
+  font-size: 10.5px;
+  font-weight: 650;
 }
 
 .danger-button {
@@ -461,7 +462,7 @@ button {
   padding: 9px 13px;
   background: #d92d20;
   color: #fff;
-  font-weight: 900;
+  font-weight: 760;
   cursor: pointer;
 }
 
@@ -472,7 +473,7 @@ button {
 .danger-button.is-compact {
   min-height: 34px;
   padding: 7px 11px;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .action-panel,
@@ -496,7 +497,7 @@ button {
 
 .admin-form h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 14.5px;
 }
 
 .checkbox-line {
@@ -518,8 +519,8 @@ button {
   display: grid;
   gap: 7px;
   color: #344054;
-  font-size: 13px;
-  font-weight: 850;
+  font-size: 10.5px;
+  font-weight: 720;
 }
 
 .admin-form textarea {
@@ -529,8 +530,8 @@ button {
 .form-feedback {
   min-height: 18px;
   margin: 0;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 10.5px;
+  font-weight: 700;
 }
 
 .form-feedback.is-success {
@@ -548,7 +549,7 @@ button {
 
 .access-list-wrap h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 14.5px;
 }
 
 .access-list {
@@ -590,8 +591,8 @@ button {
 
 .access-item small {
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 900;
+  font-size: 9px;
+  font-weight: 760;
   text-transform: uppercase;
 }
 
@@ -599,8 +600,8 @@ button {
   grid-column: 1 / -1;
   margin: 0;
   color: #667085;
-  font-size: 13px;
-  font-weight: 750;
+  font-size: 10.5px;
+  font-weight: 650;
 }
 
 .access-lock {
@@ -611,8 +612,8 @@ button {
   padding: 0 10px;
   background: #eef4ff;
   color: #175cd3;
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 10px;
+  font-weight: 760;
 }
 
 .report-heading {
@@ -645,7 +646,7 @@ button {
 
 .report-cover h3 {
   margin: 6px 0;
-  font-size: 30px;
+  font-size: 24px;
 }
 
 .report-cover p,
@@ -661,7 +662,7 @@ button {
 
 .report-section h4 {
   margin: 8px 0 0;
-  font-size: 18px;
+  font-size: 14.5px;
 }
 
 .report-section ul,
@@ -691,13 +692,13 @@ button {
 
 .report-metric span {
   color: #344054;
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 10px;
+  font-weight: 760;
 }
 
 .report-metric strong {
   margin: 7px 0;
-  font-size: 24px;
+  font-size: 19px;
 }
 
 .report-table {
@@ -719,16 +720,16 @@ button {
 .report-table-head {
   background: #eef6ff;
   color: var(--brand-strong);
-  font-size: 12px;
-  font-weight: 950;
+  font-size: 10px;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
 .report-table-row {
   border-top: 1px solid var(--line);
   color: #344054;
-  font-size: 13px;
-  font-weight: 750;
+  font-size: 10.5px;
+  font-weight: 650;
 }
 
 .admin-auth-wall {
@@ -757,13 +758,13 @@ button {
 
 .admin-auth-card h1 {
   margin: 8px 0 8px;
-  font-size: 28px;
+  font-size: 22.5px;
 }
 
 .admin-auth-card > p {
   margin: 0 0 18px;
   color: var(--muted);
-  font-weight: 750;
+  font-weight: 650;
 }
 
 .admin-login-form {
@@ -776,8 +777,8 @@ button {
   display: grid;
   gap: 7px;
   color: #344054;
-  font-size: 13px;
-  font-weight: 900;
+  font-size: 10.5px;
+  font-weight: 760;
 }
 
 .admin-login-form input {
@@ -803,7 +804,7 @@ button {
   padding: 10px 14px;
   background: linear-gradient(135deg, var(--brand), var(--accent));
   color: #fff;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 @media (max-width: 980px) {

@@ -12,6 +12,22 @@
   --shadow: 0 16px 38px rgba(16, 24, 40, 0.09);
   --max-width: 1480px;
   --section-width: min(var(--max-width), calc(100% - 96px));
+  --fs-micro: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 17px;
+  --fs-section-title: 20px;
+  --fs-card-title: 14px;
+  --fs-hero-title: clamp(30px, 2.05vw, 40px);
+  --fs-info-title: clamp(30px, 2.75vw, 40px);
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-strong: 800;
   --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --font-nav: "Poppins", -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-main);
   --font-menu: "Poppins", var(--font-main);
@@ -30,6 +46,11 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--text);
+  font-family: var(--font-main);
+  font-size: var(--fs-base);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
   background:
     linear-gradient(90deg, rgba(0, 169, 244, 0.95) 0 8px, transparent 8px calc(100% - 8px), rgba(255, 45, 116, 0.95) calc(100% - 8px)),
     linear-gradient(180deg, #ffffff 0%, #f7f9fd 100%);
@@ -110,8 +131,8 @@ button {
   min-width: 0;
   color: var(--ink);
   font-family: var(--font-nav);
-  font-size: clamp(16px, 1.05vw, 19px);
-  font-weight: 600;
+  font-size: clamp(15px, 0.95vw, 17px);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0;
   line-height: 1.15;
   white-space: nowrap;
@@ -134,8 +155,8 @@ button {
   position: relative;
   z-index: 20;
   font-family: var(--font-nav);
-  font-size: clamp(16px, 1.05vw, 19px);
-  font-weight: 600;
+  font-size: clamp(14px, 0.95vw, 16px);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0;
   display: flex;
   align-items: center;
@@ -155,8 +176,8 @@ button {
   border: 1px solid var(--line);
   background: #fff;
   color: var(--ink);
-  font-size: clamp(16px, 1.05vw, 19px);
-  font-weight: 600;
+  font-size: clamp(14px, 0.95vw, 16px);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0;
   line-height: 1.15;
 }
@@ -211,8 +232,8 @@ button {
   border-radius: 50%;
   background: #ff2f1f;
   color: #fff;
-  font-size: 10px;
-  font-weight: 900;
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-bold);
   font-style: normal;
 }
 
@@ -339,8 +360,8 @@ button {
   border-radius: 50%;
   background: linear-gradient(135deg, rgba(4, 167, 244, 0.16), rgba(255, 45, 116, 0.16));
   color: var(--brand-dark);
-  font-size: 13px;
-  font-weight: 900;
+  font-size: var(--fs-md);
+  font-weight: var(--weight-bold);
 }
 
 .notification-item.is-read > span {
@@ -364,8 +385,8 @@ button {
   display: inline-flex;
   align-items: center;
   padding: 0 18px;
-  font-size: clamp(16px, 1.05vw, 19px);
-  font-weight: 700;
+  font-size: clamp(14px, 0.95vw, 16px);
+  font-weight: var(--weight-bold);
 }
 
 .reserve-now:hover {
@@ -396,8 +417,8 @@ button {
   border-radius: 50%;
   background: #ddf6ff;
   color: var(--brand-dark);
-  font-size: 12px;
-  font-weight: 900;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-bold);
 }
 
 .account-button:hover .avatar-mini {
@@ -447,9 +468,9 @@ button {
   padding: 5px 8px;
   background: #fffaeb;
   color: #b54708;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-style: normal;
-  font-weight: 900;
+  font-weight: var(--weight-semibold);
 }
 
 .account-verify-note.is-ok {
@@ -466,7 +487,8 @@ button {
   background: transparent;
   color: var(--ink);
   text-align: left;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .account-menu-item:hover {
@@ -528,17 +550,19 @@ button {
   padding: 0 12px;
   background: rgba(255, 255, 255, 0.82);
   color: var(--brand);
-  font-size: 13px;
-  font-weight: 900;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .hero h1 {
   margin: 0;
   color: var(--ink);
-  font-family: var(--font-main);
-  font-size: clamp(31px, 2.05vw, 41px);
-  line-height: 1.18;
+  font-family: var(--font-menu);
+  font-size: var(--fs-hero-title);
+  font-weight: var(--weight-bold);
+  line-height: 1.14;
   letter-spacing: 0;
 }
 
@@ -558,8 +582,8 @@ button {
   padding: 0 9px;
   background: rgba(255, 255, 255, 0.78);
   color: var(--ink);
-  font-size: 11px;
-  font-weight: 900;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .hero-mosaic {
@@ -688,8 +712,8 @@ button {
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
-  font-size: 10.25px;
-  font-weight: 560;
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-semibold);
   line-height: 1.08;
   text-align: center;
   text-overflow: ellipsis;
@@ -700,7 +724,7 @@ button {
   display: block;
   color: #475467;
   font-size: 9px;
-  font-weight: 520;
+  font-weight: var(--weight-medium);
   line-height: 1.12;
   text-align: center;
 }
@@ -753,8 +777,8 @@ button {
 
 .search-field span {
   color: var(--ink);
-  font-size: 12px;
-  font-weight: 900;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .search-field input,
@@ -765,7 +789,8 @@ button {
   outline: 0;
   background: transparent;
   color: var(--ink);
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--weight-medium);
 }
 
 .search-field input {
@@ -806,7 +831,8 @@ button {
   border-radius: 10px;
   background: linear-gradient(135deg, #2f7ee6 0%, #48a0f0 100%);
   box-shadow: 0 12px 26px rgba(64, 144, 240, 0.28);
-  font-size: 15px;
+  font-size: var(--fs-base);
+  font-weight: var(--weight-bold);
 }
 
 .search-button:hover {
@@ -847,8 +873,8 @@ button {
 
 .popular-searches strong {
   color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
   margin-right: 4px;
 }
 
@@ -860,8 +886,8 @@ button {
   padding: 0 14px;
   background: #f3f7fc;
   color: #24324a;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
 }
 
 .popular-searches button:hover,
@@ -912,16 +938,17 @@ button {
   margin: 0;
   color: var(--ink);
   font-family: var(--font-menu);
-  font-size: 19px;
-  font-weight: 700;
+  font-size: var(--fs-section-title);
+  font-weight: var(--weight-bold);
   letter-spacing: 0;
+  line-height: 1.2;
 }
 
 .section-title-row a {
   margin-left: auto;
   color: var(--blue);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .live-dot {
@@ -929,8 +956,8 @@ button {
   align-items: center;
   gap: 5px;
   color: #475467;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-medium);
 }
 
 .live-dot::before {
@@ -996,14 +1023,14 @@ button {
 }
 
 .category-card strong {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .category-card small {
   color: #344054;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
 }
 
 .evening-band,
@@ -1063,8 +1090,8 @@ button {
 
 .evening-card span {
   color: var(--ink);
-  font-size: 12px;
-  font-weight: 900;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .evening-card small {
@@ -1222,7 +1249,7 @@ button {
   box-shadow: 0 12px 24px rgba(16, 24, 40, 0.16);
   color: var(--ink);
   font-size: 20px;
-  font-weight: 900;
+  font-weight: var(--weight-bold);
 }
 
 .map-expand-button:hover {
@@ -1252,8 +1279,8 @@ button {
   padding: 4px 7px;
   background: #08a95a;
   color: #fff;
-  font-size: 10px;
-  font-weight: 900;
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-bold);
 }
 
 .listing-media button {
@@ -1284,8 +1311,8 @@ button {
   align-items: center;
   gap: 3px;
   color: #101828;
-  font-size: 11px;
-  font-weight: 900;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-bold);
 }
 
 .rating-row span {
@@ -1301,8 +1328,8 @@ button {
 .listing-body h3 {
   margin: 0;
   color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-card-title);
+  font-weight: var(--weight-semibold);
   line-height: 1.16;
 }
 
@@ -1312,8 +1339,8 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-medium);
 }
 
 .rank-badges {
@@ -1333,7 +1360,7 @@ button {
   background: #eef8ff;
   color: var(--brand-dark);
   font-size: 9px;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
@@ -1346,13 +1373,13 @@ button {
 
 .listing-price strong {
   color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--weight-semibold);
 }
 
 .listing-price span {
-  font-size: 10px;
-  font-weight: 500;
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-medium);
 }
 
 .card-cta {
@@ -1360,7 +1387,7 @@ button {
   min-height: 26px;
   border-radius: 7px;
   padding: 0 10px;
-  font-size: 10px;
+  font-size: var(--fs-micro);
 }
 
 .nearby-facility-card {
@@ -1403,8 +1430,8 @@ button {
   padding: 5px 10px;
   background: #9450a8;
   color: #fff;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-bold);
 }
 
 .nearby-facility-body {
@@ -1426,8 +1453,8 @@ button {
   margin: 0;
   overflow: hidden;
   color: #34353a;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-card-title);
+  font-weight: var(--weight-semibold);
   line-height: 1.18;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1438,15 +1465,16 @@ button {
   padding: 3px 7px;
   background: #30c737;
   color: #fff;
-  font-size: 11px;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-bold);
 }
 
 .nearby-facility-body p {
   margin: 0;
   overflow: hidden;
   color: #3f4147;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1456,8 +1484,8 @@ button {
   align-items: center;
   gap: 8px;
   color: #85878c;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .nearby-facility-foot {
@@ -1469,15 +1497,15 @@ button {
 
 .nearby-facility-foot em {
   color: #9450a8;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-style: normal;
-  font-weight: 800;
+  font-weight: var(--weight-bold);
 }
 
 .nearby-facility-foot small {
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .nearby-facility-foot .solid-button {
@@ -1487,7 +1515,8 @@ button {
   padding: 0 12px;
   background: #9450a8;
   box-shadow: none;
-  font-size: 12px;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-bold);
 }
 
 .metrics-bar {
@@ -1534,21 +1563,21 @@ button {
   border-radius: 10px;
   background: #eaf1ff;
   color: var(--blue);
-  font-weight: 900;
+  font-weight: var(--weight-bold);
 }
 
 .hero-metrics strong {
   grid-area: value;
   color: var(--ink);
-  font-size: 20px;
-  font-weight: 700;
+  font-size: var(--fs-section-title);
+  font-weight: var(--weight-bold);
 }
 
 .hero-metrics small {
   grid-area: label;
   color: #344054;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
 }
 
 .site-footer {
@@ -1580,8 +1609,8 @@ button {
   align-items: center;
   gap: clamp(18px, 2.2vw, 34px);
   font-family: var(--font-nav);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--weight-medium);
 }
 
 .footer-links a {
@@ -1624,15 +1653,15 @@ button {
 
 .store-button span {
   color: rgba(255, 255, 255, 0.62);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   line-height: 1;
 }
 
 .store-button strong {
   margin-top: 2px;
   color: #fff;
-  font-size: 17px;
-  font-weight: 500;
+  font-size: var(--fs-xl);
+  font-weight: var(--weight-medium);
   line-height: 1.05;
 }
 
@@ -1662,8 +1691,8 @@ button {
 
 .footer-brand > span {
   color: rgba(255, 255, 255, 0.48);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--fs-md);
+  font-weight: var(--weight-medium);
 }
 
 .footer-social {
@@ -1680,8 +1709,8 @@ button {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.78);
   color: #121416;
-  font-size: 17px;
-  font-weight: 900;
+  font-size: var(--fs-xl);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
 }
 
@@ -1691,8 +1720,8 @@ button {
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.3);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--fs-md);
+  font-weight: var(--weight-medium);
 }
 
 .info-view {
@@ -1743,8 +1772,8 @@ button {
   overflow-x: auto;
   color: #1f2937;
   font-family: var(--font-nav);
-  font-size: clamp(15px, 1vw, 17px);
-  font-weight: 700;
+  font-size: clamp(14px, 0.95vw, 16px);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
   scrollbar-width: none;
 }
@@ -1777,8 +1806,8 @@ button {
   min-height: 40px;
   padding: 0 15px;
   font-family: var(--font-nav);
-  font-size: 15px;
-  font-weight: 800;
+  font-size: var(--fs-base);
+  font-weight: var(--weight-bold);
 }
 
 .info-shell {
@@ -1804,8 +1833,8 @@ button {
   background: #fff;
   color: #333846;
   font-family: var(--font-main);
-  font-size: clamp(17px, 1.25vw, 22px);
-  font-weight: 400;
+  font-size: clamp(16px, 1.05vw, 18px);
+  font-weight: var(--weight-regular);
   text-align: left;
 }
 
@@ -1816,7 +1845,7 @@ button {
 
 .info-nav-item.is-active {
   color: #1d2738;
-  font-weight: 700;
+  font-weight: var(--weight-semibold);
 }
 
 .info-nav-item.is-active::before {
@@ -1848,8 +1877,8 @@ button {
   margin: 0 0 18px;
   color: #15181d;
   font-family: var(--font-main);
-  font-size: clamp(34px, 3.3vw, 46px);
-  font-weight: 500;
+  font-size: var(--fs-info-title);
+  font-weight: var(--weight-medium);
   letter-spacing: 0;
   line-height: 1.12;
 }
@@ -1857,8 +1886,8 @@ button {
 .info-panel p {
   margin: 0;
   color: #343946;
-  font-size: clamp(16px, 1.25vw, 19px);
-  font-weight: 400;
+  font-size: clamp(15px, 1.05vw, 17px);
+  font-weight: var(--weight-regular);
   line-height: 1.55;
 }
 
@@ -1876,8 +1905,8 @@ button {
   display: block;
   margin: 0 0 8px;
   color: #161a22;
-  font-size: clamp(17px, 1.25vw, 20px);
-  font-weight: 700;
+  font-size: clamp(16px, 1.05vw, 18px);
+  font-weight: var(--weight-semibold);
   line-height: 1.2;
 }
 
@@ -2061,7 +2090,8 @@ button {
 .map-toolbar h2 {
   margin: 0;
   color: var(--ink);
-  font-size: 24px;
+  font-size: var(--fs-section-title);
+  font-weight: var(--weight-bold);
   letter-spacing: 0;
 }
 
@@ -2248,8 +2278,8 @@ button {
 .map-label {
   z-index: 1;
   color: rgba(15, 31, 60, 0.5);
-  font-size: 16px;
-  font-weight: 900;
+  font-size: var(--fs-lg);
+  font-weight: var(--weight-bold);
   letter-spacing: 0;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
 }
@@ -2353,9 +2383,9 @@ button {
 
 .nearby-result em {
   color: var(--brand-dark);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-style: normal;
-  font-weight: 900;
+  font-weight: var(--weight-bold);
 }
 
 .nearby-empty {
@@ -2503,7 +2533,7 @@ button {
   box-shadow: 0 12px 24px rgba(16, 24, 40, 0.24);
   color: #fff;
   font-size: 26px;
-  font-weight: 900;
+  font-weight: var(--weight-bold);
 }
 
 .auth-modal {
@@ -2552,16 +2582,16 @@ button {
   margin: 0;
   color: var(--ink);
   font-family: var(--font-menu);
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: var(--weight-bold);
   line-height: 1.1;
 }
 
 .eyebrow {
   margin: 0 0 8px;
   color: var(--brand-dark);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2597,8 +2627,8 @@ button {
   border-radius: 9px;
   background: transparent;
   color: var(--ink);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-base);
+  font-weight: var(--weight-semibold);
 }
 
 .auth-tab.is-active {
@@ -2621,8 +2651,8 @@ button {
 
 .auth-form label span {
   color: var(--ink);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .auth-form input {
@@ -2645,8 +2675,8 @@ button {
   min-height: 18px;
   margin: 0;
   color: #d92d20;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
 }
 
 .auth-feedback.is-success {
@@ -2664,16 +2694,16 @@ button {
   margin: 0 0 4px;
   color: var(--ink);
   font-family: var(--font-menu);
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--fs-section-title);
+  font-weight: var(--weight-bold);
   line-height: 1.24;
 }
 
 .auth-role-copy p:last-child {
   margin: 0;
   color: var(--muted);
-  font-size: 15px;
-  font-weight: 400;
+  font-size: var(--fs-base);
+  font-weight: var(--weight-regular);
   line-height: 1.48;
 }
 
@@ -2713,7 +2743,7 @@ button {
   background: linear-gradient(135deg, rgba(4, 167, 244, 0.14), rgba(239, 63, 146, 0.10));
   color: var(--brand-dark);
   font-size: 18px;
-  font-weight: 800;
+  font-weight: var(--weight-bold);
 }
 
 .auth-role-text {
@@ -2723,15 +2753,15 @@ button {
 }
 
 .auth-role-text strong {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: var(--fs-lg);
+  font-weight: var(--weight-semibold);
   line-height: 1.25;
 }
 
 .auth-role-text span {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-regular);
   line-height: 1.45;
 }
 
