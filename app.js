@@ -17,6 +17,14 @@ const accountMenuCopy = document.querySelector("#account-menu-copy");
 const accountDashboard = document.querySelector("#account-dashboard");
 const accountAdmin = document.querySelector("#account-admin");
 const accountLogout = document.querySelector("#account-logout");
+const customerPanel = document.querySelector("#customer-panel");
+const customerPanelClose = document.querySelector("#customer-panel-close");
+const customerPanelDismiss = document.querySelector("#customer-panel-dismiss");
+const customerPanelTitle = document.querySelector("#customer-panel-title");
+const customerPanelSubtitle = document.querySelector("#customer-panel-subtitle");
+const customerPanelContent = document.querySelector("#customer-panel-content");
+const customerPanelTabs = document.querySelectorAll("[data-customer-panel-tab]");
+const customerPanelTriggers = document.querySelectorAll("[data-customer-panel]");
 const authModal = document.querySelector("#auth-modal");
 const authClose = document.querySelector("#auth-close");
 const authCloseButton = document.querySelector("#auth-close-button");
@@ -106,6 +114,8 @@ const state = {
     inline: null,
   },
   nearbyItems: [],
+  customerDashboard: null,
+  customerPanelTab: "reservations",
   nearbyUserMarker: null,
   nearbyOrigin: { lat: 41.0351, lng: 29.0268 },
   reservationDraft: null,
@@ -1156,6 +1166,164 @@ function closeAccountMenu() {
   loginTrigger.setAttribute("aria-expanded", "false");
 }
 
+const CUSTOMER_PANEL_META = {
+  reservations: {
+    title: "Rezervasyonlarım",
+    subtitle: "Yaklaşan ve geçmiş rezervasyonlarını tek yerden takip et.",
+  },
+  purchases: {
+    title: "Satın Aldıklarım",
+    subtitle: "Paket, abonelik ve online satın almalarını burada göreceksin.",
+  },
+  reviews: {
+    title: "Değerlendirmelerim",
+    subtitle: "Rezervasyon sonrası verdiğin puan ve yorumları yönet.",
+  },
+  favorites: {
+    title: "Favorilerim",
+    subtitle: "Kaydettiğin işletmelere hızlıca geri dön.",
+  },
+  billing: {
+    title: "Fatura Adreslerim",
+    subtitle: "Bireysel ve kurumsal fatura adreslerini düzenle.",
+  },
+  cards: {
+    title: "Kayıtlı Kartlarım",
+    subtitle: "Ödeme sırasında kullanacağın kartları güvenle yönet.",
+  },
+};
+
+function closeCustomerPanel() {
+  customerPanel?.classList.add("hidden");
+  customerPanel?.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
+function setCustomerPanelLoading(message = "Bilgiler yükleniyor...") {
+  if (customerPanelContent) customerPanelContent.innerHTML = `<div class="customer-empty-state">${escapeHtml(message)}</div>`;
+}
+
+async function loadCustomerDashboard() {
+  const payload = await apiRequest("/api/customer/dashboard", { method: "GET" });
+  state.customerDashboard = payload;
+  return payload;
+}
+
+function customerEmpty(title, text) {
+  return `
+    <div class="customer-empty-state">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(text)}</span>
+    </div>
+  `;
+}
+
+function renderCustomerReservationList(items = [], emptyText) {
+  if (!items.length) return customerEmpty("Kayıt bulunamadı", emptyText);
+  return `
+    <div class="customer-card-list">
+      ${items
+        .map(
+          (item) => `
+            <article class="customer-record-card">
+              <div>
+                <span class="customer-record-status">${escapeHtml(item.statusLabel)}</span>
+                <h3>${escapeHtml(item.venueName)}</h3>
+                <p>${escapeHtml(item.serviceLabel)} · ${escapeHtml(item.serviceDateLabel)} · ${escapeHtml(item.serviceTime)}</p>
+              </div>
+              <aside>
+                <strong>${escapeHtml(item.totalAmountLabel)}</strong>
+                <span>${escapeHtml(item.paymentModeLabel)}</span>
+              </aside>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderCustomerPanelContent(tab = state.customerPanelTab) {
+  const dashboard = state.customerDashboard || {};
+  const meta = CUSTOMER_PANEL_META[tab] || CUSTOMER_PANEL_META.reservations;
+  customerPanelTitle.textContent = meta.title;
+  customerPanelSubtitle.textContent = meta.subtitle;
+  customerPanelTabs.forEach((button) => button.classList.toggle("is-active", button.dataset.customerPanelTab === tab));
+
+  if (tab === "reservations") {
+    const upcoming = dashboard.reservations?.upcoming || [];
+    const past = dashboard.reservations?.past || [];
+    customerPanelContent.innerHTML = `
+      <div class="customer-panel-block">
+        <div class="customer-panel-block-head">
+          <h3>Gelecek rezervasyonlarım</h3>
+          <span>${upcoming.length} kayıt</span>
+        </div>
+        ${renderCustomerReservationList(upcoming, "Henüz yaklaşan rezervasyonun yok.")}
+      </div>
+      <div class="customer-panel-block">
+        <div class="customer-panel-block-head">
+          <h3>Geçmiş rezervasyonlarım</h3>
+          <span>${past.length} kayıt</span>
+        </div>
+        ${renderCustomerReservationList(past, "Geçmiş rezervasyon kaydı bulunamadı.")}
+      </div>
+    `;
+    return;
+  }
+
+  if (tab === "reviews") {
+    const reviews = dashboard.reviews || [];
+    customerPanelContent.innerHTML = reviews.length
+      ? `<div class="customer-card-list">${reviews
+          .map(
+            (item) => `
+              <article class="customer-record-card">
+                <div>
+                  <span class="customer-record-status">${escapeHtml(item.status)}</span>
+                  <h3>${escapeHtml(item.venueName)}</h3>
+                  <p>${"★".repeat(Number(item.rating || 0))} · ${escapeHtml(item.comment || "Yorum yok")}</p>
+                </div>
+                <aside><span>${escapeHtml(item.date)}</span></aside>
+              </article>
+            `,
+          )
+          .join("")}</div>`
+      : customerEmpty("Değerlendirme bulunamadı", "Rezervasyon tamamlandıktan sonra puan ve yorumların burada görünecek.");
+    return;
+  }
+
+  const emptyCopy = {
+    purchases: ["Satın alma bulunamadı", "Paket ve abonelik satın alımların burada listelenecek."],
+    favorites: ["Favori bulunamadı", "Kalp ikonuyla kaydettiğin işletmeler burada görünecek."],
+    billing: ["Fatura adresi bulunamadı", "Ödeme adımında eklediğin bireysel veya kurumsal adresleri burada yöneteceksin."],
+    cards: ["Kayıtlı kart bulunamadı", "Kart saklama ödeme kuruluşu devreye alındığında burada yönetilecek."],
+  }[tab] || ["Kayıt bulunamadı", "Bu alandaki bilgiler hazır olduğunda burada görünecek."];
+
+  customerPanelContent.innerHTML = customerEmpty(emptyCopy[0], emptyCopy[1]);
+}
+
+async function openCustomerPanel(tab = "reservations") {
+  if (!state.user) {
+    openAuthModal("login");
+    return;
+  }
+
+  state.customerPanelTab = tab;
+  closeAccountMenu();
+  customerPanel?.classList.remove("hidden");
+  customerPanel?.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  setCustomerPanelLoading();
+
+  try {
+    await loadCustomerDashboard();
+    renderCustomerPanelContent(tab);
+  } catch (error) {
+    setCustomerPanelLoading(error.message || "Hesap bilgileri yüklenemedi.");
+  }
+}
+
 function closeHeaderPopovers() {
   document.querySelectorAll(".header-popover-shell[open]").forEach((node) => {
     node.removeAttribute("open");
@@ -1451,12 +1619,28 @@ accountAdmin.addEventListener("click", () => {
   window.location.href = "/admin.html";
 });
 
+customerPanelTriggers.forEach((button) => {
+  button.addEventListener("click", () => openCustomerPanel(button.dataset.customerPanel));
+});
+
+customerPanelTabs.forEach((button) => {
+  button.addEventListener("click", () => {
+    state.customerPanelTab = button.dataset.customerPanelTab;
+    renderCustomerPanelContent(state.customerPanelTab);
+  });
+});
+
+customerPanelClose?.addEventListener("click", closeCustomerPanel);
+customerPanelDismiss?.addEventListener("click", closeCustomerPanel);
+
 accountLogout.addEventListener("click", () => {
   localStorage.removeItem("tyee_token");
   state.token = "";
   state.user = null;
+  state.customerDashboard = null;
   authForm.reset();
   closeAccountMenu();
+  closeCustomerPanel();
   updateAuthUi();
 });
 

@@ -93,6 +93,14 @@
               <button class="account-menu-item hidden" id="account-admin" type="button">
                 Yönetici paneline git
               </button>
+              <div class="account-menu-divider"></div>
+              <button class="account-menu-item" type="button" data-customer-panel="reservations">Rezervasyonlarım</button>
+              <button class="account-menu-item" type="button" data-customer-panel="purchases">Satın Aldıklarım</button>
+              <button class="account-menu-item" type="button" data-customer-panel="reviews">Değerlendirmelerim</button>
+              <button class="account-menu-item" type="button" data-customer-panel="favorites">Favorilerim</button>
+              <button class="account-menu-item" type="button" data-customer-panel="billing">Fatura Adreslerim</button>
+              <button class="account-menu-item" type="button" data-customer-panel="cards">Kayıtlı Kartlarım</button>
+              <div class="account-menu-divider"></div>
               <button class="account-menu-item" id="account-logout" type="button">Çıkış yap</button>
             </div>
           </div>
@@ -715,7 +723,34 @@
       </div>
     </div>
 
+    <div class="customer-panel hidden" id="customer-panel" aria-hidden="true">
+      <div class="customer-panel-backdrop" id="customer-panel-close"></div>
+      <section class="customer-panel-dialog" aria-label="Kullanıcı hesabı">
+        <div class="customer-panel-header">
+          <div>
+            <p class="eyebrow">Bireysel hesap</p>
+            <h2 id="customer-panel-title">Rezervasyonlarım</h2>
+            <span id="customer-panel-subtitle">Rezervasyonlarını ve hesap bilgilerini yönet.</span>
+          </div>
+          <button class="icon-button" id="customer-panel-dismiss" type="button" aria-label="Kapat">×</button>
+        </div>
+        <div class="customer-panel-layout">
+          <nav class="customer-panel-nav" aria-label="Kullanıcı menüsü">
+            <button class="is-active" type="button" data-customer-panel-tab="reservations">Rezervasyonlarım</button>
+            <button type="button" data-customer-panel-tab="purchases">Satın Aldıklarım</button>
+            <button type="button" data-customer-panel-tab="reviews">Değerlendirmelerim</button>
+            <button type="button" data-customer-panel-tab="favorites">Favorilerim</button>
+            <button type="button" data-customer-panel-tab="billing">Fatura Adreslerim</button>
+            <button type="button" data-customer-panel-tab="cards">Kayıtlı Kartlarım</button>
+          </nav>
+          <div class="customer-panel-content" id="customer-panel-content">
+            <div class="customer-empty-state">Bilgiler yükleniyor...</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260608-reservations-2"></script>
+    <script src="/app.js?v=20260609-customer-panel-1"></script>
   </body>
 </html>

@@ -617,6 +617,31 @@ function formatReservationTransaction(reservation) {
   };
 }
 
+function formatCustomerReservation(reservation) {
+  const billing = reservation.billing || calculateReservationBilling(reservation);
+  const statusLabel = reservation.status === "completed"
+    ? "Tamamlandı"
+    : reservation.status === "cancelled"
+      ? "İptal"
+      : "Yaklaşan";
+  return {
+    id: reservation.id,
+    venueName: reservation.venueName || "İşletme",
+    serviceLabel: reservation.serviceLabel || reservation.categoryLabel || "Rezervasyon",
+    serviceDate: reservation.serviceDate || "",
+    serviceDateLabel: formatDateTr(reservation.serviceDate),
+    serviceTime: reservation.serviceTime || "",
+    status: reservation.status || "confirmed",
+    statusLabel,
+    totalAmount: billing.totalAmount,
+    totalAmountLabel: formatCurrency(billing.totalAmount),
+    onlineAmountLabel: formatCurrency(billing.customerOnlinePayment),
+    venueAmountLabel: formatCurrency(billing.customerVenuePayment),
+    paymentModeLabel: billing.paymentModeLabel,
+    reviewStatus: reservation.reviewStatus || "pending",
+  };
+}
+
 function buildReservationSummary(reservations = []) {
   const totals = reservations.reduce(
     (summary, reservation) => {
@@ -1193,6 +1218,43 @@ app.get("/api/reservations/payment-policy", (req, res) => {
     ...policy,
     paymentModeLabel: billing.paymentModeLabel,
     billing,
+  });
+});
+
+app.get("/api/customer/dashboard", requireAuth, (req, res) => {
+  const user = req.user;
+  const reservations = getReservations()
+    .filter(
+      (reservation) =>
+        reservation.customerId === user.id ||
+        normalizeEmail(reservation.customerEmail) === normalizeEmail(user.email),
+    )
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+  const upcoming = reservations.filter((reservation) => reservation.status !== "completed" && reservation.status !== "cancelled");
+  const past = reservations.filter((reservation) => reservation.status === "completed" || reservation.status === "cancelled");
+
+  res.json({
+    user: normalizeUser(user),
+    reservations: {
+      upcoming: upcoming.map(formatCustomerReservation),
+      past: past.map(formatCustomerReservation),
+    },
+    purchases: [],
+    reviews: getReviews()
+      .filter((review) => review.customerId === user.id || normalizeEmail(review.customerEmail) === normalizeEmail(user.email))
+      .map((review) => ({
+        id: review.id,
+        venueName: review.venueName || "İşletme",
+        serviceLabel: review.serviceLabel || review.categoryLabel || "Hizmet",
+        rating: review.rating,
+        comment: review.comment || "",
+        date: formatDateTimeTr(review.createdAt),
+        status: review.status || "Yayınlandı",
+      })),
+    favorites: [],
+    billingAddresses: [],
+    cards: [],
   });
 });
 
