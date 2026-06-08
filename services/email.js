@@ -120,6 +120,7 @@ async function sendSmtpEmail(message) {
     subject: message.subject,
     text: message.text,
     html: message.html,
+    attachments: message.attachments || undefined,
   });
 
   return result.messageId || "";
@@ -134,6 +135,7 @@ async function sendEmail(message) {
     subject: message.subject,
     text: message.text,
     html: message.html,
+    attachments: message.attachments || [],
   };
 
   if (!message.to || !message.subject || (!message.text && !message.html)) {

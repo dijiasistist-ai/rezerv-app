@@ -57,6 +57,13 @@ const notificationShell = document.querySelector("#notification-shell");
 const notificationCount = document.querySelector("#notification-count");
 const notificationStatus = document.querySelector("#notification-status");
 const notificationItems = document.querySelectorAll("[data-notification-id]");
+const infoView = document.querySelector("#info-view");
+const infoClose = document.querySelector("#info-close");
+const infoLinks = document.querySelectorAll("[data-info-link]");
+const infoTabs = document.querySelectorAll("[data-info-tab]");
+const infoPanels = document.querySelectorAll("[data-info-panel]");
+const infoHomeLinks = document.querySelectorAll("[data-info-home]");
+const infoAuthButtons = document.querySelectorAll("[data-info-auth]");
 const notificationStorageKey = "tyee_read_notifications_v1";
 let notificationReadTimer = null;
 
@@ -85,11 +92,120 @@ const state = {
   nearbyOrigin: { lat: 41.0351, lng: 29.0268 },
 };
 
+const fallbackCategories = [
+  { id: "pet-kuafor", label: "Pet Kuaför", icon: "🐾", count: "0" },
+  { id: "guzellik", label: "Güzellik Merkezi", icon: "💄", count: "0" },
+  { id: "hali-saha", label: "Halı Saha", icon: "⚽", count: "0" },
+  { id: "padel", label: "Padel Kort", icon: "🎾", count: "0" },
+  { id: "direksiyon", label: "Direksiyon Dersi", icon: "🚘", count: "0" },
+  { id: "ozel-ders", label: "Özel Ders", icon: "🎓", count: "0" },
+  { id: "masaj-spa", label: "Masaj & Spa", icon: "🪷", count: "0" },
+  { id: "kisisel-bakim", label: "Kişisel Bakım", icon: "🧴", count: "0" },
+  { id: "fizyoterapi", label: "Fizyoterapi", icon: "🧘", count: "0" },
+  { id: "yoga-pilates", label: "Yoga & Pilates", icon: "🧘‍♀️", count: "0" },
+];
+
+const infoHashAliases = {
+  hakkimizda: "about",
+  about: "about",
+  "kullanim-sartlari": "terms",
+  terms: "terms",
+  gizlilik: "privacy",
+  privacy: "privacy",
+  iletisim: "contact",
+  contact: "contact",
+  guvenlik: "security",
+  security: "security",
+  sss: "faq",
+  faq: "faq",
+  blog: "blog",
+};
+
 function normalize(value = "") {
   return value
     .toLocaleLowerCase("tr-TR")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeSearchQuery(value = "") {
+  return normalize(value)
+    .replace(/\bkuaforu\b/g, "kuafor")
+    .replace(/\bguzelligi\b/g, "guzellik")
+    .replace(/\bmasaji\b/g, "masaj")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getInfoTabFromHash() {
+  const match = window.location.hash.match(/^#bilgi\/(.+)$/);
+  if (!match) return "";
+  return infoHashAliases[decodeURIComponent(match[1])] || "";
+}
+
+function setInfoTab(tab = "contact") {
+  const activeTab = infoPanels.length
+    ? [...infoPanels].some((panel) => panel.dataset.infoPanel === tab)
+      ? tab
+      : "contact"
+    : tab;
+
+  infoTabs.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.infoTab === activeTab);
+  });
+
+  infoPanels.forEach((panel) => {
+    panel.classList.toggle("is-active", panel.dataset.infoPanel === activeTab);
+  });
+}
+
+function openInfoView(tab = "contact", shouldPushHash = true) {
+  if (!infoView) return;
+
+  setInfoTab(tab);
+  infoView.classList.remove("hidden");
+  infoView.setAttribute("aria-hidden", "false");
+  document.body.classList.add("info-view-open");
+
+  if (shouldPushHash) {
+    const hashValue =
+      Object.entries(infoHashAliases).find(([, value]) => value === tab)?.[0] || tab;
+    window.history.pushState({}, "", `#bilgi/${hashValue}`);
+  }
+}
+
+function closeInfoView(shouldClearHash = true) {
+  if (!infoView) return;
+
+  infoView.classList.add("hidden");
+  infoView.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("info-view-open");
+
+  if (shouldClearHash && window.location.hash.startsWith("#bilgi/")) {
+    window.history.pushState({}, "", `${window.location.pathname}${window.location.search}`);
+  }
+}
+
+function syncInfoViewWithHash() {
+  const tab = getInfoTabFromHash();
+  if (tab) {
+    openInfoView(tab, false);
+    return;
+  }
+
+  closeInfoView(false);
+}
+
+function leaveInfoViewForAnchor(href = "/#hero") {
+  const targetUrl = new URL(href, window.location.origin);
+  closeInfoView(false);
+  window.history.pushState({}, "", `${targetUrl.pathname}${targetUrl.hash}`);
+
+  if (targetUrl.hash) {
+    document.querySelector(targetUrl.hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  } else {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 }
 
 function formatPrice(value) {
@@ -226,18 +342,16 @@ function projectNearbyPoint(point, bounds) {
   };
 }
 
-function buildGoogleMapsEmbedUrl(point, markerGroup = "modal") {
-  const zoom = markerGroup === "inline" ? 13 : 14;
-  const query = `${point.lat},${point.lng}`;
-  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&output=embed`;
-}
-
 function buildMapIcon(item) {
+  const isPet = item.category === "pet-kuafor";
+
   return L.divIcon({
-    className: "tyee-map-pin",
-    html: `<span>${item.icon || "✦"}</span>`,
-    iconSize: [42, 52],
-    iconAnchor: [21, 50],
+    className: `tyee-map-pin${isPet ? " is-pet-pin" : ""}`,
+    html: isPet
+      ? `<span aria-label="Pet kuaför"><i></i><b></b><b></b><b></b><b></b></span>`
+      : `<span>${item.icon || "✦"}</span>`,
+    iconSize: isPet ? [48, 56] : [42, 52],
+    iconAnchor: isPet ? [24, 54] : [21, 50],
     popupAnchor: [0, -42],
   });
 }
@@ -252,11 +366,13 @@ function buildUserIcon() {
 }
 
 function refreshMapSlot(slot) {
-  if (!slot) return;
+  if (!slot?.map) return;
+
   const refresh = () => {
     slot.map.invalidateSize({ pan: false });
     if (slot.tileLayer) slot.tileLayer.redraw();
   };
+
   requestAnimationFrame(refresh);
   [120, 360, 720, 1200].forEach((delay) => setTimeout(refresh, delay));
 }
@@ -283,17 +399,18 @@ function ensureInteractiveMap(container, markerGroup = "modal") {
       attributionControl: false,
     });
 
-    const tileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; OpenStreetMap &copy; CARTO",
+    const tileLayer = L.tileLayer("https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+      attribution: "&copy; Google",
       maxZoom: 19,
       keepBuffer: 6,
+      subdomains: ["mt0", "mt1", "mt2", "mt3"],
       updateWhenIdle: false,
       updateWhenZooming: false,
     });
     tileLayer.addTo(map);
     tileLayer.on("tileerror", () => setTimeout(() => tileLayer.redraw(), 300));
 
-    L.control.attribution({ prefix: false }).addAttribution("&copy; OpenStreetMap &copy; CARTO").addTo(map);
+    L.control.attribution({ prefix: false }).addAttribution("&copy; Google").addTo(map);
 
     state.nearbyMapInstances[markerGroup] = {
       map,
@@ -406,6 +523,7 @@ async function loadNearbyMap(origin = state.nearbyOrigin) {
 
   renderNearbyResults(nearbyResults, items, 6);
   renderNearbyResults(inlineNearbyResults, items, 4);
+  renderNearbyListings(items);
   setNearbyStatus(
     items.length
       ? `${items.length} işletme haritada konuma göre hesaplandı.`
@@ -420,6 +538,7 @@ async function loadInlineNearbyMap(origin = state.nearbyOrigin) {
   state.nearbyItems = items;
   renderNearbyMapCanvas(inlineNearbyMap, origin, items, "inline");
   renderNearbyResults(inlineNearbyResults, items, 4);
+  renderNearbyListings(items);
   setInlineNearbyStatus(items.length ? `${items.length} yakın seçenek` : "Yakın işletme bulunamadı");
 }
 
@@ -503,8 +622,9 @@ function renderCities(items = []) {
 }
 
 function renderCategories(items = []) {
-  state.categories = items;
-  const filterItems = [{ id: "all", label: "Hepsi" }, ...items.slice(0, 8)];
+  const safeItems = items.length ? items : fallbackCategories;
+  state.categories = safeItems;
+  const filterItems = [{ id: "all", label: "Hepsi" }, ...safeItems.slice(0, 8)];
 
   filterPillsContainer.innerHTML = filterItems
     .map(
@@ -516,7 +636,7 @@ function renderCategories(items = []) {
     )
     .join("");
 
-  categoryRail.innerHTML = items
+  categoryRail.innerHTML = safeItems
     .map(
       (item) => `
         <button class="category-card${item.id === state.category ? " is-active" : ""}" data-filter="${item.id}" type="button">
@@ -547,7 +667,74 @@ function renderResultsSummary(total) {
   resultsSummary.textContent = `${queryText}${total} işletme gösteriliyor`;
 }
 
+function getFilteredNearbyItems(items = state.nearbyItems) {
+  const normalizedQuery = normalizeSearchQuery(state.query);
+  const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
+
+  return [...items]
+    .filter((item) => {
+      const matchesCategory = state.category === "all" || item.category === state.category;
+      const searchable = normalizeSearchQuery(
+        [
+          item.name,
+          item.category,
+          item.categoryLabel,
+          item.cityLabel,
+          item.category === "pet-kuafor" ? "pet kuafor pet kuaforu" : "",
+        ].join(" "),
+      );
+      const matchesQuery = !queryTerms.length || queryTerms.every((term) => searchable.includes(term));
+      const matchesCity = state.city === "all" || state.city === "istanbul";
+      return matchesCategory && matchesQuery && matchesCity;
+    })
+    .sort((a, b) => (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER));
+}
+
+function renderNearbyListings(items = state.nearbyItems) {
+  const nearbyListings = getFilteredNearbyItems(items);
+  listingGrid.classList.add("is-nearby-list");
+
+  if (!nearbyListings.length) {
+    renderListings([]);
+  } else {
+    listingGrid.innerHTML = nearbyListings
+      .map(
+        (item) => `
+          <article class="nearby-facility-card" data-marker-id="${item.id}">
+            <div class="nearby-facility-media ${item.mediaClass || "media-field"}">
+              <span>Yakında</span>
+            </div>
+            <div class="nearby-facility-body">
+              <div class="nearby-facility-title">
+                <h3>${item.name}</h3>
+                <strong>${item.rating || "4.8"}</strong>
+              </div>
+              <p>${item.cityLabel || "Konum seçildi"} · ${item.categoryLabel} · ${item.distanceLabel}</p>
+              <div class="nearby-facility-icons" aria-label="Öne çıkan özellikler">
+                <span>${item.icon || "✦"}</span>
+                <span>⌖</span>
+                <span>✓</span>
+                <span>₺</span>
+              </div>
+              <div class="nearby-facility-foot">
+                <em>₺${item.priceLabel || "0"}</em>
+                <small>${item.nextSlot || "Yakında"} müsait</small>
+                <button class="solid-button" type="button">Tesise Git</button>
+              </div>
+            </div>
+          </article>
+        `,
+      )
+      .join("");
+  }
+
+  const queryText = state.query ? `"${state.query}" için ` : "";
+  resultsSummary.textContent = `${queryText}${nearbyListings.length} işletme yakınlık sırasına göre gösteriliyor`;
+}
+
 function renderListings(items = []) {
+  listingGrid.classList.remove("is-nearby-list");
+
   if (!items.length) {
     listingGrid.innerHTML = `
       <article class="empty-state">
@@ -664,8 +851,23 @@ async function loadListings() {
   });
 
   const payload = await fetchJson(`/api/listings?${params.toString()}`);
-  renderListings(payload.items);
-  renderResultsSummary(payload.total);
+  if (payload.items?.length) {
+    renderListings(payload.items);
+    renderResultsSummary(payload.total);
+    return;
+  }
+
+  if (state.nearbyItems.length) {
+    renderNearbyListings(state.nearbyItems);
+    return;
+  }
+
+  const nearbyItems = await getNearbyItems(state.nearbyOrigin);
+  state.nearbyItems = nearbyItems;
+  renderNearbyMapCanvas(inlineNearbyMap, state.nearbyOrigin, nearbyItems, "inline");
+  renderNearbyResults(inlineNearbyResults, nearbyItems, 4);
+  renderNearbyListings(nearbyItems);
+
 }
 
 function setAuthMode(mode) {
@@ -851,13 +1053,13 @@ citySelect.addEventListener("change", () => {
   loadListings();
 });
 
-nearbyMapTrigger.addEventListener("click", openNearbyMap);
-nearbyLocate.addEventListener("click", requestNearbyLocation);
-inlineNearbyLocate.addEventListener("click", requestNearbyLocation);
+nearbyMapTrigger?.addEventListener("click", openNearbyMap);
+nearbyLocate?.addEventListener("click", requestNearbyLocation);
+inlineNearbyLocate?.addEventListener("click", requestNearbyLocation);
 inlineMapExpand?.addEventListener("click", openNearbyMap);
-nearbyMapClose.addEventListener("click", closeNearbyMap);
-nearbyMapDismiss.addEventListener("click", closeNearbyMap);
-nearbyResults.addEventListener("click", (event) => {
+nearbyMapClose?.addEventListener("click", closeNearbyMap);
+nearbyMapDismiss?.addEventListener("click", closeNearbyMap);
+nearbyResults?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-marker-id]");
   if (!button) return;
   highlightNearbyMarker(button.dataset.markerId, "modal");
@@ -867,6 +1069,50 @@ inlineNearbyResults?.addEventListener("click", (event) => {
   if (!button) return;
   highlightNearbyMarker(button.dataset.markerId, "inline");
 });
+
+listingGrid?.addEventListener("click", (event) => {
+  const card = event.target.closest(".nearby-facility-card[data-marker-id]");
+  if (!card) return;
+  highlightNearbyMarker(card.dataset.markerId, "inline");
+});
+
+infoLinks.forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    openInfoView(link.dataset.infoLink || "contact");
+  });
+});
+
+infoTabs.forEach((button) => {
+  button.addEventListener("click", () => {
+    openInfoView(button.dataset.infoTab || "contact");
+  });
+});
+
+infoHomeLinks.forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    leaveInfoViewForAnchor(link.getAttribute("href") || "/#hero");
+  });
+});
+
+infoAuthButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    closeInfoView();
+    openAuthModal(button.dataset.infoAuth || "login");
+  });
+});
+
+infoClose?.addEventListener("click", () => closeInfoView());
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !infoView?.classList.contains("hidden")) {
+    closeInfoView();
+  }
+});
+
+window.addEventListener("hashchange", syncInfoViewWithHash);
+window.addEventListener("popstate", syncInfoViewWithHash);
 
 notificationItems.forEach((item) => {
   item.addEventListener("click", () => {
@@ -1100,6 +1346,8 @@ Promise.all([loadBootstrap(), loadCurrentUser()]).catch((error) => {
     </article>
   `;
 });
+
+syncInfoViewWithHash();
 
 const verifiedState = new URLSearchParams(window.location.search).get("verified");
 if (verifiedState) {

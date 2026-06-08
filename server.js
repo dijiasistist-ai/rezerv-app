@@ -117,27 +117,43 @@ function verificationEmailTemplate({ name, verifyUrl, accountType = "customer" }
   const safeName = escapeHtml(name);
   const safeVerifyUrl = escapeHtml(verifyUrl);
   const isVenue = accountType === "venue";
-  const headline = isVenue ? "İşletmeni tyee'da görmek çok güzel." : "tyee'a hoş geldin.";
+  const headline = isVenue ? "İşletme hesabın hazır." : "tyee'a hoş geldin.";
   const intro = isVenue
-    ? "Seni gördüğümüze çok sevindik. İşletme hesabın hazır; profilini, lokasyonunu ve hizmetlerini tamamlayarak ilk rezervasyon akışına yaklaşabilirsin."
+    ? "İşletme hesabın başarıyla oluşturuldu."
     : "Seni gördüğümüze çok sevindik. Artık yakınındaki hizmetleri keşfetmeye, karşılaştırmaya ve zamanı geldiğinde kolayca rezervasyon yapmaya hazırsın.";
   const nextStep = isVenue
-    ? "Başlamak için e-postanı doğrula; ardından işletme panelindeki bilgileri birlikte netleştireceğiz."
+    ? "Şimdi profilini, lokasyonunu ve hizmetlerini tamamlayarak müşterilerin tarafından keşfedilmeye başlayabilirsin."
     : "Başlamak için e-postanı doğrula; sonra tyee deneyimini senin için daha kişisel hale getireceğiz.";
+  const detail = isVenue
+    ? "Tyee, rezervasyonlarını yönetmeni, görünürlüğünü artırmanı ve müşterilerinle daha kolay buluşmanı sağlar."
+    : "";
+  const ctaLabel = isVenue ? "İşletmeni Aktifleştir" : "E-postamı doğrula";
 
   return {
     subject: isVenue ? "tyee işletme hesabına hoş geldin" : "tyee'a hoş geldin",
-    text: `Merhaba ${name},\n\n${intro}\n\n${nextStep}\n\nE-postanı doğrula: ${verifyUrl}\n\ntyee ekibi`,
+    text: isVenue
+      ? `Merhaba ${name},\n\n${intro}\n\n${nextStep}\n\n${detail}\n\n${ctaLabel}: ${verifyUrl}\n\nEk Bilgi\nProfilini tamamlamak yalnızca birkaç dakika sürer.\n\nHerhangi bir sorunda ekibimiz yanında.\n\nTyee Ekibi`
+      : `Merhaba ${name},\n\n${intro}\n\n${nextStep}\n\nE-postanı doğrula: ${verifyUrl}\n\ntyee ekibi`,
     html: `
       <div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:auto;padding:32px;color:#111827;background:#ffffff">
         <div style="border:1px solid #e7edf5;border-radius:18px;padding:30px;background:#fbfdff">
-          <p style="margin:0 0 10px;color:#248be8;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase">tyee</p>
+          <img src="cid:tyee-logo" width="132" alt="tyee" style="display:block;width:132px;max-width:42%;height:auto;margin:0 0 22px;border:0;outline:none;text-decoration:none" />
           <h1 style="margin:0 0 14px;font-size:28px;line-height:1.15;color:#07123d">${headline}</h1>
           <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">Merhaba ${safeName},</p>
           <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">${intro}</p>
           <p style="margin:0 0 22px;font-size:16px;line-height:1.65;color:#344054">${nextStep}</p>
-          <a href="${safeVerifyUrl}" style="display:inline-block;margin:0 0 24px;padding:13px 18px;border-radius:12px;background:#248be8;color:#fff;text-decoration:none;font-weight:800">E-postamı doğrula</a>
-          <p style="margin:0;font-size:14px;line-height:1.55;color:#667085">Sevgiler,<br /><strong style="color:#111827">tyee ekibi</strong></p>
+          ${isVenue ? `<p style="margin:0 0 22px;font-size:16px;line-height:1.65;color:#344054">${detail}</p>` : ""}
+          <a href="${safeVerifyUrl}" target="_blank" rel="noopener" style="display:inline-block;margin:0 0 26px;padding:13px 20px;border-radius:12px;background:#248be8;color:#fff;text-decoration:none;font-weight:800">${ctaLabel}</a>
+          ${
+            isVenue
+              ? `<div style="border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;margin:0 0 24px;padding:20px 0">
+                  <p style="margin:0 0 12px;font-size:18px;line-height:1.45;color:#111827;font-weight:800">Ek Bilgi</p>
+                  <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">Profilini tamamlamak yalnızca birkaç dakika sürer.</p>
+                  <p style="margin:0;font-size:16px;line-height:1.65;color:#344054">Herhangi bir sorunda ekibimiz yanında.</p>
+                </div>`
+              : ""
+          }
+          <p style="margin:0;font-size:14px;line-height:1.55;color:#667085">${isVenue ? "" : "Sevgiler,<br />"}<strong style="color:#111827">Tyee Ekibi</strong></p>
         </div>
       </div>
     `,
@@ -170,6 +186,13 @@ function sendVerificationEmail(req, user) {
   return sendEmail({
     to: user.email,
     template: "email-verification",
+    attachments: [
+      {
+        filename: "tyee.png",
+        path: path.join(__dirname, "assets", "tyee.png"),
+        cid: "tyee-logo",
+      },
+    ],
     ...email,
   });
 }
@@ -880,6 +903,7 @@ app.post("/api/auth/enable-venue", requireAuth, (req, res) => {
 app.get("/verify-email", (req, res) => {
   const token = String(req.query.token || "");
   const user = token ? findUserByEmailVerificationToken(token) : null;
+  const redirectPath = user?.canManageVenue ? "/venue.html" : "/";
 
   if (user) {
     upsertUser({
@@ -889,7 +913,7 @@ app.get("/verify-email", (req, res) => {
     });
   }
 
-  res.redirect(`/?verified=${user ? "success" : "invalid"}`);
+  res.redirect(`${redirectPath}?verified=${user ? "success" : "invalid"}`);
 });
 
 app.post("/api/auth/verify-email", (req, res) => {

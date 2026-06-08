@@ -43,6 +43,24 @@ Render Web Service ayarlari:
 
 Repo kokundeki `render.yaml` blueprint olarak ayni ayarlari icerir.
 
+## Mobil uygulama
+
+Mobil uygulama `mobile/` altinda Expo / React Native olarak baslatildi. Bireysel
+kullanici deneyimi ana urundur; isletme tarafinda sadece bugun ozeti, basit takvim,
+rezervasyon listesi ve web panele gecis bulunur.
+
+```bash
+cd mobile
+npm install
+npm run ios
+```
+
+Canli API varsayilan olarak `https://tyee.app` kullanilir. Local API ile denemek icin:
+
+```bash
+EXPO_PUBLIC_API_URL=http://127.0.0.1:8091 npm run ios
+```
+
 ## Admin erisimi
 
 Admin paneli local gelistirmede aciktir. Canli ortamda admin kullanicisi ile giris yapmak
@@ -88,7 +106,12 @@ SMTP:
 - `SMTP_USER`
 - `SMTP_PASS`
 - `SMTP_SECURE` (`true` veya `false`)
+- `SMTP_FAMILY` (`4` onerilir)
 - `EMAIL_REPLY_TO` veya `SMTP_REPLY_TO` opsiyonel
+
+GoDaddy/Titan uzerindeki `info@tyee.app` hesabi icin local testlerde calisan SMTP
+sunucusu `smtpout.secureserver.net`, port `465`, `SMTP_SECURE=true` olarak
+dogrulandi.
 
 Resend:
 

@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/styles.css?v=20260607-header-font-2" />
+    <link rel="stylesheet" href="/styles.css?v=20260608-auth-polish-1" />
   </head>
   <body>
     <div class="page-shell">
@@ -190,7 +190,18 @@
             <h2>Kategoriler</h2>
             <button class="round-arrow" id="category-next" type="button" aria-label="Sonraki kategorileri göster">›</button>
           </div>
-          <div class="category-rail" id="category-rail"></div>
+          <div class="category-rail" id="category-rail">
+            <button class="category-card" data-filter="pet-kuafor" type="button"><span>🐾</span><strong>Pet Kuaför</strong><small>0</small></button>
+            <button class="category-card" data-filter="guzellik" type="button"><span>💄</span><strong>Güzellik Merkezi</strong><small>0</small></button>
+            <button class="category-card" data-filter="hali-saha" type="button"><span>⚽</span><strong>Halı Saha</strong><small>0</small></button>
+            <button class="category-card" data-filter="padel" type="button"><span>🎾</span><strong>Padel Kort</strong><small>0</small></button>
+            <button class="category-card" data-filter="direksiyon" type="button"><span>🚘</span><strong>Direksiyon Dersi</strong><small>0</small></button>
+            <button class="category-card" data-filter="ozel-ders" type="button"><span>🎓</span><strong>Özel Ders</strong><small>0</small></button>
+            <button class="category-card" data-filter="masaj-spa" type="button"><span>🪷</span><strong>Masaj & Spa</strong><small>0</small></button>
+            <button class="category-card" data-filter="kisisel-bakim" type="button"><span>🧴</span><strong>Kişisel Bakım</strong><small>0</small></button>
+            <button class="category-card" data-filter="fizyoterapi" type="button"><span>🧘</span><strong>Fizyoterapi</strong><small>0</small></button>
+            <button class="category-card" data-filter="yoga-pilates" type="button"><span>🧘‍♀️</span><strong>Yoga & Pilates</strong><small>0</small></button>
+          </div>
         </section>
 
         <section class="featured-band" id="featured">
@@ -207,10 +218,7 @@
             </div>
             <aside class="inline-map-panel" aria-label="Yakınımdaki işletmeler">
               <div class="inline-map-header">
-                <div>
-                  <strong>Yakınımda</strong>
-                  <span id="inline-map-status">Harita hazırlanıyor.</span>
-                </div>
+                <span class="sr-only" id="inline-map-status">Harita hazırlanıyor.</span>
                 <div class="inline-map-actions">
                   <button class="ghost-button" id="inline-nearby-locate" type="button">Konumum</button>
                 </div>
@@ -218,6 +226,7 @@
               <div class="nearby-map inline-nearby-map" id="inline-nearby-map">
                 <button class="map-expand-button" id="inline-map-expand" type="button" aria-label="Haritayı büyüt">🔍</button>
               </div>
+              <div class="inline-nearby-results" id="inline-nearby-results"></div>
             </aside>
           </div>
         </section>
@@ -226,14 +235,317 @@
           <div class="hero-metrics" id="hero-metrics"></div>
         </section>
       </main>
+
+      <footer class="site-footer">
+        <div class="footer-top">
+          <nav class="footer-links" aria-label="Alt menü">
+            <a href="#bilgi/blog" data-info-link="blog">Blog</a>
+            <a href="#bilgi/hakkimizda" data-info-link="about">Hakkımızda</a>
+            <a href="#bilgi/sss" data-info-link="faq">SSS</a>
+            <a href="#bilgi/gizlilik" data-info-link="privacy">Gizlilik Politikası</a>
+            <a href="#bilgi/kullanim-sartlari" data-info-link="terms">Kullanım Şartları</a>
+            <a href="#bilgi/iletisim" data-info-link="contact">İletişim</a>
+          </nav>
+          <div class="footer-store-buttons" aria-label="Uygulama bağlantıları">
+            <a class="store-button" href="#">
+              <span>Yakında</span>
+              <strong>App Store</strong>
+            </a>
+            <a class="store-button" href="#">
+              <span>Yakında</span>
+              <strong>Google Play</strong>
+            </a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <div class="footer-brand">
+            <img class="footer-logo-image" src="/assets/tyee12.png?v=20260608-logo-downloads-3" alt="tyee" />
+            <span>© 2026 Tyee. Tüm hakları saklıdır.</span>
+          </div>
+          <div class="footer-social" aria-label="Sosyal medya">
+            <a href="#" aria-label="Instagram">ig</a>
+            <a href="#" aria-label="Facebook">f</a>
+          </div>
+        </div>
+        <button class="footer-mobile-switch" type="button">Mobil görünüme geç</button>
+      </footer>
     </div>
+
+    <section class="info-view hidden" id="info-view" aria-hidden="true" aria-label="Tyee bilgi sayfası">
+      <header class="info-header">
+        <a class="info-brand" href="/#hero" data-info-home aria-label="tyee ana sayfa">
+          <img src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
+        </a>
+
+        <nav class="info-main-nav" aria-label="Bilgi ekranı ana menü">
+          <a href="/#hero" data-info-home>Keşfet</a>
+          <a href="/#categories" data-info-home>Kategoriler</a>
+          <a href="/#nearby-map" data-info-home>Yakınımda</a>
+          <a href="/#featured" data-info-home>Fırsatlar</a>
+          <a href="/venue.html">İşletme Paneli</a>
+        </nav>
+
+        <div class="info-header-actions">
+          <button class="ghost-button" data-info-auth="login" type="button">Giriş Yap</button>
+          <button class="solid-button" data-info-auth="register" type="button">Kayıt Ol</button>
+        </div>
+      </header>
+      <div class="info-shell">
+        <aside class="info-sidebar" aria-label="Bilgi menüsü">
+          <button class="info-nav-item" data-info-tab="about" type="button">Hakkımızda</button>
+          <button class="info-nav-item" data-info-tab="terms" type="button">Kullanım Şartları</button>
+          <button class="info-nav-item" data-info-tab="privacy" type="button">Gizlilik Politikası</button>
+          <button class="info-nav-item" data-info-tab="contact" type="button">İletişim</button>
+          <button class="info-nav-item" data-info-tab="security" type="button">Güvenlik</button>
+          <button class="info-nav-item" data-info-tab="faq" type="button">SSS</button>
+          <button class="info-nav-item" data-info-tab="blog" type="button">Blog</button>
+        </aside>
+        <div class="info-content">
+          <article class="info-panel" data-info-panel="about">
+            <h1>Hakkımızda</h1>
+            <p>Tyee, yakınındaki hizmet veren işletmeleri bulup müsaitlik ve konuma göre hızlıca rezervasyon yapman için tasarlandı.</p>
+            <div class="info-text-block">
+              <h2>Ne yapıyoruz?</h2>
+              <p>Pet kuaförden spor tesislerine, güzellik merkezlerinden özel derslere kadar farklı hizmetleri tek ekranda karşılaştırılabilir hale getiriyoruz.</p>
+            </div>
+          </article>
+
+          <article class="info-panel" data-info-panel="terms">
+            <h1>Kullanım Şartları</h1>
+            <p>Bu şartlar; Tyee üzerinden işletme keşfetme, rezervasyon oluşturma, hesap kullanma, ödeme akışlarına katılma ve işletme panelinden yararlanma süreçleri için geçerlidir.</p>
+
+            <div class="info-text-block">
+              <h2>Tanımlar</h2>
+              <p>Tyee; web sitesi, mobil görünüm ve ileride sunulabilecek uygulamalar üzerinden çalışan rezervasyon platformunu ifade eder. Kullanıcı, platformu ziyaret eden veya hesap oluşturan kişidir. İşletme ise Tyee üzerinde hizmet, saat, fiyat ve müsaitlik bilgisi yayınlayan gerçek veya tüzel kişidir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Hizmetin kapsamı</h2>
+              <p>Tyee, kullanıcıların yakınındaki işletmeleri keşfetmesine, hizmetleri karşılaştırmasına ve uygun saatler için rezervasyon talebi oluşturmasına yardımcı olan bir platformdur. Hizmetin fiili sunumu, seçilen işletme tarafından gerçekleştirilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Rezervasyon ve müsaitlik</h2>
+              <p>İşletme profillerindeki hizmet, fiyat, süre, konum ve müsaitlik bilgileri ilgili işletmeler tarafından sağlanır veya güncellenir. Rezervasyon onayı, iptal koşulları ve hizmetin uygulanması işletmenin kendi operasyon kurallarına bağlı olabilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Rezervasyonun kesinleşmesi</h2>
+              <p>Rezervasyon talebinin gönderilmesi tek başına hizmetin kesinleştiği anlamına gelmeyebilir. İşletme onayı, sistem bildirimi, e-posta, SMS veya uygulama içi onay gibi teyit süreçleri tamamlandığında rezervasyon geçerli hale gelir. Müsaitlik güncellemesi veya işletme reddi halinde kullanıcı yalnızca varsa ödediği tutarın iadesini talep edebilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Fiyat ve kampanya koşulları</h2>
+              <p>Fiyatlar, kampanyalar, kapora, ön ödeme, paket, abonelik veya özel fırsat koşulları işletmeler tarafından belirlenebilir. Bazı fiyatlar iptal, değişiklik veya iade bakımından sınırlı olabilir. Rezervasyon öncesinde hizmet açıklaması, ödeme koşulu ve işletme kurallarının kontrol edilmesi kullanıcının sorumluluğundadır.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>İptal ve gelmeme</h2>
+              <p>Gidemeyeceğin rezervasyonları mümkün olan en erken zamanda iptal etmeni bekleriz. Bazı işletmeler iptal süresi, ön ödeme veya gelmeme durumunda ücretlendirme gibi kendi politikalarını uygulayabilir; bu koşullar rezervasyon öncesinde kullanıcıya gösterilmelidir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Hesap sorumluluğu</h2>
+              <p>Hesap oluştururken doğru, güncel ve sana ait bilgileri kullanmalısın. Şifreni, oturumunu ve hesabındaki işlemleri korumak senin sorumluluğundadır. Yetkisiz kullanım fark edersen bizimle hızlıca iletişime geçmelisin.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Ödemeler</h2>
+              <p>Ödeme sunulan işlemlerde tahsilat, iade, provizyon veya ödeme doğrulaması yetkili ödeme sağlayıcıları üzerinden yürütülebilir. Tyee, ödeme işlemlerinde kullanıcı ve işletme için güvenli bir aracı deneyim sağlamayı hedefler; nihai hizmet bedeli ve vergi yükümlülükleri ilgili taraflara aittir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>İşletme hesapları</h2>
+              <p>İşletme hesabı açan kişi, ilgili işletmeyi temsil etmeye yetkili olduğunu kabul eder. İşletmeler; hizmet bilgilerini doğru tutmak, rezervasyonları zamanında yönetmek, iptal/iade koşullarını açık belirtmek ve müşterilere taahhüt edilen hizmeti sunmakla sorumludur.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Yasaklı kullanım</h2>
+              <p>Tyee; sahte rezervasyon, spam, otomatik veri çekme, başkasının hesabına erişme, yanıltıcı işletme bilgisi girme, hukuka aykırı ürün veya hizmet sunma, güvenlik açıklarını kötüye kullanma ve platformun çalışmasını bozacak davranışlar için kullanılamaz.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>İçerik ve yorumlar</h2>
+              <p>Kullanıcıların veya işletmelerin paylaştığı yorum, görsel, açıklama ve diğer içerikler doğru, hukuka uygun ve üçüncü kişilerin haklarına saygılı olmalıdır. Uygunsuz, yanıltıcı veya zararlı içerikleri kaldırma ya da erişimi sınırlama hakkımız saklıdır.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Fikri mülkiyet</h2>
+              <p>Tyee arayüzü, yazılımı, tasarımı, marka unsurları, içerik düzeni, veri tabanı yapısı ve platformda üretilen özgün materyaller ilgili hak sahiplerine aittir. Platform içeriği yazılı izin olmadan kopyalanamaz, çoğaltılamaz, ticari amaçla kullanılamaz, otomatik araçlarla izlenemez veya başka bir hizmete entegre edilemez.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Uygulanacak hukuk</h2>
+              <p>Bu şartların yorumlanmasında Türkiye Cumhuriyeti hukuku esas alınır. Zorunlu tüketici hakları saklı kalmak üzere, uyuşmazlıklarda ilgili mevzuat ve yetkili merciler uygulanır.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Değişiklikler ve iletişim</h2>
+              <p>Bu şartları ürün, mevzuat veya operasyon ihtiyaçlarına göre güncelleyebiliriz. Soruların için <a href="mailto:info@tyee.app">info@tyee.app</a> adresinden bize ulaşabilirsin.</p>
+            </div>
+          </article>
+
+          <article class="info-panel" data-info-panel="privacy">
+            <h1>Gizlilik Politikası</h1>
+            <p>Tyee; hesabını yönetmek, yakınındaki işletmeleri göstermek, rezervasyon akışını çalıştırmak ve hizmet kalitesini artırmak için gerekli kişisel verileri işler.</p>
+
+            <div class="info-text-block">
+              <h2>Yasal dayanak ve kapsam</h2>
+              <p>Kişisel veriler; 6698 sayılı Kişisel Verilerin Korunması Kanunu, elektronik ticaret ve internet ortamındaki hizmetlere ilişkin mevzuat, sözleşmenin kurulması veya ifası, hukuki yükümlülükler, meşru menfaat ve gerekli hallerde açık rıza kapsamında işlenebilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Topladığımız bilgiler</h2>
+              <p>Ad soyad, e-posta, telefon, doğum tarihi, adres, cinsiyet, hesap giriş bilgileri, seçtiğin hizmetler, rezervasyon geçmişi, favori işletmeler, mesaj veya destek talepleri gibi bize doğrudan verdiğin bilgileri toplayabiliriz. Sosyal hesapla giriş yapılırsa, ilgili platformun izin ekranında paylaşılan bilgiler de işlenebilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Konum, cihaz ve kullanım verileri</h2>
+              <p>Konum izni verdiğinde yakınındaki işletmeleri mesafeye göre sıralarız. Ayrıca cihaz türü, tarayıcı bilgisi, IP adresi, sayfa kullanımı, arama tercihleri ve benzer teknik veriler hizmetin güvenli ve verimli çalışması için işlenebilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Çerezler ve benzer teknolojiler</h2>
+              <p>Oturumu açık tutmak, tercihleri hatırlamak, performansı ölçmek, kullanım alışkanlıklarını anlamak ve deneyimi kişiselleştirmek için oturum çerezleri ve kalıcı çerezlerden yararlanabiliriz. Çerez tercihlerini tarayıcı ayarlarından yönetebilir; bazı çerezleri kapatmanın hizmetin bazı özelliklerini sınırlayabileceğini bilmelisin.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Analitik, reklam ve yeniden hedefleme</h2>
+              <p>Hizmeti iyileştirmek, kampanya performansını ölçmek ve daha ilgili içerikler göstermek için analitik ve reklam teknolojilerinden destek alabiliriz. Bu kapsamda Google Analytics, reklam ağları veya sosyal medya platformları gibi üçüncü taraf hizmetler kendi çerezlerini ya da benzer teknolojilerini kullanabilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Bilgileri nasıl kullanırız?</h2>
+              <p>Verileri rezervasyon oluşturmak veya değiştirmek, işletme ve kullanıcı hesaplarını yönetmek, ödeme ve bildirim süreçlerini desteklemek, güvenliği sağlamak, dolandırıcılığı önlemek, destek taleplerine yanıt vermek ve sana daha ilgili öneriler göstermek için kullanırız.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>İşletmeler ve hizmet sağlayıcılarıyla paylaşım</h2>
+              <p>Rezervasyon yaptığında gerekli bilgiler seçtiğin işletmeyle paylaşılır. Ödeme, e-posta, SMS, harita, analitik, barındırma ve müşteri destek altyapıları için güvenilir hizmet sağlayıcılarından destek alabiliriz. Bu taraflar verileri yalnızca ilgili hizmeti sunmak için işlemelidir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Resmi makamlarla paylaşım</h2>
+              <p>Yasal yükümlülükler, yetkili kamu kurumlarının talepleri, uyuşmazlıkların çözümü, güvenlik ihlallerinin incelenmesi veya suçun önlenmesi gibi durumlarda kişisel veriler ve trafik bilgileri mevzuata uygun şekilde yetkili mercilerle paylaşılabilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Ödeme bilgileri</h2>
+              <p>Ödeme gerektiren işlemlerde kart ve ödeme bilgileri yetkili ödeme kuruluşları üzerinden işlenir. Tyee, kart güvenlik kodunu saklamaz; ödeme sağlayıcılarının güvenlik standartlarına uygun çalışmasını bekler.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Güvenlik</h2>
+              <p>Kişisel verileri yetkisiz erişim, kayıp, kötüye kullanım ve değiştirmeye karşı korumak için makul teknik ve idari önlemler uygularız. İnternet üzerinden hiçbir aktarımın tamamen risksiz olmadığını da açıkça belirtiriz.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Tercihler ve hakların</h2>
+              <p>Hesap bilgilerini güncelleyebilir, pazarlama iletişimlerinden çıkabilir, konum iznini cihaz veya tarayıcı ayarlarından kapatabilir, kişisel verilerine erişim, düzeltme, silme, anonim hale getirme, işleme amacını öğrenme ve mevzuatta tanınan diğer haklarına ilişkin taleplerini bize iletebilirsin.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Saklama süresi</h2>
+              <p>Verileri hesabın ve rezervasyonların sürdüğü süre boyunca; yasal yükümlülükler, uyuşmazlıklar, güvenlik kayıtları ve muhasebe gereklilikleri için gerekli olan makul sürelerle saklarız. Elektronik ticari ileti onay/ret kayıtları ve gönderim kayıtları gibi bazı veriler mevzuatta öngörülen sürelerle saklanabilir.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Elektronik ileti izni</h2>
+              <p>Açık rıza verdiğinde sana kampanya, avantaj, duyuru, anket, bilgilendirme ve pazarlama içerikleri SMS, e-posta, telefon veya benzeri yollarla gönderilebilir. Bu izni her zaman geri alabilir ve iletişim tercihlerini güncelleyebilirsin.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>İletişim ve güncellemeler</h2>
+              <p>Gizlilikle ilgili taleplerin için <a href="mailto:info@tyee.app">info@tyee.app</a> adresinden bize ulaşabilirsin. Talepler makul süre içinde değerlendirilir. Bu politikayı ürün, mevzuat veya operasyon değişikliklerine göre güncelleyebiliriz.</p>
+            </div>
+          </article>
+
+          <article class="info-panel" data-info-panel="contact">
+            <h1>İletişim</h1>
+            <p>Soru, öneri veya destek taleplerin için ekibimizle iletişime geçebilirsin.</p>
+            <div class="support-card">
+              <span class="support-icon" aria-hidden="true"></span>
+              <div>
+                <strong>Destek</strong>
+                <a href="mailto:info@tyee.app">info@tyee.app</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="info-panel" data-info-panel="security">
+            <h1>Güvenlik</h1>
+            <p>Tyee’de güvenlik; hesap, rezervasyon, işletme yönetimi, ödeme ve destek akışlarının temel parçasıdır. Kullanıcı ve işletme verilerini korumak için makul teknik ve idari önlemler uygularız.</p>
+
+            <div class="info-text-block">
+              <h2>Veri aktarımı ve saklama</h2>
+              <p>Hassas verilerin aktarımında şifreleme, güvenli bağlantı ve erişim sınırlandırma prensiplerini kullanırız. Saklanan verilerin yalnızca gerekli kişiler ve sistemler tarafından erişilebilir olması için rol bazlı kontroller uygularız.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Ödeme güvenliği</h2>
+              <p>Kart ve ödeme işlemleri yetkili ödeme sağlayıcıları üzerinden yürütülür. Tyee, kart güvenlik kodunu saklamaz; ödeme altyapısının sektör standartlarına uygun ve güvenli şekilde çalışmasını hedefler.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Güvenli tasarım</h2>
+              <p>Ürün geliştirme sürecinde güvenli varsayımlar, yetki kontrolü, oturum yönetimi, hata takibi ve bağımlılık güncellemeleri gibi önlemleri dikkate alırız. Yeni özelliklerde veri minimizasyonu ve erişim ihtiyacı prensipleriyle ilerleriz.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>İzleme ve olay yönetimi</h2>
+              <p>Sistemlerin güvenli ve kararlı çalışmasını izlemek için kayıt, hata ve performans sinyallerinden yararlanabiliriz. Şüpheli kullanım, yetkisiz erişim veya veri güvenliği riski fark edildiğinde erişimi sınırlayabilir, hesabı geçici olarak durdurabilir veya kullanıcıyla iletişime geçebiliriz.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Veri ihlali süreci</h2>
+              <p>Kişisel verilerin yetkisiz kişilerin eline geçmesi veya ciddi bir güvenlik riski oluşması halinde durumu incelemek, etkisini azaltmak, gerekli kullanıcıları ve mevzuatın gerektirdiği yetkili kurumları bilgilendirmek için makul adımları atarız.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Kullanıcı sorumluluğu</h2>
+              <p>Güçlü ve benzersiz şifre kullanmanı, şifreni paylaşmamanı, ortak cihazlarda oturumunu açık bırakmamanı ve beklemediğin bir işlem gördüğünde bizimle iletişime geçmeni öneririz.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Sorumlu bildirim</h2>
+              <p>Bir güvenlik açığı fark edersen bunu kamuya açık şekilde paylaşmadan önce <a href="mailto:info@tyee.app">info@tyee.app</a> adresinden bize bildirmeni rica ederiz. Bildiriminde etkilenen sayfa veya akışı, yeniden üretme adımlarını ve mümkünse ekran görüntülerini paylaşman incelemeyi hızlandırır.</p>
+            </div>
+
+            <div class="info-text-block">
+              <h2>Bildirim kuralları</h2>
+              <p>Güvenlik testi yaparken başka kullanıcıların verilerine erişmemeni, hizmeti aksatacak otomatik trafik üretmemeni, sosyal mühendislik veya kimlik avı denemeleri yapmamanı ve yalnızca sorunu göstermek için gerekli minimum bilgiyi paylaşmanı bekleriz.</p>
+            </div>
+          </article>
+
+          <article class="info-panel" data-info-panel="faq">
+            <h1>SSS</h1>
+            <div class="info-text-block">
+              <h2>Rezervasyonu nasıl yaparım?</h2>
+              <p>Arama alanından hizmet veya işletme seçip uygun saate ilerleyerek rezervasyonunu oluşturabilirsin.</p>
+            </div>
+            <div class="info-text-block">
+              <h2>Yakınımdaki işletmeler nasıl sıralanır?</h2>
+              <p>Konum izni verdiğinde işletmeler mesafeye göre yakından uzağa sıralanır.</p>
+            </div>
+          </article>
+
+          <article class="info-panel" data-info-panel="blog">
+            <h1>Blog</h1>
+            <p>Yerel hizmetler, rezervasyon alışkanlıkları ve işletmeler için verimli çalışma pratikleri üzerine içerikler burada yer alacak.</p>
+            <div class="info-text-block">
+              <h2>Yakında</h2>
+              <p>İlk yazılarımızı yayına almadan önce bu alanı sade bir duyuru ekranı olarak hazırladık.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
     <div class="map-modal hidden" id="nearby-map-modal" aria-hidden="true">
       <div class="map-backdrop" id="nearby-map-close"></div>
       <section class="map-dialog" aria-label="Yakınımdaki işletmeler haritası">
         <div class="map-toolbar">
           <div>
-            <p class="eyebrow">Yakınımda</p>
             <h2>Haritada yakındaki işletmeler</h2>
             <span id="nearby-map-status">Konumunu onaylayınca en yakın işletmeler sıralanır.</span>
           </div>
@@ -244,7 +556,7 @@
         </div>
         <div class="map-layout">
           <div class="nearby-map" id="nearby-map"></div>
-          <aside class="nearby-results" id="nearby-results"></aside>
+          <div class="nearby-results" id="nearby-results"></div>
         </div>
       </section>
     </div>
@@ -254,7 +566,6 @@
       <div class="auth-dialog">
         <div class="auth-header">
           <div>
-            <p class="eyebrow">tyee hesabı</p>
             <h2 id="auth-title">Giriş yap</h2>
           </div>
           <button class="icon-button" id="auth-close-button" type="button" aria-label="Kapat">×</button>
@@ -275,12 +586,20 @@
 
             <div class="auth-role-grid">
               <button class="auth-role-card" type="button" data-entry-choice="customer">
-                <strong>Bireysel giriş</strong>
-                <span>Rezervasyonlarını, favorilerini ve ödemelerini yönet.</span>
+                <span class="auth-role-icon" aria-hidden="true">👤</span>
+                <span class="auth-role-text">
+                  <strong>Bireysel giriş</strong>
+                  <span>Rezervasyonlarını, favorilerini ve ödemelerini yönet.</span>
+                </span>
+                <span class="auth-role-arrow" aria-hidden="true">›</span>
               </button>
               <button class="auth-role-card" type="button" data-entry-choice="venue">
-                <strong>İşletme girişi</strong>
-                <span>Takvim, tahsilat, doluluk ve işletme operasyonuna geç.</span>
+                <span class="auth-role-icon" aria-hidden="true">▦</span>
+                <span class="auth-role-text">
+                  <strong>İşletme girişi</strong>
+                  <span>Takvim, tahsilat, doluluk ve işletme operasyonuna geç.</span>
+                </span>
+                <span class="auth-role-arrow" aria-hidden="true">›</span>
               </button>
             </div>
           </div>
@@ -318,12 +637,20 @@
 
             <div class="auth-role-grid">
               <button class="auth-role-card" type="button" data-role-choice="customer">
-                <strong>Bireysel kullanım</strong>
-                <span>Rezervasyon yap, favori tesislerini takip et, ödemelerini yönet.</span>
+                <span class="auth-role-icon" aria-hidden="true">👤</span>
+                <span class="auth-role-text">
+                  <strong>Bireysel kullanım</strong>
+                  <span>Rezervasyon yap, favori tesislerini takip et, ödemelerini yönet.</span>
+                </span>
+                <span class="auth-role-arrow" aria-hidden="true">›</span>
               </button>
               <button class="auth-role-card" type="button" data-role-choice="venue">
-                <strong>İşletme yönetimi</strong>
-                <span>Takvim, tahsilat, doluluk, kampanya ve işletme operasyonunu yönet.</span>
+                <span class="auth-role-icon" aria-hidden="true">▦</span>
+                <span class="auth-role-text">
+                  <strong>İşletme yönetimi</strong>
+                  <span>Takvim, tahsilat, doluluk, kampanya ve işletme operasyonunu yönet.</span>
+                </span>
+                <span class="auth-role-arrow" aria-hidden="true">›</span>
               </button>
             </div>
 
@@ -336,6 +663,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260607-live-venue-map-2"></script>
+    <script src="/app.js?v=20260608-pet-paw-pin-1"></script>
   </body>
 </html>
