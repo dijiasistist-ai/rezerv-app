@@ -118,7 +118,6 @@ const infoHashAliases = {
   security: "security",
   sss: "faq",
   faq: "faq",
-  blog: "blog",
 };
 
 function normalize(value = "") {
