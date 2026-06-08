@@ -22,6 +22,7 @@ const salesNotes = document.querySelector("#sales-notes");
 const salesSubscription = document.querySelector("#sales-subscription");
 const overviewList = document.querySelector("#overview-list");
 const subscriptionsBody = document.querySelector("#subscriptions-body");
+const newSubscriptionButton = document.querySelector("#new-subscription-button");
 const transactionsBody = document.querySelector("#transactions-body");
 const sidebarSummaryTitle = document.querySelector(".sidebar-summary strong");
 const sidebarSummaryMeta = document.querySelector(".sidebar-summary small");
@@ -603,6 +604,30 @@ function formatSlotDateTime(day, time) {
     .padStart(2, "0")}.${day.dateObj.getFullYear()} ${time} - ${String(endHour).padStart(2, "0")}:00`;
 }
 
+function parseSalesDateTime(value = "") {
+  const match = String(value).match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}:\d{2})/);
+  if (!match) {
+    return {
+      day: "-",
+      startDate: "-",
+      time: value || "-",
+      expiry: "-",
+    };
+  }
+
+  const [, day, month, year, time] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  const weekday = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"][date.getDay()];
+  const expiryDate = addDays(date, 7);
+
+  return {
+    day: weekday,
+    startDate: `${day}.${month}.${year}`,
+    time,
+    expiry: `${String(expiryDate.getDate()).padStart(2, "0")}.${String(expiryDate.getMonth() + 1).padStart(2, "0")}.${expiryDate.getFullYear()} ${time}`,
+  };
+}
+
 function buildManualMeta(entry) {
   if (!entry) return "İşletme tarafından girilir";
   if (entry.isSubscription && entry.phone) return `Abone • ${entry.phone}`;
@@ -616,18 +641,38 @@ function buildSlotBadge(label, className) {
   return `<em class="slot-channel-badge ${className}">${label}</em>`;
 }
 
-function openSalesModal(day, time, slotKey) {
-  const existingEntry = venueState.manualEntries[slotKey];
+function openSalesModal(day = null, time = "", slotKey = "", options = {}) {
+  const existingEntry = slotKey ? venueState.manualEntries[slotKey] : null;
+  const fallbackDay = day || buildDisplayWeek(venueState.dashboard?.weekDays || [])[0];
+  const fallbackTime = time || "19:00";
   venueState.salesDraftSlotKey = slotKey;
-  salesTime.value = formatSlotDateTime(day, time);
+  salesTime.value = fallbackDay ? formatSlotDateTime(fallbackDay, fallbackTime) : fallbackTime;
   salesDeposit.value = existingEntry?.deposit || "50";
   salesPhone.value = existingEntry?.phone || "";
   salesPayout.value = existingEntry?.payout || "100";
   salesName.value = existingEntry?.name || "";
   salesTotal.value = existingEntry?.total || "150";
   salesNotes.value = existingEntry?.notes || "";
-  salesSubscription.checked = Boolean(existingEntry?.isSubscription);
+  salesSubscription.checked = Boolean(options.isSubscription || existingEntry?.isSubscription);
   salesModal.classList.remove("hidden");
+}
+
+function addSubscriptionFromSalesModal() {
+  if (!venueState.dashboard) return;
+  const parsed = parseSalesDateTime(salesTime.value);
+  const nextSubscription = {
+    id: Math.floor(Date.now() % 1000000),
+    customer: salesName.value.trim() || "Yeni abonelik",
+    field: "Ana alan",
+    day: parsed.day,
+    startDate: parsed.startDate,
+    time: parsed.time,
+    status: "Aktif",
+    expiry: parsed.expiry,
+  };
+
+  venueState.dashboard.subscriptions = [nextSubscription, ...(venueState.dashboard.subscriptions || [])];
+  renderSubscriptions(venueState.dashboard.subscriptions);
 }
 
 function closeSalesModal() {
@@ -1867,6 +1912,10 @@ function bindVenueInteractions() {
     element?.addEventListener("click", closeSalesModal);
   });
 
+  newSubscriptionButton?.addEventListener("click", () => {
+    openSalesModal(null, "19:00", "", { isSubscription: true });
+  });
+
   salesSave?.addEventListener("click", () => {
     if (venueState.salesDraftSlotKey) {
       venueState.manualEntries[venueState.salesDraftSlotKey] = {
@@ -1879,6 +1928,8 @@ function bindVenueInteractions() {
         isSubscription: salesSubscription.checked,
       };
       venueState.slotModes[venueState.salesDraftSlotKey] = "manual";
+    } else if (salesSubscription.checked) {
+      addSubscriptionFromSalesModal();
     }
     if (venueState.dashboard) {
       renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
