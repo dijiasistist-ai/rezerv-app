@@ -853,6 +853,41 @@ button {
   gap: 14px;
 }
 
+.settings-section {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #e8edf5;
+  border-radius: 10px;
+  padding: 16px;
+  background: #fff;
+}
+
+.settings-section-head {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.settings-section-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.settings-section-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-section-body {
+  display: grid;
+  gap: 14px;
+}
+
 .settings-input-field,
 .settings-select-field,
 .settings-question {
@@ -1222,6 +1257,10 @@ button {
   color: var(--muted);
   font-size: 13px;
   font-weight: 900;
+}
+
+.settings-inline-action {
+  justify-self: start;
 }
 
 .venue-save-status {

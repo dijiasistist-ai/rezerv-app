@@ -346,9 +346,9 @@ const venueDashboard = {
   },
   stats: emptyVenueStats,
   managerMenu: [
-    "Profil Ayarları",
+    "İşletme Bilgileri",
     "Değerlendirmeler",
-    "Fatura Adresleri",
+    "Ödeme & Sözleşme",
     "Takvim",
     "Haftalık Abonelik Satış",
     "İşlemler",
@@ -361,7 +361,7 @@ const venueDashboard = {
     "Satın Aldıklarım",
     "Değerlendirmelerim",
     "Profilim",
-    "Fatura Adreslerim",
+    "Ödeme Bilgilerim",
     "Kayıtlı Kartlarım",
   ],
   quickActions: [
@@ -572,13 +572,8 @@ const venueDashboard = {
   ],
   settings: {
     tabs: [
-      "Genel Bilgiler",
-      "İletişim Bilgileri",
-      "İşletme Detayları",
-      "Medya",
-      "Alan Bilgileri",
-      "Ödeme Bilgileri",
-      "Sözleşmeler",
+      "İşletme Bilgileri",
+      "Ödeme & Sözleşme",
     ],
     businessName: "test",
     questions: [

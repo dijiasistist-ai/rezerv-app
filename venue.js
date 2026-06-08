@@ -45,7 +45,7 @@ const venueState = {
   slotModes: {},
   manualEntries: {},
   currentWeekOffset: 0,
-  activeSettingsTab: "Genel Bilgiler",
+  activeSettingsTab: "İşletme Bilgileri",
   salesDraftSlotKey: "",
   venueId: "zincirlikuyu-arena",
   dashboard: null,
@@ -69,13 +69,8 @@ const MONTH_SHORT = [
 ];
 const BASE_WEEK_START = new Date(2026, 4, 11);
 const DEFAULT_SETTINGS_TABS = [
-  "Genel Bilgiler",
-  "İletişim Bilgileri",
-  "İşletme Detayları",
-  "Medya",
-  "Alan Bilgileri",
-  "Ödeme Bilgileri",
-  "Sözleşmeler",
+  "İşletme Bilgileri",
+  "Ödeme & Sözleşme",
 ];
 
 const BUSINESS_CONTRACT_VERSION = "İşletme Sözleşmesi v1.0 - 08.06.2026";
@@ -239,14 +234,11 @@ function escapeHtml(value = "") {
 }
 
 function normalizeSettings(settings = {}) {
-  const tabs = (Array.isArray(settings.tabs) && settings.tabs.length ? settings.tabs : DEFAULT_SETTINGS_TABS).map(
-    (tab) => (tab === "Sahalar" || tab === "Tesis Bilgileri" ? (tab === "Sahalar" ? "Alan Bilgileri" : "İşletme Detayları") : tab),
-  );
   const businessType = settings.selects?.find((item) => item.label === "İşletme Tipi")?.value || "";
 
   return {
     ...settings,
-    tabs,
+    tabs: DEFAULT_SETTINGS_TABS,
     businessName: settings.businessName || "",
     questions: Array.isArray(settings.questions) ? settings.questions : [],
     selects: Array.isArray(settings.selects) ? settings.selects : [],
@@ -970,9 +962,10 @@ function renderReportSummary(items) {
 }
 
 function renderSettingsTabs(items) {
-  const activeTab = items.includes(venueState.activeSettingsTab) ? venueState.activeSettingsTab : items[0];
+  const safeItems = DEFAULT_SETTINGS_TABS;
+  const activeTab = safeItems.includes(venueState.activeSettingsTab) ? venueState.activeSettingsTab : safeItems[0];
   venueState.activeSettingsTab = activeTab;
-  settingsTabs.innerHTML = items
+  settingsTabs.innerHTML = safeItems
     .map(
       (item) => `
         <button class="settings-tab ${item === activeTab ? "is-active" : ""}" type="button" data-settings-tab="${escapeHtml(item)}">${item}</button>
@@ -985,18 +978,213 @@ function renderSettingsOnboarding(settings) {
   const normalized = normalizeSettings(settings);
   const activeTab = venueState.activeSettingsTab;
   const renderers = {
-    "Genel Bilgiler": renderGeneralSettings,
-    "İletişim Bilgileri": renderContactSettings,
-    "İşletme Detayları": renderDetailSettings,
-    Medya: renderMediaSettings,
-    "Alan Bilgileri": renderAreaSettings,
-    "Ödeme Bilgileri": renderPaymentSettings,
-    Sözleşmeler: renderContractSettings,
+    "İşletme Bilgileri": renderBusinessInfoSettings,
+    "Ödeme & Sözleşme": renderPaymentContractSettings,
   };
-  settingsOnboardingForm.innerHTML = (renderers[activeTab] || renderGeneralSettings)(normalized);
-  if (activeTab === "İletişim Bilgileri") {
+  settingsOnboardingForm.innerHTML = (renderers[activeTab] || renderBusinessInfoSettings)(normalized);
+  if (activeTab === "İşletme Bilgileri") {
     requestAnimationFrame(() => setupLocationPicker(normalized));
   }
+}
+
+function settingsSection(title, subtitle, body) {
+  return `
+    <section class="settings-section">
+      <div class="settings-section-head">
+        <h3>${escapeHtml(title)}</h3>
+        ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
+      </div>
+      <div class="settings-section-body">${body}</div>
+    </section>
+  `;
+}
+
+function mediaSettingsFields(settings) {
+  const media = settings.media;
+  const galleryMarkup = media.gallery.length
+    ? media.gallery
+        .map(
+          (item, index) => `
+            <article class="settings-media-card">
+              <img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.name || "İşletme görseli")}" />
+              <div>
+                <strong>${escapeHtml(item.name || `Görsel ${index + 1}`)}</strong>
+                <button class="ghost-button" type="button" data-media-remove="${index}">Kaldır</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="settings-empty-box">Henüz görsel eklenmedi.</div>`;
+
+  return `
+    <div class="settings-form-grid">
+      <label class="settings-input-field">
+        <span>Logo URL</span>
+        <input id="settings-media-logo-url" type="url" value="${escapeHtml(media.logoUrl)}" placeholder="https://..." />
+      </label>
+      <label class="settings-input-field">
+        <span>Kapak görseli URL</span>
+        <input id="settings-media-cover-url" type="url" value="${escapeHtml(media.coverUrl)}" placeholder="https://..." />
+      </label>
+    </div>
+    <label class="settings-upload-box">
+      <span>Resim ekle</span>
+      <input type="file" accept="image/*" multiple data-media-upload />
+      <small>Görseller önizleme için küçültülerek kaydedilir.</small>
+    </label>
+    <div class="settings-media-grid">${galleryMarkup}</div>
+  `;
+}
+
+function areaSettingsFields(settings) {
+  const areasMarkup = settings.areas
+    .map(
+      (area, index) => `
+        <article class="settings-area-card" data-area-card="${index}">
+          <div class="settings-area-head">
+            <strong>Alan ${index + 1}</strong>
+            <label class="settings-switch">
+              <input type="checkbox" data-area-active="${index}" ${area.isActive ? "checked" : ""} />
+              <span>Aktif</span>
+            </label>
+          </div>
+          <div class="settings-form-grid">
+            <label class="settings-input-field">
+              <span>Alan adı</span>
+              <input data-area-name="${index}" type="text" value="${escapeHtml(area.name)}" placeholder="Saha 1, Oda 2, Masa A..." />
+            </label>
+            <label class="settings-input-field">
+              <span>Alan tipi</span>
+              <input data-area-type="${index}" type="text" value="${escapeHtml(area.type)}" placeholder="Saha, oda, masa, eğitmen..." />
+            </label>
+            <label class="settings-input-field">
+              <span>Kapasite</span>
+              <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity)}" placeholder="2 kişi, 12 kişi..." />
+            </label>
+            <label class="settings-input-field">
+              <span>Başlangıç fiyatı</span>
+              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺750 / saat" />
+            </label>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="settings-area-list">${areasMarkup}</div>
+    <button class="ghost-button settings-inline-action" type="button" data-area-add>+ Alan ekle</button>
+  `;
+}
+
+function renderBusinessInfoSettings(settings) {
+  const contact = settings.contact;
+  const location = settings.location || {};
+  const details = settings.details;
+
+  return `
+    ${settingsSection(
+      "Temel bilgiler",
+      "Marketplace'te görünen ana işletme bilgileri.",
+      `
+        <div class="settings-form-grid">
+          <label class="settings-input-field">
+            <span>İşletme adı</span>
+            <input id="settings-business-name" type="text" value="${escapeHtml(settings.businessName)}" />
+          </label>
+          <label class="settings-select-field">
+            <span>Kategori</span>
+            <select id="settings-detail-category">
+              ${["Pet Kuaför", "Güzellik Merkezi", "Halı Saha", "Padel Kort", "Direksiyon Dersi", "Özel Ders", "Masaj & Spa", "Yoga & Pilates", "Diğer"]
+                .map((option) => `<option ${option === details.category ? "selected" : ""}>${option}</option>`)
+                .join("")}
+            </select>
+          </label>
+          <label class="settings-input-field">
+            <span>İlçe / bölge</span>
+            <input id="settings-detail-district" type="text" value="${escapeHtml(details.district)}" placeholder="Kadıköy, Beşiktaş..." />
+          </label>
+          <label class="settings-input-field">
+            <span>Çalışma saatleri</span>
+            <input id="settings-detail-working-hours" type="text" value="${escapeHtml(details.workingHours)}" placeholder="Hafta içi 09:00 - 22:00" />
+          </label>
+        </div>
+        <label class="settings-input-field">
+          <span>İşletme açıklaması</span>
+          <textarea id="settings-detail-description" rows="4" placeholder="Müşterinin göreceği kısa açıklama">${escapeHtml(details.description)}</textarea>
+        </label>
+        <label class="settings-input-field">
+          <span>İptal politikası</span>
+          <input id="settings-detail-cancellation" type="text" value="${escapeHtml(details.cancellationPolicy)}" placeholder="Rezervasyondan 2 saat öncesine kadar" />
+        </label>
+      `,
+    )}
+
+    ${settingsSection(
+      "İletişim ve konum",
+      "Müşteri iletişimi ve yakınımdaki işletmeler haritası için gerekli alanlar.",
+      `
+        <div class="settings-form-grid">
+          <label class="settings-input-field">
+            <span>Yetkili kişi</span>
+            <input id="settings-contact-authorized-name" type="text" value="${escapeHtml(contact.authorizedName)}" />
+          </label>
+          <label class="settings-input-field">
+            <span>Telefon</span>
+            <input id="settings-contact-phone" type="tel" value="${escapeHtml(contact.phone)}" placeholder="05xx xxx xx xx" />
+          </label>
+          <label class="settings-input-field">
+            <span>WhatsApp</span>
+            <input id="settings-contact-whatsapp" type="tel" value="${escapeHtml(contact.whatsapp)}" placeholder="05xx xxx xx xx" />
+          </label>
+          <label class="settings-input-field">
+            <span>E-posta</span>
+            <input id="settings-contact-email" type="email" value="${escapeHtml(contact.email)}" />
+          </label>
+          <label class="settings-input-field">
+            <span>Web sitesi</span>
+            <input id="settings-contact-website" type="url" value="${escapeHtml(contact.website)}" placeholder="https://..." />
+          </label>
+          <label class="settings-input-field">
+            <span>Instagram</span>
+            <input id="settings-contact-instagram" type="text" value="${escapeHtml(contact.instagram)}" placeholder="@isletme" />
+          </label>
+        </div>
+        <div class="settings-location-block">
+          <strong>Adres ve harita konumu</strong>
+          <div class="settings-location-status">${escapeHtml(settings.locationStatus || "Girilmemiş")}</div>
+          <label class="settings-select-field">
+            <span>Açık adres</span>
+            <input id="settings-location-address" type="text" value="${escapeHtml(location.address || "")}" placeholder="Cadde, sokak, bina no" />
+          </label>
+          ${locationPickerMarkup(location)}
+          <div class="settings-form-grid">
+            <label class="settings-select-field">
+              <span>Enlem</span>
+              <input id="settings-location-lat" type="text" value="${escapeHtml(location.lat || "")}" placeholder="41.0082" />
+            </label>
+            <label class="settings-select-field">
+              <span>Boylam</span>
+              <input id="settings-location-lng" type="text" value="${escapeHtml(location.lng || "")}" placeholder="28.9784" />
+            </label>
+          </div>
+        </div>
+      `,
+    )}
+
+    ${settingsSection("Görseller", "Logo, kapak ve galeri görselleri.", mediaSettingsFields(settings))}
+    ${settingsSection("Hizmet alanları", "Saha, oda, masa, eğitmen veya hizmet kapasitesi.", areaSettingsFields(settings))}
+    ${settingsSaveMarkup()}
+  `;
+}
+
+function renderPaymentContractSettings(settings) {
+  return `
+    ${settingsSection("Ödeme bilgileri", "Tahsilat modeli, hakediş ve fatura bilgileri.", renderPaymentSettings(settings, false))}
+    ${settingsSection("Sözleşmeler", "İşletme onayları ve yasal takip notları.", renderContractSettings(settings, false))}
+    ${settingsSaveMarkup()}
+  `;
 }
 
 function renderGeneralSettings(settings) {
@@ -1228,7 +1416,7 @@ function renderAreaSettings(settings) {
   `;
 }
 
-function renderPaymentSettings(settings) {
+function renderPaymentSettings(settings, includeSave = true) {
   const payment = settings.payment;
   return `
     <label class="settings-input-field">
@@ -1261,11 +1449,11 @@ function renderPaymentSettings(settings) {
           .join("")}
       </select>
     </label>
-    ${settingsSaveMarkup()}
+    ${includeSave ? settingsSaveMarkup() : ""}
   `;
 }
 
-function renderContractSettings(settings) {
+function renderContractSettings(settings, includeSave = true) {
   const contracts = settings.contracts;
   return `
     <section class="contract-hero">
@@ -1283,7 +1471,7 @@ function renderContractSettings(settings) {
       </div>
       <div>
         <strong>3 model</strong>
-        <span>Kapora, tam online, sadece rezervasyon</span>
+        <span>Ön ödeme, tam online, sadece rezervasyon</span>
       </div>
       <div>
         <strong>15 gün</strong>
@@ -1319,7 +1507,7 @@ function renderContractSettings(settings) {
       <span>Sözleşme / evrak notu</span>
       <textarea id="settings-contract-notes" rows="5" placeholder="Eksik evrak, özel madde veya takip notu">${escapeHtml(contracts.notes)}</textarea>
     </label>
-    ${settingsSaveMarkup()}
+    ${includeSave ? settingsSaveMarkup() : ""}
   `;
 }
 
@@ -1435,19 +1623,11 @@ function collectSettingsPayload() {
   const checked = (selector) => Boolean(document.querySelector(selector)?.checked);
   const next = { ...current };
 
-  if (venueState.activeSettingsTab === "Genel Bilgiler") {
+  if (venueState.activeSettingsTab === "İşletme Bilgileri") {
     next.businessName = valueOf("#settings-business-name");
-    next.questions = (current.questions || []).map((item, index) => ({
-      ...item,
-      value: document.querySelector(`input[name="settings-q-${index}"]:checked`)?.value === "true",
-    }));
-    next.selects = (current.selects || []).map((item, index) => ({
-      ...item,
-      value: document.querySelector(`[data-settings-select-index="${index}"]`)?.value || item.value,
-    }));
-  }
-
-  if (venueState.activeSettingsTab === "İletişim Bilgileri") {
+    next.selects = (current.selects || []).map((item) =>
+      item.label === "İşletme Tipi" ? { ...item, value: valueOf("#settings-detail-category") || item.value } : item,
+    );
     next.contact = {
       authorizedName: valueOf("#settings-contact-authorized-name"),
       phone: valueOf("#settings-contact-phone"),
@@ -1465,9 +1645,6 @@ function collectSettingsPayload() {
       lng: valueOf("#settings-location-lng"),
       mapUrl: valueOf("#settings-location-map-url"),
     };
-  }
-
-  if (venueState.activeSettingsTab === "İşletme Detayları") {
     next.details = {
       category: valueOf("#settings-detail-category"),
       district: valueOf("#settings-detail-district"),
@@ -1475,17 +1652,11 @@ function collectSettingsPayload() {
       workingHours: valueOf("#settings-detail-working-hours"),
       cancellationPolicy: valueOf("#settings-detail-cancellation"),
     };
-  }
-
-  if (venueState.activeSettingsTab === "Medya") {
     next.media = {
       ...current.media,
       logoUrl: valueOf("#settings-media-logo-url"),
       coverUrl: valueOf("#settings-media-cover-url"),
     };
-  }
-
-  if (venueState.activeSettingsTab === "Alan Bilgileri") {
     next.areas = Array.from(document.querySelectorAll("[data-area-card]")).map((card) => {
       const index = card.dataset.areaCard;
       return {
@@ -1498,7 +1669,7 @@ function collectSettingsPayload() {
     });
   }
 
-  if (venueState.activeSettingsTab === "Ödeme Bilgileri") {
+  if (venueState.activeSettingsTab === "Ödeme & Sözleşme") {
     next.payment = {
       invoiceTitle: valueOf("#settings-payment-invoice-title"),
       taxOffice: valueOf("#settings-payment-tax-office"),
@@ -1506,9 +1677,6 @@ function collectSettingsPayload() {
       iban: valueOf("#settings-payment-iban"),
       paymentMethod: valueOf("#settings-payment-method"),
     };
-  }
-
-  if (venueState.activeSettingsTab === "Sözleşmeler") {
     next.contracts = {
       termsAccepted: checked("#settings-contract-terms"),
       kvkkAccepted: checked("#settings-contract-kvkk"),
