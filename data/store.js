@@ -913,7 +913,7 @@ function filterListings({ category = "all", city = "all", query = "", time = "",
 }
 
 function getListingById(id) {
-  const listing = getPublicListings().find((item) => item.id === id);
+  const listing = [...getPublicListings(), ...listings].find((item) => item.id === id);
   return listing ? enrichListing(listing) : null;
 }
 

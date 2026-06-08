@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tyee | Rezervasyon</title>
+    <link rel="stylesheet" href="/styles.css?v=20260608-reservation-page-1" />
+  </head>
+  <body class="reservation-page-body">
+    <header class="booking-topbar">
+      <a class="booking-brand" href="/index.html" aria-label="tyee ana sayfa">
+        <img src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
+      </a>
+      <nav aria-label="Rezervasyon menüsü">
+        <a href="/index.html#featured">Keşfet</a>
+        <a href="/index.html#categories">Kategoriler</a>
+        <a href="/index.html#nearby-map">Yakınımda</a>
+      </nav>
+      <a class="booking-login" href="/index.html">Giriş Yap / Kayıt Ol</a>
+    </header>
+
+    <main class="booking-page" id="booking-page">
+      <section class="booking-hero">
+        <div class="booking-hero-media media-field" id="booking-hero-media"></div>
+        <div class="booking-hero-content">
+          <span class="booking-rating" id="booking-rating">-</span>
+          <div>
+            <p class="eyebrow" id="booking-category">Rezervasyon</p>
+            <h1 id="booking-title">İşletme yükleniyor</h1>
+            <p id="booking-location">Konum hazırlanıyor</p>
+          </div>
+          <button class="booking-favorite" type="button" aria-label="Favorilere ekle">♡</button>
+        </div>
+      </section>
+
+      <div class="booking-layout">
+        <section class="booking-content">
+          <div class="booking-section">
+            <div class="booking-section-head">
+              <div>
+                <p class="eyebrow">İşletme</p>
+                <h2>Hizmet ve tesis bilgileri</h2>
+              </div>
+            </div>
+            <p class="booking-summary" id="booking-summary">Bilgiler yükleniyor.</p>
+            <div class="booking-chip-row" id="booking-tags"></div>
+          </div>
+
+          <div class="booking-section">
+            <div class="booking-section-head">
+              <div>
+                <p class="eyebrow">Yorumlar</p>
+                <h2 id="booking-reviews-title">Yorumlar</h2>
+              </div>
+            </div>
+            <div class="booking-reviews" id="booking-reviews"></div>
+          </div>
+        </section>
+
+        <aside class="booking-panel" aria-label="Rezervasyon yap">
+          <form class="booking-card" id="booking-form">
+            <div class="booking-card-head">
+              <div>
+                <p class="eyebrow">Rezervasyon</p>
+                <h2>Rezervasyon Yap</h2>
+              </div>
+              <button class="ghost-button find-slot-button" type="button" id="find-slot-button">Boş Saat Bul</button>
+            </div>
+
+            <div class="booking-date-row">
+              <button type="button" id="booking-prev-day" aria-label="Önceki gün">‹</button>
+              <input id="booking-date" type="date" required />
+              <button type="button" id="booking-next-day" aria-label="Sonraki gün">›</button>
+            </div>
+
+            <label class="booking-select-label">
+              <span>Alan / hizmet</span>
+              <select id="booking-service"></select>
+            </label>
+
+            <div class="booking-slot-grid" id="booking-slots"></div>
+
+            <div class="booking-customer-grid">
+              <label>
+                <span>Ad soyad</span>
+                <input id="booking-name" type="text" required />
+              </label>
+              <label>
+                <span>Telefon</span>
+                <input id="booking-phone" type="tel" required />
+              </label>
+              <label class="booking-wide">
+                <span>E-posta</span>
+                <input id="booking-email" type="email" />
+              </label>
+            </div>
+
+            <div class="booking-price-row">
+              <div>
+                <span id="booking-online-label">Ön ödeme</span>
+                <strong id="booking-online-amount">-</strong>
+              </div>
+              <div>
+                <span>Toplam Tutar</span>
+                <strong id="booking-total-amount">-</strong>
+              </div>
+            </div>
+
+            <div class="booking-policy" id="booking-policy">Ödeme politikası hazırlanıyor.</div>
+            <p class="booking-feedback" id="booking-feedback"></p>
+            <button class="solid-button booking-submit" type="submit">Rezervasyonu Oluştur</button>
+          </form>
+        </aside>
+      </div>
+    </main>
+
+    <script src="/reservation-page.js?v=20260608-reservation-page-1"></script>
+  </body>
+</html>

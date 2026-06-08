@@ -6,6 +6,7 @@ const {
   filterListings,
   getAdminDashboardPayload,
   getBootstrapPayload,
+  getListingById,
   getNearbyMapPayload,
   getVenueDashboardPayload,
 } = require("./data/store");
@@ -257,6 +258,8 @@ const publicStaticFiles = new Set([
   "app.js",
   "index.html",
   "review.html",
+  "reservation.html",
+  "reservation-page.js",
   "styles.css",
   "venue.css",
   "venue.html",
@@ -920,6 +923,16 @@ app.get("/api/listings", (req, res) => {
   res.json({ total: items.length, items });
 });
 
+app.get("/api/listings/:id", (req, res) => {
+  const id = String(req.params.id || "");
+  const listing = getListingById(id) || getRuntimeVenueListingById(id);
+  if (!listing) {
+    res.status(404).json({ error: "İşletme bulunamadı." });
+    return;
+  }
+  res.json({ item: listing });
+});
+
 function getDistanceKm(origin, target) {
   const toRad = (value) => (value * Math.PI) / 180;
   const earthKm = 6371;
@@ -1000,6 +1013,39 @@ function getRuntimeVenueMapItems(origin) {
       };
     })
     .filter(Boolean);
+}
+
+function getRuntimeVenueListingById(id) {
+  const item = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).find((venue) => venue.id === id);
+  if (!item) return null;
+
+  return {
+    id: item.id,
+    venueId: item.id,
+    name: item.name,
+    category: item.category,
+    categoryLabel: item.categoryLabel,
+    city: "istanbul",
+    cityLabel: item.cityLabel || "İstanbul",
+    rating: 4.8,
+    reviews: 0,
+    distance: item.distanceLabel || "",
+    price: Number(String(item.priceLabel || "0").replace(/[^\d]/g, "")) || 1000,
+    priceUnit: "hizmet",
+    summary: `${item.categoryLabel || "Hizmet"} · Canlı işletme profili`,
+    tags: ["Yakında müsait", "Tyee işletmesi", "Güvenli rezervasyon"],
+    cta: "Rezervasyon Yap",
+    mediaClass: item.mediaClass || "media-field",
+    featured: true,
+    eveningTime: item.nextSlot || "19:30",
+    availability: { today: true, nextSlot: item.nextSlot || "19:30", openSlots: 4 },
+    profileScore: 86,
+    conversionScore: 80,
+    responseMinutes: 12,
+    boost: false,
+    serviceTypes: [item.categoryLabel || "hizmet"],
+    priceLabel: item.priceLabel || formatCurrency(1000),
+  };
 }
 
 function withActiveVenueCategoryCounts(categories = []) {

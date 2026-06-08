@@ -1270,7 +1270,9 @@ listingGrid?.addEventListener("click", (event) => {
     const item =
       state.nearbyItems.find((candidate) => candidate.id === itemId) ||
       state.featuredListings.find((candidate) => candidate.id === itemId);
-    if (item) openReservationModal(item);
+    if (item) {
+      window.location.href = `/reservation.html?id=${encodeURIComponent(item.id)}`;
+    }
     return;
   }
 
