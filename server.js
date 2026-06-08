@@ -161,7 +161,7 @@ function verificationEmailTemplate({ name, verifyUrl, accountType = "customer" }
   const safeName = escapeHtml(name);
   const safeVerifyUrl = escapeHtml(verifyUrl);
   const isVenue = accountType === "venue";
-  const headline = isVenue ? "İşletme hesabın hazır." : "tyee'a hoş geldin.";
+  const headline = isVenue ? "İşletme hesabın hazır." : "Bireysel hesabın hazır.";
   const intro = isVenue
     ? "İşletme hesabın başarıyla oluşturuldu."
     : "Seni gördüğümüze çok sevindik. Artık yakınındaki hizmetleri keşfetmeye, karşılaştırmaya ve zamanı geldiğinde kolayca rezervasyon yapmaya hazırsın.";
@@ -170,14 +170,19 @@ function verificationEmailTemplate({ name, verifyUrl, accountType = "customer" }
     : "Başlamak için e-postanı doğrula; sonra tyee deneyimini senin için daha kişisel hale getireceğiz.";
   const detail = isVenue
     ? "Tyee, rezervasyonlarını yönetmeni, görünürlüğünü artırmanı ve müşterilerinle daha kolay buluşmanı sağlar."
-    : "";
+    : "Tyee hesabınla rezervasyonlarını, favorilerini, değerlendirmelerini, fatura adreslerini ve ödeme adımlarını tek yerden takip edebilirsin.";
   const ctaLabel = isVenue ? "İşletmeni Aktifleştir" : "E-postamı doğrula";
+  const extraTitle = isVenue ? "Ek Bilgi" : "Hesabınla neler yapabilirsin?";
+  const extraFirst = isVenue
+    ? "Profilini tamamlamak yalnızca birkaç dakika sürer."
+    : "Yakınındaki işletmeleri keşfedebilir, fiyat ve müsaitlikleri karşılaştırabilir, rezervasyonlarını hesabından takip edebilirsin.";
+  const extraSecond = isVenue
+    ? "Herhangi bir sorunda ekibimiz yanında."
+    : "E-postanı doğruladıktan sonra hesabın daha güvenli şekilde kullanılabilir.";
 
   return {
-    subject: isVenue ? "tyee işletme hesabına hoş geldin" : "tyee'a hoş geldin",
-    text: isVenue
-      ? `Merhaba ${name},\n\n${intro}\n\n${nextStep}\n\n${detail}\n\n${ctaLabel}: ${verifyUrl}\n\nEk Bilgi\nProfilini tamamlamak yalnızca birkaç dakika sürer.\n\nHerhangi bir sorunda ekibimiz yanında.\n\nTyee Ekibi`
-      : `Merhaba ${name},\n\n${intro}\n\n${nextStep}\n\nE-postanı doğrula: ${verifyUrl}\n\ntyee ekibi`,
+    subject: isVenue ? "tyee işletme hesabına hoş geldin" : "tyee hesabını doğrula",
+    text: `Merhaba ${name},\n\n${intro}\n\n${nextStep}\n\n${detail}\n\n${ctaLabel}: ${verifyUrl}\n\n${extraTitle}\n${extraFirst}\n\n${extraSecond}\n\nTyee Ekibi`,
     html: `
       <div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:auto;padding:32px;color:#111827;background:#ffffff">
         <div style="border:1px solid #e7edf5;border-radius:18px;padding:30px;background:#fbfdff">
@@ -186,18 +191,14 @@ function verificationEmailTemplate({ name, verifyUrl, accountType = "customer" }
           <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">Merhaba ${safeName},</p>
           <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">${intro}</p>
           <p style="margin:0 0 22px;font-size:16px;line-height:1.65;color:#344054">${nextStep}</p>
-          ${isVenue ? `<p style="margin:0 0 22px;font-size:16px;line-height:1.65;color:#344054">${detail}</p>` : ""}
+          <p style="margin:0 0 22px;font-size:16px;line-height:1.65;color:#344054">${detail}</p>
           <a href="${safeVerifyUrl}" target="_blank" rel="noopener" style="display:inline-block;margin:0 0 26px;padding:13px 20px;border-radius:12px;background:#248be8;color:#fff;text-decoration:none;font-weight:800">${ctaLabel}</a>
-          ${
-            isVenue
-              ? `<div style="border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;margin:0 0 24px;padding:20px 0">
-                  <p style="margin:0 0 12px;font-size:18px;line-height:1.45;color:#111827;font-weight:800">Ek Bilgi</p>
-                  <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">Profilini tamamlamak yalnızca birkaç dakika sürer.</p>
-                  <p style="margin:0;font-size:16px;line-height:1.65;color:#344054">Herhangi bir sorunda ekibimiz yanında.</p>
-                </div>`
-              : ""
-          }
-          <p style="margin:0;font-size:14px;line-height:1.55;color:#667085">${isVenue ? "" : "Sevgiler,<br />"}<strong style="color:#111827">Tyee Ekibi</strong></p>
+          <div style="border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;margin:0 0 24px;padding:20px 0">
+            <p style="margin:0 0 12px;font-size:18px;line-height:1.45;color:#111827;font-weight:800">${extraTitle}</p>
+            <p style="margin:0 0 14px;font-size:16px;line-height:1.65;color:#344054">${extraFirst}</p>
+            <p style="margin:0;font-size:16px;line-height:1.65;color:#344054">${extraSecond}</p>
+          </div>
+          <p style="margin:0;font-size:14px;line-height:1.55;color:#667085"><strong style="color:#111827">Tyee Ekibi</strong></p>
         </div>
       </div>
     `,
