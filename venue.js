@@ -76,6 +76,22 @@ const DEFAULT_SETTINGS_TABS = [
   "İşletme Bilgileri",
   "Ödeme & Sözleşme",
 ];
+const FACILITY_FEATURES = [
+  { id: "shower", label: "Duş", icon: "🚿" },
+  { id: "male-restroom", label: "Erkek tuvaleti", icon: "🚹" },
+  { id: "female-restroom", label: "Kadın tuvaleti", icon: "🚺" },
+  { id: "food", label: "Yemek", icon: "🍽️" },
+  { id: "parking", label: "Otopark", icon: "🅿️" },
+  { id: "card", label: "Kredi kartı", icon: "💳" },
+  { id: "camera", label: "Kamera", icon: "🎥" },
+  { id: "equipment", label: "Ekipman / ayakkabı", icon: "🎒" },
+  { id: "goalkeeper", label: "Kaleci", icon: "🥅" },
+  { id: "kids", label: "Çocuk oyun alanı", icon: "🧒" },
+  { id: "cafe", label: "Cafe", icon: "☕" },
+  { id: "prayer", label: "İbadet alanı", icon: "🌙" },
+  { id: "wifi", label: "İnternet", icon: "📶" },
+  { id: "locker", label: "Soyunma odası", icon: "🔐" },
+];
 
 const BUSINESS_CONTRACT_VERSION = "İşletme Sözleşmesi v1.0 - 08.06.2026";
 const BUSINESS_CONTRACT_SECTIONS = [
@@ -239,6 +255,8 @@ function escapeHtml(value = "") {
 
 function normalizeSettings(settings = {}) {
   const businessType = settings.selects?.find((item) => item.label === "İşletme Tipi")?.value || "";
+  const savedFacilities = Array.isArray(settings.facilities) ? settings.facilities : [];
+  const savedFacilityMap = new Map(savedFacilities.map((item) => [item.id, item]));
 
   return {
     ...settings,
@@ -273,6 +291,10 @@ function normalizeSettings(settings = {}) {
     areas: Array.isArray(settings.areas) && settings.areas.length
       ? settings.areas
       : [{ name: "Ana alan", type: "Saha / oda / masa", capacity: "", price: "", isActive: true }],
+    facilities: FACILITY_FEATURES.map((feature) => ({
+      ...feature,
+      enabled: Boolean(savedFacilityMap.get(feature.id)?.enabled),
+    })),
     payment: {
       invoiceTitle: "",
       taxOffice: "",
@@ -1228,6 +1250,29 @@ function areaSettingsFields(settings) {
   `;
 }
 
+function facilitySettingsFields(settings) {
+  const selectedCount = (settings.facilities || []).filter((item) => item.enabled).length;
+  const facilitiesMarkup = (settings.facilities || [])
+    .map(
+      (item) => `
+        <label class="settings-feature-card">
+          <input type="checkbox" data-facility-id="${escapeHtml(item.id)}" ${item.enabled ? "checked" : ""} />
+          <span class="settings-feature-icon" aria-hidden="true">${escapeHtml(item.icon)}</span>
+          <span class="settings-feature-label">${escapeHtml(item.label)}</span>
+        </label>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="settings-feature-summary">
+      <strong>${selectedCount} özellik seçili</strong>
+      <span>Müşteri tesis detayında yalnızca işaretlediğin özellikleri görecek.</span>
+    </div>
+    <div class="settings-feature-grid">${facilitiesMarkup}</div>
+  `;
+}
+
 function renderBusinessInfoSettings(settings) {
   const contact = settings.contact;
   const location = settings.location || {};
@@ -1324,6 +1369,7 @@ function renderBusinessInfoSettings(settings) {
     )}
 
     ${settingsSection("Görseller", "Logo, kapak ve galeri görselleri.", mediaSettingsFields(settings))}
+    ${settingsSection("Tesis özellikleri", "Müşterinin rezervasyon öncesi göreceği imkanlar.", facilitySettingsFields(settings))}
     ${settingsSection("Hizmet alanları", "Saha, oda, masa, eğitmen veya hizmet kapasitesi.", areaSettingsFields(settings))}
     ${settingsSaveMarkup()}
   `;
@@ -1852,6 +1898,10 @@ function collectSettingsPayload() {
       logoUrl: valueOf("#settings-media-logo-url"),
       coverUrl: valueOf("#settings-media-cover-url"),
     };
+    next.facilities = (current.facilities || FACILITY_FEATURES).map((item) => ({
+      ...item,
+      enabled: checked(`[data-facility-id="${item.id}"]`),
+    }));
     next.areas = Array.from(document.querySelectorAll("[data-area-card]")).map((card) => {
       const index = card.dataset.areaCard;
       return {

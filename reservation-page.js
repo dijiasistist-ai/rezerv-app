@@ -9,6 +9,7 @@ const title = document.querySelector("#booking-title");
 const locationText = document.querySelector("#booking-location");
 const summary = document.querySelector("#booking-summary");
 const tags = document.querySelector("#booking-tags");
+const facilities = document.querySelector("#booking-facilities");
 const reviewsTitle = document.querySelector("#booking-reviews-title");
 const reviews = document.querySelector("#booking-reviews");
 const form = document.querySelector("#booking-form");
@@ -162,6 +163,30 @@ function renderReviews(listing) {
     .join("");
 }
 
+function renderFacilities(listing) {
+  const items = Array.isArray(listing.facilities) ? listing.facilities : [];
+  if (!items.length) {
+    facilities.innerHTML = "";
+    return;
+  }
+
+  facilities.innerHTML = `
+    <h3>Tesis özellikleri</h3>
+    <div class="booking-facility-grid">
+      ${items
+        .map(
+          (item) => `
+            <div class="booking-facility-item">
+              <span aria-hidden="true">${escapeHtml(item.icon || "✓")}</span>
+              <strong>${escapeHtml(item.label)}</strong>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
 async function loadPolicy() {
   if (!state.listing) return;
   policy.textContent = "Ödeme politikası hazırlanıyor.";
@@ -194,6 +219,7 @@ function renderListing(listing) {
   serviceSelect.innerHTML = buildServices(listing)
     .map((item) => `<option>${escapeHtml(item)}</option>`)
     .join("");
+  renderFacilities(listing);
   renderSlots();
   renderReviews(listing);
 }

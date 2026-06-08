@@ -937,7 +937,12 @@ app.get("/api/listings/:id", (req, res) => {
     res.status(404).json({ error: "İşletme bulunamadı." });
     return;
   }
-  res.json({ item: listing });
+  res.json({
+    item: {
+      ...listing,
+      facilities: listing.facilities || getDefaultFacilitiesForCategory(listing.category),
+    },
+  });
 });
 
 function getDistanceKm(origin, target) {
@@ -983,6 +988,42 @@ function getVenueCategoryMediaClass(categoryId = "") {
   return mediaByCategory[categoryId] || "media-field";
 }
 
+const DEFAULT_FACILITY_FEATURES = [
+  { id: "shower", label: "Duş", icon: "🚿", categories: ["hali-saha", "padel", "yoga"] },
+  { id: "male-restroom", label: "Erkek tuvaleti", icon: "🚹", categories: ["all"] },
+  { id: "female-restroom", label: "Kadın tuvaleti", icon: "🚺", categories: ["all"] },
+  { id: "food", label: "Yemek", icon: "🍽️", categories: ["hali-saha", "padel"] },
+  { id: "parking", label: "Otopark", icon: "🅿️", categories: ["all"] },
+  { id: "card", label: "Kredi kartı", icon: "💳", categories: ["all"] },
+  { id: "camera", label: "Kamera", icon: "🎥", categories: ["hali-saha", "padel", "direksiyon"] },
+  { id: "equipment", label: "Ekipman / ayakkabı", icon: "🎒", categories: ["hali-saha", "padel", "yoga"] },
+  { id: "kids", label: "Çocuk oyun alanı", icon: "🧒", categories: ["hali-saha", "guzellik", "masaj"] },
+  { id: "cafe", label: "Cafe", icon: "☕", categories: ["hali-saha", "padel", "guzellik", "masaj"] },
+  { id: "prayer", label: "İbadet alanı", icon: "🌙", categories: ["hali-saha", "padel"] },
+  { id: "wifi", label: "İnternet", icon: "📶", categories: ["all"] },
+  { id: "locker", label: "Soyunma odası", icon: "🔐", categories: ["hali-saha", "padel", "yoga"] },
+];
+
+function getDefaultFacilitiesForCategory(categoryId = "") {
+  return DEFAULT_FACILITY_FEATURES.filter(
+    (feature) => feature.categories.includes("all") || feature.categories.includes(categoryId),
+  ).map(({ categories, ...feature }) => feature);
+}
+
+function getEnabledSettingsFacilities(settings = {}, categoryId = "") {
+  const facilities = Array.isArray(settings.facilities) ? settings.facilities : [];
+  const enabledFacilities = facilities
+    .filter((item) => item?.enabled)
+    .map((item) => ({
+      id: String(item.id || "").trim(),
+      label: String(item.label || "").trim(),
+      icon: String(item.icon || "").trim(),
+    }))
+    .filter((item) => item.id && item.label);
+
+  return enabledFacilities.length ? enabledFacilities : getDefaultFacilitiesForCategory(categoryId);
+}
+
 function getRuntimeVenueMapItems(origin) {
   const deletedVenueIds = new Set(getDeletedVenueIds());
   return getUsers()
@@ -1016,6 +1057,7 @@ function getRuntimeVenueMapItems(origin) {
         priceLabel: "0",
         paymentMode: resolveVenuePaymentPolicy(venueId).paymentMode,
         mediaClass: getVenueCategoryMediaClass(category.id),
+        facilities: getEnabledSettingsFacilities(settings, category.id),
         source: "venue-settings",
       };
     })
@@ -1052,6 +1094,7 @@ function getRuntimeVenueListingById(id) {
     boost: false,
     serviceTypes: [item.categoryLabel || "hizmet"],
     priceLabel: item.priceLabel || formatCurrency(1000),
+    facilities: item.facilities || getDefaultFacilitiesForCategory(item.category),
   };
 }
 

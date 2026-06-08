@@ -2832,6 +2832,52 @@ button {
   font-weight: var(--weight-semibold);
 }
 
+.booking-facilities {
+  display: grid;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.booking-facilities h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: var(--weight-bold);
+}
+
+.booking-facility-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.booking-facility-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fbfdff;
+}
+
+.booking-facility-item span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #f1f7ff;
+  font-size: 20px;
+}
+
+.booking-facility-item strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: var(--weight-semibold);
+}
+
 .booking-reviews {
   display: grid;
 }
