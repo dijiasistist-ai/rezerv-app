@@ -12,6 +12,7 @@ const countdown = document.querySelector("#checkout-countdown");
 const extendButton = document.querySelector("#checkout-extend");
 const submitButton = document.querySelector("#checkout-submit");
 const feedback = document.querySelector("#checkout-feedback");
+const contractAccept = document.querySelector("#checkout-contract-accept");
 const cardForm = document.querySelector("#checkout-card-form");
 const transferBox = document.querySelector("#checkout-transfer");
 const paymentTabs = document.querySelectorAll("[data-payment-tab]");
@@ -67,6 +68,7 @@ function renderSummary() {
   onlineAmount.textContent = formatCurrency(billing.customerOnlinePayment || 0);
   venueAmount.textContent = formatCurrency(billing.customerVenuePayment || 0);
   totalAmount.textContent = formatCurrency(billing.totalAmount || draft.totalAmount || 0);
+  submitButton.textContent = `${formatCurrency(billing.customerOnlinePayment || billing.totalAmount || draft.totalAmount || 0)} öde`;
 }
 
 function renderTimer() {
@@ -99,6 +101,10 @@ submitButton?.addEventListener("click", async () => {
   submitButton.textContent = "Onaylanıyor...";
 
   try {
+    if (!contractAccept?.checked) {
+      throw new Error("Devam etmek için sözleşmeyi okuyup kabul etmelisin.");
+    }
+
     const response = await fetchJson("/api/reservations", {
       method: "POST",
       body: JSON.stringify(draft),

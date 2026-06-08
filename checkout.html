@@ -87,7 +87,7 @@
 
         <section class="checkout-section">
           <h2>Sözleşme</h2>
-          <div class="checkout-contract">
+          <div class="checkout-contract" id="checkout-contract">
             <p><strong>tyee Kullanıcı Sözleşmesi</strong></p>
             <p>tyee, kullanıcı ile işletme arasında rezervasyon aracılığı sağlayan bir platformdur. Hizmetin kapsamı, uygulanması ve tesis içi operasyon ilgili işletmenin sorumluluğundadır.</p>
             <p>Rezervasyon, seçilen işletmenin ödeme modeline göre yalnızca kayıt, ön ödeme veya tam online ödeme ile ilerleyebilir. İşletme iptal ve değişiklik koşullarını kendi profilinde belirtir.</p>
@@ -106,6 +106,13 @@
             <button type="button" aria-label="Fatura adresi ekle">+</button>
           </div>
         </section>
+
+        <div class="checkout-accept-row">
+          <label>
+            <input id="checkout-contract-accept" type="checkbox" />
+            <span><a href="#checkout-contract">Sözleşmeyi</a> okudum ve kabul ediyorum</span>
+          </label>
+        </div>
       </section>
 
       <aside class="checkout-summary-card" aria-label="Rezervasyon özeti">

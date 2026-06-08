@@ -3191,6 +3191,36 @@ button {
   font-weight: var(--weight-bold);
 }
 
+.checkout-accept-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.checkout-accept-row label {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  max-width: 430px;
+  color: #30333a;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.checkout-accept-row input {
+  width: 58px;
+  height: 58px;
+  margin: 0;
+  accent-color: #9b4eb3;
+}
+
+.checkout-accept-row a {
+  color: #287ac9;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .checkout-summary-card {
   position: sticky;
   top: 34px;
@@ -3880,6 +3910,15 @@ button {
   .booking-section,
   .booking-card {
     padding: 18px;
+  }
+
+  .checkout-accept-row {
+    justify-content: flex-start;
+  }
+
+  .checkout-accept-row label {
+    max-width: none;
+    font-size: 18px;
   }
 
   .booking-review {
