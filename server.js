@@ -49,6 +49,8 @@ const { customerReservationTerms } = require("./data/legal-terms");
 const app = express();
 const port = Number(process.env.PORT || 8091);
 const sessions = new Map();
+const SESSION_TTL_MS = 30 * 60 * 1000;
+const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
 
 app.set("trust proxy", true);
 
@@ -58,6 +60,41 @@ function createToken(bytes = 24) {
 
 function createSmsCode() {
   return String(crypto.randomInt(100000, 999999));
+}
+
+function encodeSessionPart(value) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function signSessionPayload(payload) {
+  return crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+}
+
+function createSignedSessionToken(user) {
+  const payload = encodeSessionPart({
+    userId: user.id,
+    exp: Date.now() + SESSION_TTL_MS,
+  });
+  return `${payload}.${signSessionPayload(payload)}`;
+}
+
+function parseSignedSessionToken(token = "") {
+  const [payload, signature] = String(token).split(".");
+  if (!payload || !signature) return null;
+  const expected = signSessionPayload(payload);
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (!parsed.userId || Number(parsed.exp || 0) < Date.now()) return null;
+    return parsed;
+  } catch (_error) {
+    return null;
+  }
 }
 
 function normalizeUser(user) {
@@ -397,8 +434,17 @@ function getUserFromRequest(req) {
   const token = header.replace(/^Bearer\s+/i, "").trim();
   if (!token) return null;
   const session = sessions.get(token);
-  if (!session) return null;
-  return findUserById(session.userId);
+  if (session) {
+    if (Number(session.expiresAt || 0) < Date.now()) {
+      sessions.delete(token);
+      return null;
+    }
+    return findUserById(session.userId);
+  }
+
+  const signedSession = parseSignedSessionToken(token);
+  if (!signedSession) return null;
+  return findUserById(signedSession.userId);
 }
 
 function requireAuth(req, res, next) {
@@ -448,8 +494,8 @@ function requireAdmin(req, res, next) {
 }
 
 function createSession(user) {
-  const token = createToken();
-  sessions.set(token, { userId: user.id, createdAt: Date.now() });
+  const token = createSignedSessionToken(user);
+  sessions.set(token, { userId: user.id, createdAt: Date.now(), expiresAt: Date.now() + SESSION_TTL_MS });
   return token;
 }
 
