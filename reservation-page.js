@@ -228,28 +228,28 @@ form.addEventListener("submit", async (event) => {
   feedback.textContent = "";
   feedback.classList.remove("is-success");
   try {
-    const response = await fetchJson("/api/reservations", {
-      method: "POST",
-      body: JSON.stringify({
-        venueId: state.listing.venueId || state.listing.id,
-        listingId: state.listing.id,
-        venueName: state.listing.name,
-        listingName: state.listing.name,
-        category: state.listing.category,
-        categoryLabel: state.listing.categoryLabel,
-        serviceLabel: serviceSelect.value,
-        customerName: nameInput.value.trim(),
-        customerPhone: phoneInput.value.trim(),
-        customerEmail: emailInput.value.trim(),
-        totalAmount: state.listing.price,
-        serviceDate: dateInput.value,
-        serviceTime: state.selectedSlot,
-        note: "",
-      }),
-    });
-    feedback.textContent = response.message || "Rezervasyon oluşturuldu.";
-    feedback.classList.add("is-success");
     await loadPolicy();
+    const draft = {
+      venueId: state.listing.venueId || state.listing.id,
+      listingId: state.listing.id,
+      venueName: state.listing.name,
+      listingName: state.listing.name,
+      category: state.listing.category,
+      categoryLabel: state.listing.categoryLabel,
+      serviceLabel: serviceSelect.value,
+      customerName: nameInput.value.trim(),
+      customerPhone: phoneInput.value.trim(),
+      customerEmail: emailInput.value.trim(),
+      totalAmount: state.listing.price,
+      serviceDate: dateInput.value,
+      serviceTime: state.selectedSlot,
+      serviceEndTime: addHour(state.selectedSlot),
+      note: "",
+      billing: state.policy?.billing || null,
+      paymentModeLabel: state.policy?.paymentModeLabel || "",
+    };
+    sessionStorage.setItem("tyee_checkout_draft", JSON.stringify(draft));
+    window.location.href = "/checkout.html";
   } catch (error) {
     feedback.textContent = error.message;
   }

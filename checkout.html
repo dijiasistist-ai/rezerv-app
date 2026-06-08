@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tyee | Ödeme</title>
+    <link rel="stylesheet" href="/styles.css?v=20260608-checkout-1" />
+  </head>
+  <body class="checkout-page-body">
+    <header class="checkout-topbar">
+      <a class="checkout-brand" href="/index.html" aria-label="tyee ana sayfa">
+        <img src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
+      </a>
+      <nav aria-label="Ödeme menüsü">
+        <a href="/index.html#featured">Tesisler</a>
+        <a href="/index.html#categories">Kategoriler</a>
+        <a href="/index.html#nearby-map">Yakınımda</a>
+      </nav>
+      <a class="checkout-login" href="/index.html">Giriş Yap / Kayıt Ol</a>
+    </header>
+
+    <main class="checkout-layout">
+      <section class="checkout-main">
+        <h1>Ödeme Bilgileri</h1>
+
+        <div class="checkout-tabs" role="tablist" aria-label="Ödeme tipi">
+          <button class="is-active" type="button" data-payment-tab="card">Kredi Kartı</button>
+          <button type="button" data-payment-tab="transfer">EFT / Havale</button>
+        </div>
+
+        <section class="checkout-card-form" id="checkout-card-form">
+          <label class="checkout-field checkout-wide">
+            <span>Kart numarası</span>
+            <input inputmode="numeric" placeholder="Kredi kartı veya banka kartı numaranız" />
+          </label>
+          <label class="checkout-field checkout-wide">
+            <span>Kart sahibi</span>
+            <input placeholder="Kart sahibi adı soyadı" />
+          </label>
+          <label class="checkout-field">
+            <span>Ay</span>
+            <select>
+              <option>Ay</option>
+              <option>01</option>
+              <option>02</option>
+              <option>03</option>
+              <option>04</option>
+              <option>05</option>
+              <option>06</option>
+              <option>07</option>
+              <option>08</option>
+              <option>09</option>
+              <option>10</option>
+              <option>11</option>
+              <option>12</option>
+            </select>
+          </label>
+          <label class="checkout-field">
+            <span>Yıl</span>
+            <select>
+              <option>Yıl</option>
+              <option>2026</option>
+              <option>2027</option>
+              <option>2028</option>
+              <option>2029</option>
+              <option>2030</option>
+            </select>
+          </label>
+          <label class="checkout-field">
+            <span>CVV</span>
+            <input inputmode="numeric" placeholder="Cvc No" />
+          </label>
+        </section>
+
+        <section class="checkout-transfer hidden" id="checkout-transfer">
+          <strong>Banka transferi ile rezervasyon</strong>
+          <p>Rezervasyon talebin oluşturulur. İşletme ve tyee ekibi ödeme durumunu takip eder.</p>
+          <div>
+            <span>Alıcı</span>
+            <strong>tyee Teknoloji A.Ş.</strong>
+          </div>
+          <div>
+            <span>IBAN</span>
+            <strong>TR00 0000 0000 0000 0000 0000 00</strong>
+          </div>
+        </section>
+
+        <section class="checkout-section">
+          <h2>Sözleşme</h2>
+          <div class="checkout-contract">
+            <p><strong>tyee Kullanıcı Sözleşmesi</strong></p>
+            <p>tyee, kullanıcı ile işletme arasında rezervasyon aracılığı sağlayan bir platformdur. Hizmetin kapsamı, uygulanması ve tesis içi operasyon ilgili işletmenin sorumluluğundadır.</p>
+            <p>Rezervasyon, seçilen işletmenin ödeme modeline göre yalnızca kayıt, ön ödeme veya tam online ödeme ile ilerleyebilir. İşletme iptal ve değişiklik koşullarını kendi profilinde belirtir.</p>
+            <p>Ödeme altyapısı devreye alındığında kart bilgilerinin saklanması ve işlenmesi yetkili ödeme kuruluşları üzerinden yürütülür. Bu ekranda görünen alanlar yerel geliştirme ortamı için ödeme akışını temsil eder.</p>
+          </div>
+        </section>
+
+        <section class="checkout-section">
+          <h2>Fatura Adresi</h2>
+          <div class="checkout-address-row">
+            <select>
+              <option>Lütfen fatura adresi seçin</option>
+              <option>Bireysel fatura adresi</option>
+            </select>
+            <button type="button">+</button>
+          </div>
+        </section>
+      </section>
+
+      <aside class="checkout-summary-card" aria-label="Rezervasyon özeti">
+        <h2>Rezervasyon Özeti</h2>
+        <p id="checkout-venue">İşletme</p>
+        <p id="checkout-service">Hizmet</p>
+        <p id="checkout-date">Tarih</p>
+        <p id="checkout-time">Saat</p>
+
+        <div class="checkout-summary-line">
+          <span id="checkout-online-label">Kartınızdan Çekilecek Tutar</span>
+          <strong id="checkout-online-amount">-</strong>
+        </div>
+        <div class="checkout-summary-line">
+          <span>Tesiste Ödenecek Tutar</span>
+          <strong id="checkout-venue-amount">-</strong>
+        </div>
+        <div class="checkout-summary-line">
+          <span>Toplam Tutar</span>
+          <strong id="checkout-total-amount">-</strong>
+        </div>
+
+        <button class="checkout-promo" type="button">Promosyon Kodu Kullan</button>
+        <div class="checkout-timer">
+          <span>Kalan Süre:</span>
+          <strong id="checkout-countdown">05:00</strong>
+          <button type="button" id="checkout-extend">uzat</button>
+        </div>
+        <p class="checkout-feedback" id="checkout-feedback"></p>
+        <button class="solid-button checkout-submit" id="checkout-submit" type="button">Rezervasyonu Onayla</button>
+      </aside>
+    </main>
+
+    <script src="/checkout-page.js?v=20260608-checkout-1"></script>
+  </body>
+</html>

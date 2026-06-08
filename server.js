@@ -256,6 +256,8 @@ const publicStaticFiles = new Set([
   "admin.html",
   "admin.js",
   "app.js",
+  "checkout.html",
+  "checkout-page.js",
   "index.html",
   "review.html",
   "reservation.html",
