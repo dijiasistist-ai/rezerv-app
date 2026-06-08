@@ -28,6 +28,9 @@ const sidebarSummaryTitle = document.querySelector(".sidebar-summary strong");
 const sidebarSummaryMeta = document.querySelector(".sidebar-summary small");
 const reportSummaryGrid = document.querySelector("#report-summary-grid");
 const reportsSummaryGrid = document.querySelector("#reports-summary-grid");
+const venueReportDocument = document.querySelector("#venue-report-document");
+const venueReportPeriod = document.querySelector("#venue-report-period");
+const refreshVenueReport = document.querySelector("#refresh-venue-report");
 const settingsTabs = document.querySelector("#settings-tabs");
 const settingsOnboardingForm = document.querySelector("#settings-onboarding-form");
 const profileCard = document.querySelector("#profile-card");
@@ -1010,6 +1013,104 @@ function renderReportSummary(items) {
   if (reportsSummaryGrid) reportsSummaryGrid.innerHTML = markup;
 }
 
+function renderVenueMetricCards(items = []) {
+  return items
+    .map(
+      (item) => `
+        <article class="venue-report-metric">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+          <small>${escapeHtml(item.note || "")}</small>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderVenueReport(report) {
+  if (!venueReportDocument) return;
+
+  venueReportDocument.innerHTML = `
+    <header class="venue-report-cover">
+      <div>
+        <span>tyee kurum raporu</span>
+        <h3>${escapeHtml(report.title)}</h3>
+        <p>${escapeHtml(report.scope)} · ${escapeHtml(report.period)}</p>
+      </div>
+      <time>${new Date(report.generatedAt).toLocaleString("tr-TR")}</time>
+    </header>
+
+    <section class="venue-report-section">
+      <h4>Yönetici özeti</h4>
+      <ul>
+        ${(report.executiveSummary || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </section>
+
+    <section class="venue-report-section">
+      <h4>Finansal görünüm</h4>
+      <div class="venue-report-metric-grid">${renderVenueMetricCards(report.financial)}</div>
+    </section>
+
+    <section class="venue-report-section">
+      <h4>Operasyonel görünüm</h4>
+      <div class="venue-report-metric-grid">${renderVenueMetricCards(report.operational)}</div>
+    </section>
+
+    <section class="venue-report-section">
+      <h4>Müşteri deneyimi</h4>
+      <div class="venue-report-metric-grid">${renderVenueMetricCards(report.customerExperience)}</div>
+    </section>
+
+    <section class="venue-report-section">
+      <h4>Rezervasyon satır özeti</h4>
+      <div class="venue-report-table">
+        <div class="venue-report-table-head">
+          <span>Hizmet</span>
+          <span>Müşteri</span>
+          <span>Tarih</span>
+          <span>Tutar</span>
+          <span>Durum</span>
+        </div>
+        ${(report.rows || []).length
+          ? report.rows
+              .map(
+                (row) => `
+                  <div class="venue-report-table-row">
+                    <span>${escapeHtml(row.service)}</span>
+                    <span>${escapeHtml(row.customer)}</span>
+                    <span>${escapeHtml(row.date)}</span>
+                    <span>${escapeHtml(row.amount)}</span>
+                    <span>${escapeHtml(row.status)}</span>
+                  </div>
+                `,
+              )
+              .join("")
+          : `<div class="venue-report-table-row is-empty"><span>Henüz rapora düşen rezervasyon yok.</span></div>`}
+      </div>
+    </section>
+
+    <section class="venue-report-section">
+      <h4>Aksiyon önerileri</h4>
+      <ol>
+        ${(report.recommendations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ol>
+    </section>
+  `;
+}
+
+async function loadVenueReport() {
+  if (!venueReportDocument || !venueState.venueId) return;
+
+  venueReportDocument.innerHTML = `<span class="empty-copy">Rapor hazırlanıyor...</span>`;
+  const params = new URLSearchParams({
+    venueId: venueState.venueId,
+    period: venueReportPeriod?.value || "Bu ay",
+  });
+  const report = await venueApiRequest(`/api/venue/reports?${params.toString()}`);
+  renderVenueReport(report);
+}
+
 function renderSettingsTabs(items) {
   const safeItems = DEFAULT_SETTINGS_TABS;
   const activeTab = safeItems.includes(venueState.activeSettingsTab) ? venueState.activeSettingsTab : safeItems[0];
@@ -1873,6 +1974,11 @@ async function loadVenueDashboard() {
   }
   renderReviews(payload.reviews || [], payload.reviewSummary || {});
   renderBillingAddresses(payload.billingAddresses || []);
+  loadVenueReport().catch((error) => {
+    if (venueReportDocument) {
+      venueReportDocument.innerHTML = `<span class="empty-copy">${escapeHtml(error.message)}</span>`;
+    }
+  });
 }
 
 function bindVenueInteractions() {
@@ -1965,6 +2071,22 @@ function bindVenueInteractions() {
     openSalesModal(null, "19:00", "", { isSubscription: true });
   });
 
+  refreshVenueReport?.addEventListener("click", () => {
+    loadVenueReport().catch((error) => {
+      if (venueReportDocument) {
+        venueReportDocument.innerHTML = `<span class="empty-copy">${escapeHtml(error.message)}</span>`;
+      }
+    });
+  });
+
+  venueReportPeriod?.addEventListener("change", () => {
+    loadVenueReport().catch((error) => {
+      if (venueReportDocument) {
+        venueReportDocument.innerHTML = `<span class="empty-copy">${escapeHtml(error.message)}</span>`;
+      }
+    });
+  });
+
   transactionsBody?.addEventListener("click", async (event) => {
     const completeButton = event.target.closest("[data-complete-reservation]");
     if (!completeButton || !venueState.dashboard) return;
@@ -1987,6 +2109,7 @@ function bindVenueInteractions() {
       venueState.dashboard.reviewSummary = payload.reviewSummary || venueState.dashboard.reviewSummary || {};
       renderTransactions(venueState.dashboard.transactions);
       renderReviews(venueState.dashboard.reviews, venueState.dashboard.reviewSummary);
+      loadVenueReport().catch(() => null);
     } catch (error) {
       completeButton.disabled = false;
       completeButton.textContent = error.message || "Hata";

@@ -667,6 +667,75 @@ function buildReviewSummary(reviews = [], reservations = []) {
   };
 }
 
+function countOpenMarketplaceSlots(weekDays = []) {
+  return weekDays.reduce((total, day) => total + (day.slots || []).filter((slot) => slot.status === "open").length, 0);
+}
+
+function createVenueReport({ venueId, user = null, period = "Bu ay" } = {}) {
+  const payload = mergeVenuePayload(venueId, user);
+  const reservations = getReservationsForVenue(venueId);
+  const reviews = getReviewsForVenue(venueId);
+  const summary = buildReservationSummary(reservations);
+  const reviewSummary = payload.reviewSummary || buildReviewSummary(reviews, reservations);
+  const totalSlots = (payload.weekDays || []).reduce((total, day) => total + (day.slots || []).length, 0);
+  const openSlots = countOpenMarketplaceSlots(payload.weekDays || []);
+  const completedReservations = reservations.filter((reservation) => reservation.status === "completed").length;
+  const onlineReservations = reservations.filter((reservation) => reservation.paymentMode !== PAYMENT_MODES.VENUE_PAYMENT).length;
+  const onlineShare = reservations.length ? Math.round((onlineReservations / reservations.length) * 100) : 0;
+  const capacityRate = totalSlots ? Math.round((openSlots / totalSlots) * 100) : 0;
+  const venueName = payload.venue?.name || payload.settings?.businessName || "Kurum";
+  const venueBranch = payload.venue?.branch || payload.settings?.locationStatus || "Konum bilgisi bekleniyor";
+  const category = payload.venue?.sport || payload.settings?.selects?.find((item) => item.label === "İşletme Tipi")?.value || "Kategori";
+
+  return {
+    title: `${venueName} Yönetici Raporu`,
+    period,
+    generatedAt: new Date().toISOString(),
+    scope: `${venueBranch} · ${category}`,
+    executiveSummary: [
+      reservations.length
+        ? `${reservations.length} rezervasyon kaydı üzerinden işlem hacmi, ödeme modeli ve operasyon kapanışı birlikte izleniyor.`
+        : "Henüz canlı rezervasyon kaydı yok; rapor şimdilik kurum profil kalitesi ve yayına hazırlık durumunu özetler.",
+      completedReservations
+        ? `${completedReservations} rezervasyon işletme tarafından tamamlandı; tamamlanan işlemler müşteri değerlendirme akışını tetikler.`
+        : "Rezervasyonlar hizmet sonrası işletme tarafından tamamlandığında değerlendirme isteği otomatik hazırlanır.",
+      `Müşteri deneyimi tarafında ortalama puan ${reviewSummary.average}; bekleyen anket sayısı ${reviewSummary.waitingRequests}.`,
+      "Rapor kurumun kendi operasyonunu görmesi içindir; Tyee iç muhasebe kırılımları ve tesise ödenecek hesaplar bu ekranda gösterilmez.",
+    ],
+    financial: [
+      summary[0] || { label: "Toplam işlem hacmi", value: formatCurrency(0), meta: "0 işlem" },
+      summary[1] || { label: "Tyee komisyonu", value: formatCurrency(0), meta: "Platform payı" },
+      summary[2] || { label: "Online tahsilat", value: formatCurrency(0), meta: "Müşteriden alınan" },
+      { label: "Online kanal payı", value: `%${onlineShare}`, meta: `${onlineReservations} online işlem` },
+    ].map((item) => ({ label: item.label, value: item.value, note: item.meta })),
+    operational: [
+      { label: "Rezervasyon", value: String(reservations.length), note: `${completedReservations} tamamlanan işlem` },
+      { label: "tyee satışına açık slot", value: String(openSlots), note: `${totalSlots} toplam slot içinde` },
+      { label: "Kapasite görünürlüğü", value: `%${capacityRate}`, note: "Marketplace'e açılmış slot oranı" },
+      { label: "Aktif abonelik", value: String((payload.subscriptions || []).length), note: "Panelde takip edilen abonelik" },
+    ],
+    customerExperience: [
+      { label: "Ortalama puan", value: String(reviewSummary.average), note: `${reviewSummary.total || 0} yorum` },
+      { label: "Bekleyen anket", value: String(reviewSummary.waitingRequests || 0), note: "Tamamlanan rezervasyon sonrası" },
+      { label: "Yorum sayısı", value: String((payload.reviews || []).length), note: "Kurum değerlendirme havuzu" },
+      { label: "Kapanan işlem", value: String(completedReservations), note: "Hizmet tamamlandı" },
+    ],
+    rows: (payload.transactions || []).slice(0, 8).map((transaction) => ({
+      service: transaction.field || "-",
+      customer: transaction.customer || "-",
+      date: `${transaction.date || "-"} ${transaction.time || ""}`.trim(),
+      amount: transaction.amount || "-",
+      status: transaction.status || "-",
+    })),
+    recommendations: [
+      openSlots ? "Açık slotları kategori ve saat bazında izleyip dolmayan prime-time saatlere kampanya bağla." : "Marketplace'e açılacak slotları tanımlayarak raporda kapasite görünürlüğünü başlat.",
+      reservations.length ? "Tamamlanan işlemleri düzenli kapat; değerlendirme isteği ancak bu adımdan sonra anlamlı çalışır." : "İlk rezervasyonlardan sonra ödeme modeli ve kategori kırılımını raporda takip et.",
+      reviewSummary.waitingRequests ? "Bekleyen anketleri takip edip müşteri deneyimi puanını düzenli olarak ölç." : "Yorum sayısını artırmak için tamamlanan her rezervasyon sonrası kısa anket akışını kullan.",
+      "İşletme bilgileri, medya ve konum alanlarını güncel tutarak arama ve rezervasyon dönüşümünü güçlendir.",
+    ],
+  };
+}
+
 function formatAdminUser(user) {
   const role = user.isAdmin ? "admin" : user.canManageVenue ? "venue" : "customer";
 
@@ -1332,6 +1401,15 @@ app.post("/api/auth/password-reset/confirm", (req, res) => {
 app.get("/api/venue/bootstrap", requireVenueAccess, (req, res) => {
   const venueId = resolveVenueIdForRequest(req, req.query.venue);
   res.json(mergeVenuePayload(venueId, req.user));
+});
+
+app.get("/api/venue/reports", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.query.venueId);
+  res.json(createVenueReport({
+    venueId,
+    user: req.user,
+    period: String(req.query.period || "Bu ay"),
+  }));
 });
 
 app.post("/api/venue/reservations/:id/complete", requireVenueAccess, async (req, res) => {

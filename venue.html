@@ -322,15 +322,23 @@
           <div class="section-card">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Raporlama</p>
-                <h2>Finansal ve operasyonel raporlar</h2>
+                <p class="eyebrow">Kurum raporu</p>
+                <h2>Yönetici özeti ve performans görünümü</h2>
               </div>
               <div class="panel-actions">
-                <button class="ghost-button">Filtrele</button>
-                <button class="solid-button">Rapor indir</button>
+                <select class="report-period-select" id="venue-report-period" aria-label="Rapor dönemi">
+                  <option>Bu ay</option>
+                  <option>Son 30 gün</option>
+                  <option>Bu çeyrek</option>
+                  <option>Yıllık</option>
+                </select>
+                <button class="solid-button" id="refresh-venue-report" type="button">Rapor hazırla</button>
               </div>
             </div>
             <div class="report-summary-grid" id="reports-summary-grid"></div>
+            <article class="venue-report-document" id="venue-report-document">
+              <span class="empty-copy">Rapor hazırlanıyor...</span>
+            </article>
           </div>
         </section>
 

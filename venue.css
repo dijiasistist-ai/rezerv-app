@@ -342,6 +342,144 @@ button {
   font-size: 13px;
 }
 
+.report-period-select {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--brand-dark);
+  padding: 0 12px;
+  font-weight: 850;
+}
+
+.venue-report-document {
+  display: grid;
+  gap: 18px;
+  margin-top: 16px;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px;
+}
+
+.venue-report-cover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(4, 167, 244, 0.1), rgba(255, 45, 116, 0.08));
+  padding: 18px;
+}
+
+.venue-report-cover span,
+.venue-report-section h4 {
+  color: #006fcb;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.venue-report-cover h3 {
+  margin: 6px 0 4px;
+  color: #050b2d;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.venue-report-cover p,
+.venue-report-cover time,
+.venue-report-section li {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.venue-report-section {
+  display: grid;
+  gap: 12px;
+}
+
+.venue-report-section h4 {
+  margin: 0;
+}
+
+.venue-report-section ul,
+.venue-report-section ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.venue-report-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.venue-report-metric {
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.venue-report-metric span,
+.venue-report-metric strong,
+.venue-report-metric small {
+  display: block;
+}
+
+.venue-report-metric span {
+  color: #344054;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.venue-report-metric strong {
+  margin: 8px 0 5px;
+  color: #050b2d;
+  font-size: 22px;
+}
+
+.venue-report-metric small {
+  color: var(--muted);
+}
+
+.venue-report-table {
+  display: grid;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.venue-report-table-head,
+.venue-report-table-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 0.9fr 0.7fr 0.7fr;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+}
+
+.venue-report-table-head {
+  background: #eef6ff;
+  color: #006fcb;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.venue-report-table-row {
+  border-top: 1px solid #e8edf5;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.venue-report-table-row.is-empty {
+  grid-template-columns: 1fr;
+  color: var(--muted);
+}
+
 .panel-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.8fr);
@@ -2627,8 +2765,18 @@ a {
 
   .stat-grid,
   .report-summary-grid,
-  .contract-summary-grid {
+  .contract-summary-grid,
+  .venue-report-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .venue-report-table {
+    overflow-x: auto;
+  }
+
+  .venue-report-table-head,
+  .venue-report-table-row {
+    min-width: 780px;
   }
 }
 
@@ -2666,9 +2814,14 @@ a {
   .stat-grid,
   .report-summary-grid,
   .contract-summary-grid,
+  .venue-report-metric-grid,
   .settings-form-grid,
   .profile-form-grid,
   .sales-modal-body {
+    grid-template-columns: 1fr;
+  }
+
+  .venue-report-cover {
     grid-template-columns: 1fr;
   }
 
