@@ -1683,10 +1683,9 @@ button {
 .footer-logo-image {
   display: block;
   width: 173px;
-  height: 48.39px;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
   object-position: center;
-  mix-blend-mode: screen;
 }
 
 .footer-brand > span {
