@@ -954,7 +954,7 @@ function renderTransactions(items) {
   if (!items.length) {
     transactionsBody.innerHTML = `
       <tr>
-        <td colspan="18" class="empty-table-cell">Henüz işlem kaydı yok.</td>
+        <td colspan="17" class="empty-table-cell">Henüz işlem kaydı yok.</td>
       </tr>
     `;
     return;
@@ -976,7 +976,6 @@ function renderTransactions(items) {
           <td>${item.amount}</td>
           <td>${item.deposit}</td>
           <td>${item.commission}</td>
-          <td>${item.payout}</td>
           <td>${item.date}</td>
           <td>${item.time}</td>
           <td>${item.createdAt}</td>

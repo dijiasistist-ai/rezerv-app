@@ -331,9 +331,8 @@ const emptyVenueStats = [
 
 const emptyVenueReportSummary = [
   { label: "Toplam işlem hacmi", value: "₺0", meta: "0 işlem" },
-  { label: "Toplam komisyon", value: "₺0", meta: "Platform payı" },
-  { label: "Tesise ödenecek", value: "₺0", meta: "Hakediş toplamı" },
-  { label: "Aktif paket geliri", value: "₺0", meta: "0 paket" },
+  { label: "Tyee komisyonu", value: "₺0", meta: "Platform payı" },
+  { label: "Online tahsilat", value: "₺0", meta: "Müşteriden alınan" },
 ];
 
 const venueDashboard = {

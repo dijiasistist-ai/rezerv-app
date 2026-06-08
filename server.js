@@ -488,8 +488,11 @@ function mergeVenuePayload(venueId, user = null) {
     payload.stats = [
       { label: "Bu hafta ciro", value: payload.reportSummary[0].value, delta: `${venueReservations.length} işlem` },
       { label: "Toplam rezervasyon", value: String(venueReservations.length), delta: "+ canlı" },
-      { label: "Komisyon", value: payload.reportSummary[1].value, delta: "tyee payı" },
-      { label: "FAST borcu", value: payload.reportSummary[3].value, delta: "ay sonu" },
+      { label: "Tyee komisyonu", value: payload.reportSummary[1].value, delta: "platform payı" },
+      { label: "Online tahsilat", value: formatCurrency(venueReservations.reduce((total, reservation) => {
+        const billing = reservation.billing || calculateReservationBilling(reservation);
+        return total + billing.customerOnlinePayment;
+      }, 0)), delta: "müşteriden alınan" },
     ];
   }
 
@@ -596,18 +599,16 @@ function buildReservationSummary(reservations = []) {
       const billing = reservation.billing || calculateReservationBilling(reservation);
       summary.volume += billing.totalAmount;
       summary.commission += billing.commissionAmount;
-      summary.payout += billing.venuePayoutAmount;
-      summary.debt += billing.venueCommissionDebt;
+      summary.online += billing.customerOnlinePayment;
       return summary;
     },
-    { volume: 0, commission: 0, payout: 0, debt: 0 },
+    { volume: 0, commission: 0, online: 0 },
   );
 
   return [
     { label: "Toplam işlem hacmi", value: formatCurrency(totals.volume), meta: `${reservations.length} işlem` },
-    { label: "Toplam komisyon", value: formatCurrency(totals.commission), meta: "Platform payı" },
-    { label: "Tesise ödenecek", value: formatCurrency(totals.payout), meta: "Hakediş toplamı" },
-    { label: "FAST komisyon borcu", value: formatCurrency(totals.debt), meta: "Sadece rezervasyon" },
+    { label: "Tyee komisyonu", value: formatCurrency(totals.commission), meta: "Platform payı" },
+    { label: "Online tahsilat", value: formatCurrency(totals.online), meta: "Müşteriden alınan" },
   ];
 }
 
@@ -750,7 +751,7 @@ function createAdminReport({ venueId = "all", period = "Bu ay" } = {}) {
     financial: [
       { label: "Toplam işlem hacmi", value: formatCurrency(0), note: "0 işlem" },
       { label: "Platform komisyonu", value: formatCurrency(0), note: "Tahsil edilen komisyon" },
-      { label: "Tesise ödenecek", value: formatCurrency(0), note: "Hakediş toplamı" },
+      { label: "Online tahsilat", value: formatCurrency(0), note: "Müşteriden alınan" },
       { label: "Online kanal payı", value: "%0", note: "0 online işlem" },
     ],
     operational: [
