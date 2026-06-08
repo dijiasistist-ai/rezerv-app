@@ -597,7 +597,26 @@ const venueDashboard = {
     identityNumber: "",
     birthDate: "",
   },
-  reviews: [],
+  reviews: [
+    {
+      id: "review-demo-1",
+      author: "Ayşe K.",
+      rating: 5,
+      comment: "Rezervasyon saatinde başladı, tesis temizdi ve ekip ilgiliydi.",
+      date: "08.06.2026 17:20",
+      service: "Pet Kuaför",
+      status: "Yayınlandı",
+    },
+    {
+      id: "review-demo-2",
+      author: "Mert A.",
+      rating: 4,
+      comment: "Genel deneyim iyi geçti. Konum ve karşılama netti.",
+      date: "07.06.2026 21:45",
+      service: "Halı Saha",
+      status: "Yayınlandı",
+    },
+  ],
   billingAddresses: [],
 };
 

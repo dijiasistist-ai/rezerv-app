@@ -11,6 +11,7 @@ const {
 } = require("./data/store");
 
 const {
+  addReview,
   addReservation,
   deleteAdminAccessRule,
   deleteUserById,
@@ -21,6 +22,7 @@ const {
   getAdminAccessRules,
   getDeletedVenueIds,
   getReservations,
+  getReviews,
   getUsers,
   getDevOutbox,
   getVenueOverlay,
@@ -30,6 +32,7 @@ const {
   saveVenueOverlay,
   upsertAdminAccessRule,
   upsertUser,
+  updateReservation,
   verifyPassword,
   ensureSeedUser,
 } = require("./data/runtime-store");
@@ -253,6 +256,7 @@ const publicStaticFiles = new Set([
   "admin.js",
   "app.js",
   "index.html",
+  "review.html",
   "styles.css",
   "venue.css",
   "venue.html",
@@ -496,6 +500,13 @@ function mergeVenuePayload(venueId, user = null) {
     ];
   }
 
+  const venueReviews = getReviewsForVenue(venueId);
+  const existingReviews = payload.reviews || [];
+  const formattedRuntimeReviews = venueReviews.map(formatVenueReview);
+  const reviewSummary = buildReviewSummary([...venueReviews, ...existingReviews], venueReservations);
+  payload.reviewSummary = reviewSummary;
+  payload.reviews = [...formattedRuntimeReviews, ...existingReviews];
+
   payload.slotState = {
     slotModes: overlay.slotModes || {},
     manualEntries: overlay.manualEntries || {},
@@ -571,10 +582,16 @@ function formatDateTimeTr(value) {
 
 function formatReservationTransaction(reservation) {
   const billing = reservation.billing || calculateReservationBilling(reservation);
+  const statusLabel = reservation.status === "completed"
+    ? "Tamamlandı"
+    : reservation.status === "cancelled"
+      ? "Pasif"
+      : "Aktif";
   return {
+    reservationId: reservation.id,
     id: reservation.shortId || String(reservation.id || "").slice(0, 8),
     type: "Rezervasyon",
-    status: reservation.status === "cancelled" ? "Pasif" : "Aktif",
+    status: statusLabel,
     venue: reservation.venueName || "İşletme",
     field: reservation.serviceLabel || reservation.categoryLabel || "Hizmet",
     channel: getPaymentModeChannel(reservation.paymentMode),
@@ -590,6 +607,7 @@ function formatReservationTransaction(reservation) {
     monthlyPackageActive: false,
     packageName: reservation.paymentMode === PAYMENT_MODES.VENUE_PAYMENT ? "Ay sonu FAST" : "-",
     withdrawalCount: 0,
+    reviewStatus: reservation.reviewStatus || "pending",
   };
 }
 
@@ -614,6 +632,39 @@ function buildReservationSummary(reservations = []) {
 
 function getReservationsForVenue(venueId) {
   return getReservations().filter((reservation) => reservation.venueId === venueId);
+}
+
+function getReviewsForVenue(venueId) {
+  return getReviews().filter((review) => review.venueId === venueId);
+}
+
+function formatVenueReview(review) {
+  return {
+    id: review.id,
+    author: review.customerName || "Müşteri",
+    rating: Number(review.rating || 0),
+    comment: review.comment || "Yorum bırakılmadı.",
+    date: formatDateTimeTr(review.createdAt),
+    service: review.serviceLabel || review.categoryLabel || "Rezervasyon",
+    reservationId: review.reservationId || "",
+    status: review.status || "Yayınlandı",
+  };
+}
+
+function buildReviewSummary(reviews = [], reservations = []) {
+  const ratedReviews = reviews.filter((review) => Number(review.rating) > 0);
+  const average = ratedReviews.length
+    ? ratedReviews.reduce((total, review) => total + Number(review.rating || 0), 0) / ratedReviews.length
+    : 0;
+  const waitingRequests = reservations.filter(
+    (reservation) => reservation.status === "completed" && reservation.reviewStatus !== "received",
+  ).length;
+
+  return {
+    average: average ? average.toFixed(1) : "-",
+    total: ratedReviews.length,
+    waitingRequests,
+  };
 }
 
 function formatAdminUser(user) {
@@ -1281,6 +1332,103 @@ app.post("/api/auth/password-reset/confirm", (req, res) => {
 app.get("/api/venue/bootstrap", requireVenueAccess, (req, res) => {
   const venueId = resolveVenueIdForRequest(req, req.query.venue);
   res.json(mergeVenuePayload(venueId, req.user));
+});
+
+app.post("/api/venue/reservations/:id/complete", requireVenueAccess, async (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId);
+  const reservation = getReservations().find(
+    (item) => item.id === req.params.id && item.venueId === venueId,
+  );
+
+  if (!reservation) {
+    res.status(404).json({ error: "Rezervasyon bulunamadı." });
+    return;
+  }
+
+  if (reservation.status === "completed") {
+    const payload = mergeVenuePayload(venueId, req.user);
+    res.json({
+      reservation,
+      transaction: formatReservationTransaction(reservation),
+      reviews: payload.reviews || [],
+      reviewSummary: payload.reviewSummary || {},
+    });
+    return;
+  }
+
+  const reviewToken = reservation.reviewToken || createToken(18);
+  const nextReservation = updateReservation(reservation.id, {
+    status: "completed",
+    completedAt: new Date().toISOString(),
+    reviewStatus: "requested",
+    reviewRequestedAt: new Date().toISOString(),
+    reviewToken,
+  });
+  const reviewUrl = `${req.protocol}://${req.get("host")}/review.html?token=${reviewToken}`;
+
+  await sendEmail({
+    to: nextReservation.customerEmail || "info@tyee.app",
+    template: "reservation-review-request",
+    subject: `${nextReservation.venueName} deneyimini puanlar mısın?`,
+    text: `Merhaba ${nextReservation.customerName || "Tyee kullanıcısı"},\n\n${nextReservation.venueName} rezervasyonun tamamlandı olarak işaretlendi.\n\nTesisten veya hizmet verenden memnun kaldın mı? Kısa bir puan ve yorum bırakırsan diğer kullanıcılar için çok değerli olur.\n\nDeğerlendirme bağlantısı: ${reviewUrl}\n\ntyee ekibi`,
+  }).catch(() => null);
+
+  const payload = mergeVenuePayload(venueId, req.user);
+  res.json({
+    message: "Rezervasyon tamamlandı ve değerlendirme isteği gönderildi.",
+    reservation: nextReservation,
+    transaction: formatReservationTransaction(nextReservation),
+    reviewRequest: { status: "requested", reviewUrl },
+    reviews: payload.reviews || [],
+    reviewSummary: payload.reviewSummary || {},
+  });
+});
+
+app.post("/api/reviews", (req, res) => {
+  const body = req.body || {};
+  const token = String(body.token || "").trim();
+  const rating = Number(body.rating);
+  const comment = String(body.comment || "").trim();
+  const reservation = getReservations().find((item) => item.reviewToken === token);
+
+  if (!reservation || reservation.status !== "completed") {
+    res.status(404).json({ error: "Değerlendirme isteği bulunamadı." });
+    return;
+  }
+
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    res.status(400).json({ error: "Puan 1 ile 5 arasında olmalı." });
+    return;
+  }
+
+  if (reservation.reviewStatus === "received") {
+    res.status(409).json({ error: "Bu rezervasyon için değerlendirme zaten alınmış." });
+    return;
+  }
+
+  const review = addReview({
+    reservationId: reservation.id,
+    venueId: reservation.venueId,
+    venueName: reservation.venueName,
+    customerId: reservation.customerId,
+    customerName: reservation.customerName || "Müşteri",
+    customerEmail: reservation.customerEmail,
+    rating,
+    comment,
+    serviceLabel: reservation.serviceLabel,
+    categoryLabel: reservation.categoryLabel,
+    status: "Yayınlandı",
+  });
+
+  updateReservation(reservation.id, {
+    reviewStatus: "received",
+    reviewedAt: review.createdAt,
+  });
+
+  res.status(201).json({
+    message: "Değerlendirmen alındı.",
+    review: formatVenueReview(review),
+  });
 });
 
 app.patch("/api/venue/slot-state", requireVenueAccess, (req, res) => {

@@ -11,6 +11,7 @@ const venuesPath = path.join(runtimeDir, "venues.json");
 const adminAccessPath = path.join(runtimeDir, "admin-access.json");
 const deletedVenuesPath = path.join(runtimeDir, "deleted-venues.json");
 const reservationsPath = path.join(runtimeDir, "reservations.json");
+const reviewsPath = path.join(runtimeDir, "reviews.json");
 
 const bundledLegacyUsers = [
   {
@@ -346,7 +347,45 @@ function addReservation(reservation) {
   return nextReservation;
 }
 
+function updateReservation(id, updater) {
+  const reservations = getReservations();
+  const index = reservations.findIndex((reservation) => reservation.id === id);
+  if (index < 0) return null;
+
+  const currentReservation = reservations[index];
+  const patch = typeof updater === "function" ? updater(currentReservation) : updater;
+  const nextReservation = {
+    ...currentReservation,
+    ...(patch || {}),
+    updatedAt: new Date().toISOString(),
+  };
+  reservations[index] = nextReservation;
+  saveReservations(reservations);
+  return nextReservation;
+}
+
+function getReviews() {
+  return readJson(reviewsPath, []);
+}
+
+function saveReviews(reviews) {
+  writeJson(reviewsPath, reviews);
+}
+
+function addReview(review) {
+  const reviews = getReviews();
+  const nextReview = {
+    id: review.id || crypto.randomUUID(),
+    createdAt: review.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...review,
+  };
+  saveReviews([nextReview, ...reviews].slice(0, 1000));
+  return nextReview;
+}
+
 module.exports = {
+  addReview,
   addReservation,
   appendDevEmail,
   appendDevSms,
@@ -359,6 +398,7 @@ module.exports = {
   getAdminAccessRules,
   getDeletedVenueIds,
   getReservations,
+  getReviews,
   getUsers,
   getDevOutbox,
   getVenueOverlay,
@@ -368,6 +408,7 @@ module.exports = {
   saveVenueOverlay,
   upsertAdminAccessRule,
   upsertUser,
+  updateReservation,
   verifyPassword,
   ensureSeedUser,
 };

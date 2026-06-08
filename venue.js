@@ -918,7 +918,7 @@ function renderSidebarSummary(payload) {
 }
 
 function statusPill(status) {
-  const isActive = status === "Aktif";
+  const isActive = status === "Aktif" || status === "Tamamlandı";
   return `<span class="status-pill ${isActive ? "is-active" : "is-passive"}">${status}</span>`;
 }
 
@@ -954,7 +954,7 @@ function renderTransactions(items) {
   if (!items.length) {
     transactionsBody.innerHTML = `
       <tr>
-        <td colspan="17" class="empty-table-cell">Henüz işlem kaydı yok.</td>
+        <td colspan="18" class="empty-table-cell">Henüz işlem kaydı yok.</td>
       </tr>
     `;
     return;
@@ -982,6 +982,11 @@ function renderTransactions(items) {
           <td>${item.monthlyPackageActive ? "Evet" : "Hayır"}</td>
           <td>${item.packageName || "-"}</td>
           <td>${item.withdrawalCount ?? 0}</td>
+          <td>
+            ${item.reservationId && item.status !== "Tamamlandı" && item.status !== "Pasif"
+              ? `<button class="table-action-button" type="button" data-complete-reservation="${item.reservationId}">Tamamla</button>`
+              : `<span class="muted-table-text">${item.reviewStatus === "received" ? "Yorum alındı" : "-"}</span>`}
+          </td>
         </tr>
       `,
     )
@@ -1604,31 +1609,76 @@ function renderProfile(profile) {
   `;
 }
 
-function renderReviews(items) {
+function renderReviews(items, summary = {}) {
+  const average = summary.average || "-";
+  const total = Number(summary.total || items.length || 0);
+  const waitingRequests = Number(summary.waitingRequests || 0);
+
   if (!items.length) {
     reviewsShell.innerHTML = `
+      <div class="reviews-summary-grid">
+        <article class="review-score-card">
+          <span>Ortalama puan</span>
+          <strong>${average}</strong>
+          <small>${total} yorum</small>
+        </article>
+        <article class="review-score-card">
+          <span>Bekleyen anket</span>
+          <strong>${waitingRequests}</strong>
+          <small>Tamamlanan rezervasyon sonrası</small>
+        </article>
+      </div>
+      <div class="review-request-note">
+        <strong>Kısa anket akışı</strong>
+        <p>Rezervasyon hizmeti tamamlanınca işletme işlemi kapatır. Ardından bireysel müşteriye memnuniyet bildirimi gider; puan ve not bıraktığında yorum burada listelenir.</p>
+      </div>
       <div class="reviews-empty-state">
-        <h3>Değerlendirme bulunamadı</h3>
-        <p>Tesisiniz yayınlandıktan ve rezervasyonlar tamamlandıktan sonra kullanıcı yorumları burada listelenecek.</p>
+        <h3>Henüz değerlendirme yok</h3>
+        <p>Tamamlanan rezervasyonlardan sonra gelen puanlar ve kısa yorumlar bu alanda görünecek.</p>
       </div>
     `;
     return;
   }
 
-  reviewsShell.innerHTML = items
-    .map(
-      (item) => `
-        <article class="review-card">
-          <div class="review-card-head">
-            <strong>${item.author}</strong>
-            <span>${item.rating}/5</span>
-          </div>
-          <p>${item.comment}</p>
-          <small>${item.date}</small>
-        </article>
-      `,
-    )
-    .join("");
+  reviewsShell.innerHTML = `
+    <div class="reviews-summary-grid">
+      <article class="review-score-card">
+        <span>Ortalama puan</span>
+        <strong>${average}</strong>
+        <small>${total} yorum</small>
+      </article>
+      <article class="review-score-card">
+        <span>Bekleyen anket</span>
+        <strong>${waitingRequests}</strong>
+        <small>Tamamlanan rezervasyon sonrası</small>
+      </article>
+    </div>
+    <div class="review-request-note">
+      <strong>Kısa anket akışı</strong>
+      <p>Rezervasyon hizmeti tamamlanınca işletme işlemi kapatır. Ardından bireysel müşteriye memnuniyet bildirimi gider; puan ve not bıraktığında yorum burada listelenir.</p>
+    </div>
+    <div class="reviews-list">
+      ${items
+        .map(
+          (item) => `
+            <article class="review-card">
+              <div class="review-card-head">
+                <div>
+                  <strong>${escapeHtml(item.author)}</strong>
+                  <small>${escapeHtml(item.service || "Rezervasyon")} · ${escapeHtml(item.date)}</small>
+                </div>
+                <span>${escapeHtml(item.rating)}/5</span>
+              </div>
+              <p>${escapeHtml(item.comment)}</p>
+              <div class="review-card-meta">
+                <span>${escapeHtml(item.status || "Yayınlandı")}</span>
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
 }
 
 function renderBillingAddresses(items) {
@@ -1821,7 +1871,7 @@ async function loadVenueDashboard() {
   if (payload.profile) {
     renderProfile(payload.profile);
   }
-  renderReviews(payload.reviews || []);
+  renderReviews(payload.reviews || [], payload.reviewSummary || {});
   renderBillingAddresses(payload.billingAddresses || []);
 }
 
@@ -1913,6 +1963,34 @@ function bindVenueInteractions() {
 
   newSubscriptionButton?.addEventListener("click", () => {
     openSalesModal(null, "19:00", "", { isSubscription: true });
+  });
+
+  transactionsBody?.addEventListener("click", async (event) => {
+    const completeButton = event.target.closest("[data-complete-reservation]");
+    if (!completeButton || !venueState.dashboard) return;
+
+    completeButton.disabled = true;
+    completeButton.textContent = "Kapanıyor...";
+    try {
+      const payload = await venueApiRequest(
+        `/api/venue/reservations/${completeButton.dataset.completeReservation}/complete`,
+        {
+          method: "POST",
+          body: JSON.stringify({ venueId: venueState.venueId }),
+        },
+      );
+
+      venueState.dashboard.transactions = (venueState.dashboard.transactions || []).map((item) =>
+        item.reservationId === payload.transaction.reservationId ? payload.transaction : item,
+      );
+      venueState.dashboard.reviews = payload.reviews || venueState.dashboard.reviews || [];
+      venueState.dashboard.reviewSummary = payload.reviewSummary || venueState.dashboard.reviewSummary || {};
+      renderTransactions(venueState.dashboard.transactions);
+      renderReviews(venueState.dashboard.reviews, venueState.dashboard.reviewSummary);
+    } catch (error) {
+      completeButton.disabled = false;
+      completeButton.textContent = error.message || "Hata";
+    }
   });
 
   salesSave?.addEventListener("click", () => {

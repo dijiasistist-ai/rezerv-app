@@ -786,6 +786,29 @@ button {
   color: var(--green);
 }
 
+.table-action-button {
+  min-height: 30px;
+  border: 1px solid rgba(22, 163, 74, 0.22);
+  border-radius: 999px;
+  padding: 0 12px;
+  background: #ecfdf5;
+  color: #138a48;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.table-action-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.muted-table-text {
+  color: var(--muted);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .transaction-status.is-warning {
   background: #fff6df;
   color: var(--amber);
@@ -848,6 +871,7 @@ button {
 .profile-layout,
 .profile-form-grid,
 .billing-shell,
+#reviews-shell,
 .reviews-shell {
   display: grid;
   gap: 14px;
@@ -1369,11 +1393,91 @@ button {
   background: #fff;
 }
 
+.reviews-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.reviews-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.review-score-card,
+.review-request-note {
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px;
+}
+
+.review-score-card span,
+.review-request-note p,
+.review-card p,
+.review-card small,
+.review-card-meta {
+  color: var(--muted);
+}
+
+.review-score-card strong {
+  display: block;
+  margin: 7px 0 3px;
+  color: #050b2d;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.review-request-note strong {
+  color: #050b2d;
+}
+
+.review-request-note p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  line-height: 1.55;
+}
+
+.reviews-list {
+  display: grid;
+  gap: 12px;
+}
+
 .review-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.review-card-head strong {
+  display: block;
+  color: #050b2d;
+}
+
+.review-card-head span {
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #eafaf4;
+  color: var(--green);
+  font-weight: 900;
+}
+
+.review-card p {
+  margin: 12px 0 0;
+  line-height: 1.55;
+}
+
+.review-card-meta {
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .reviews-summary-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .reviews-empty-state,
