@@ -381,19 +381,6 @@ button {
   box-shadow: 0 10px 24px rgba(4, 167, 244, 0.24);
 }
 
-.reserve-now {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 18px;
-  font-size: clamp(14px, 0.95vw, 16px);
-  font-weight: var(--weight-bold);
-}
-
-.reserve-now:hover {
-  background: linear-gradient(135deg, #159fe8 0%, #ec4d8c 100%);
-  box-shadow: 0 12px 24px rgba(4, 167, 244, 0.2);
-}
-
 .account-shell {
   position: relative;
 }
@@ -2943,10 +2930,6 @@ button {
   .saved-button::before {
     content: "♡";
     font-size: 16px;
-  }
-
-  .reserve-now {
-    padding: 0 12px;
   }
 
   .featured-layout {
