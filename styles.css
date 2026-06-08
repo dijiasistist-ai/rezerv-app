@@ -3176,6 +3176,24 @@ button {
   line-height: 1.55;
 }
 
+.checkout-contract h3,
+.auth-terms-scroll h4 {
+  margin: 14px 0 6px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: var(--weight-semibold);
+}
+
+.checkout-contract p,
+.auth-terms-scroll p {
+  margin: 0 0 8px;
+}
+
+.legal-version {
+  color: #98a2b3;
+  font-size: 12px;
+}
+
 .checkout-address-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 78px;
@@ -3553,6 +3571,38 @@ button {
   color: #98a2b3;
   font-size: 24px;
   line-height: 1;
+}
+
+.auth-terms-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-terms-scroll {
+  max-height: 170px;
+  overflow: auto;
+  border: 1px solid #dfe7f1;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fbfdff;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.auth-terms-accept {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+
+.auth-terms-accept input {
+  min-height: 18px;
+  margin: 2px 0 0;
 }
 
 .ghost-button {

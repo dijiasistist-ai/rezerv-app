@@ -38,6 +38,9 @@ const authBackToForm = document.querySelector("#auth-back-to-form");
 const authEntryBack = document.querySelector("#auth-entry-back");
 const authRoleChoices = document.querySelectorAll("[data-role-choice]");
 const authEntryChoices = document.querySelectorAll("[data-entry-choice]");
+const authCustomerTermsText = document.querySelector("#auth-customer-terms-text");
+const authCustomerTermsAccept = document.querySelector("#auth-customer-terms-accept");
+const authRoleFeedback = document.querySelector("#auth-role-feedback");
 const popularSearches = document.querySelector(".popular-searches");
 const businessNavLinks = document.querySelectorAll('a[href="/venue.html"]');
 const nearbyMapTrigger = document.querySelector("#nearby-map-trigger");
@@ -870,6 +873,38 @@ async function apiRequest(url, options = {}) {
   return payload;
 }
 
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderLegalTerms(container, terms) {
+  if (!container || !terms?.sections?.length) return;
+  container.innerHTML = `
+    <p><strong>${escapeHtml(terms.title || "Bireysel Kullanıcı ve Rezervasyon Sözleşmesi")}</strong></p>
+    <p class="legal-version">Versiyon: ${escapeHtml(terms.version || "-")}</p>
+    ${terms.sections
+      .map(
+        (section) => `
+          <section>
+            <h4>${escapeHtml(section.title)}</h4>
+            ${(section.body || []).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+          </section>
+        `,
+      )
+      .join("")}
+  `;
+}
+
+async function loadCustomerTerms() {
+  const terms = await fetchJson("/api/legal/customer-terms");
+  renderLegalTerms(authCustomerTermsText, terms);
+}
+
 function normalizeReservationItem(item = {}) {
   const totalAmount = parseMoney(item.price || item.priceLabel || 1000) || 1000;
   const time = String(item.nextSlot || item.availability?.nextSlot || item.eveningTime || "19:00").match(/\d{1,2}:\d{2}/)?.[0] || "19:00";
@@ -1080,6 +1115,8 @@ function setAuthMode(mode) {
   authEntryBack.classList.toggle("hidden", isRegister || state.authStep === "entry");
   authFeedback.textContent = "";
   authFeedback.classList.remove("is-success");
+  if (authRoleFeedback) authRoleFeedback.textContent = "";
+  if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
 }
 
 function openAuthModal(mode = "login") {
@@ -1455,6 +1492,7 @@ authBackToForm.addEventListener("click", () => {
   state.authStep = "form";
   authStepRole.classList.add("hidden");
   authStepForm.classList.remove("hidden");
+  if (authRoleFeedback) authRoleFeedback.textContent = "";
 });
 
 authEntryBack.addEventListener("click", () => {
@@ -1482,13 +1520,25 @@ authRoleChoices.forEach((button) => {
 
     authFeedback.textContent = "";
     authFeedback.classList.remove("is-success");
+    if (authRoleFeedback) {
+      authRoleFeedback.textContent = "";
+      authRoleFeedback.classList.remove("is-success");
+    }
+
+    const selectedRole = button.dataset.roleChoice;
+    if (selectedRole === "customer" && !authCustomerTermsAccept?.checked) {
+      if (authRoleFeedback) {
+        authRoleFeedback.textContent = "Bireysel kullanıcı sözleşmesini okuyup kabul etmelisin.";
+      }
+      return;
+    }
 
     try {
       const response = await apiRequest("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
           ...state.pendingRegistration,
-          role: button.dataset.roleChoice,
+          role: selectedRole,
         }),
       });
 
@@ -1499,6 +1549,10 @@ authRoleChoices.forEach((button) => {
       const emailWasSent = response.emailDelivery?.status === "sent";
       authFeedback.textContent = response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.";
       authFeedback.classList.toggle("is-success", emailWasSent);
+      if (authRoleFeedback) {
+        authRoleFeedback.textContent = authFeedback.textContent;
+        authRoleFeedback.classList.toggle("is-success", emailWasSent);
+      }
       authForm.reset();
       if (emailWasSent) {
         setTimeout(closeAuthModal, 900);
@@ -1531,6 +1585,8 @@ authForm.addEventListener("submit", async (event) => {
     state.authStep = "role";
     authStepForm.classList.add("hidden");
     authStepRole.classList.remove("hidden");
+    if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
+    if (authRoleFeedback) authRoleFeedback.textContent = "";
     return;
   }
 
@@ -1583,6 +1639,10 @@ Promise.all([loadBootstrap(), loadCurrentUser()]).catch((error) => {
       <p>Backend cevap vermedi. Sunucuyu kontrol edip tekrar deneyin.</p>
     </article>
   `;
+});
+
+loadCustomerTerms().catch(() => {
+  if (authCustomerTermsText) authCustomerTermsText.innerHTML = "<p>Sözleşme metni şu anda yüklenemedi.</p>";
 });
 
 syncInfoViewWithHash();

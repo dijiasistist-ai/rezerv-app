@@ -44,6 +44,7 @@ const {
   calculateReservationBilling,
   summarizeMonthlyCommission,
 } = require("./services/reservation-billing");
+const { customerReservationTerms } = require("./data/legal-terms");
 
 const app = express();
 const port = Number(process.env.PORT || 8091);
@@ -913,6 +914,10 @@ app.get("/api/bootstrap", (_req, res) => {
       tagline: "Rezervasyon marketplace",
     },
   });
+});
+
+app.get("/api/legal/customer-terms", (_req, res) => {
+  res.json(customerReservationTerms);
 });
 
 app.get("/api/listings", (req, res) => {

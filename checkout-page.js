@@ -13,6 +13,7 @@ const extendButton = document.querySelector("#checkout-extend");
 const submitButton = document.querySelector("#checkout-submit");
 const feedback = document.querySelector("#checkout-feedback");
 const contractAccept = document.querySelector("#checkout-contract-accept");
+const checkoutContract = document.querySelector("#checkout-contract");
 const cardForm = document.querySelector("#checkout-card-form");
 const transferBox = document.querySelector("#checkout-transfer");
 const paymentTabs = document.querySelectorAll("[data-payment-tab]");
@@ -45,6 +46,38 @@ async function fetchJson(url, options = {}) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "İşlem tamamlanamadı.");
   return payload;
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderLegalTerms(container, terms) {
+  if (!container || !terms?.sections?.length) return;
+  container.innerHTML = `
+    <p><strong>${escapeHtml(terms.title || "Bireysel Kullanıcı ve Rezervasyon Sözleşmesi")}</strong></p>
+    <p class="legal-version">Versiyon: ${escapeHtml(terms.version || "-")}</p>
+    ${terms.sections
+      .map(
+        (section) => `
+          <section>
+            <h3>${escapeHtml(section.title)}</h3>
+            ${(section.body || []).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+          </section>
+        `,
+      )
+      .join("")}
+  `;
+}
+
+async function loadCustomerTerms() {
+  const terms = await fetchJson("/api/legal/customer-terms");
+  renderLegalTerms(checkoutContract, terms);
 }
 
 function renderSummary() {
@@ -121,6 +154,9 @@ submitButton?.addEventListener("click", async () => {
 });
 
 renderSummary();
+loadCustomerTerms().catch(() => {
+  if (checkoutContract) checkoutContract.innerHTML = "<p>Sözleşme metni şu anda yüklenemedi.</p>";
+});
 renderTimer();
 setInterval(() => {
   if (remainingSeconds > 0) {
