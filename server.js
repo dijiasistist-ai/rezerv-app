@@ -707,10 +707,12 @@ function normalizeVenueCategory(value = "") {
 }
 
 function getRuntimeVenueMapItems(origin) {
+  const deletedVenueIds = new Set(getDeletedVenueIds());
   return getUsers()
     .filter((user) => user.canManageVenue && !user.isAdmin)
     .map((user) => {
       const venueId = getUserVenueId(user);
+      if (deletedVenueIds.has(venueId)) return null;
       const overlay = getVenueOverlay(venueId);
       const settings = overlay.settings || {};
       const location = settings.location || {};
@@ -747,15 +749,23 @@ app.get("/api/nearby", (req, res) => {
   const lng = Number(req.query.lng || 29.0268);
   const origin = { lat, lng };
   const payload = getNearbyMapPayload(origin);
-  const byId = new Map(payload.items.map((item) => [item.id, item]));
+  const runtimeItems = getRuntimeVenueMapItems(payload.origin);
+  const sourceItems = runtimeItems.length ? runtimeItems : payload.items;
+  const byKey = new Map();
 
-  getRuntimeVenueMapItems(payload.origin).forEach((item) => {
-    byId.set(item.id, item);
+  sourceItems.forEach((item) => {
+    const key = [
+      normalizeSearchText(item.name || ""),
+      item.category || "",
+      Number(item.lat).toFixed(5),
+      Number(item.lng).toFixed(5),
+    ].join(":");
+    byKey.set(key, item);
   });
 
   res.json({
     ...payload,
-    items: [...byId.values()].sort((a, b) => a.distanceKm - b.distanceKm),
+    items: [...byKey.values()].sort((a, b) => a.distanceKm - b.distanceKm),
   });
 });
 
