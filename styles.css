@@ -2133,7 +2133,7 @@ button {
 }
 
 .nearby-map.inline-nearby-map {
-  height: clamp(430px, 38vw, 580px);
+  height: clamp(387px, 34.2vw, 522px);
   min-height: 0;
   aspect-ratio: auto;
 }
