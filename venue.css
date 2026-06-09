@@ -1115,6 +1115,103 @@ button {
   gap: 14px;
 }
 
+.sales-products-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(420px, 1.3fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.sales-products-list,
+.sales-products-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.sales-products-summary {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  padding: 14px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+}
+
+.sales-products-summary strong {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.sales-products-summary span,
+.sales-product-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sales-products-cards {
+  display: grid;
+  gap: 10px;
+}
+
+.sales-product-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #e8edf5;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+
+.sales-product-card.is-active {
+  border-color: #b9e7ff;
+  box-shadow: inset 4px 0 0 var(--brand);
+}
+
+.sales-product-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sales-product-card-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sales-product-card-head span {
+  color: var(--brand-dark);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.sales-product-card-head strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.sales-products-editor {
+  border: 1px solid #e8edf5;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fff;
+}
+
+.sales-products-editor .settings-area-list {
+  gap: 10px;
+}
+
+.sales-products-editor .settings-area-card {
+  background: #fbfcfd;
+}
+
 .settings-section {
   display: grid;
   gap: 14px;
@@ -3056,6 +3153,7 @@ a {
   .contract-summary-grid,
   .venue-report-metric-grid,
   .settings-form-grid,
+  .sales-products-layout,
   .profile-form-grid,
   .sales-modal-body {
     grid-template-columns: 1fr;

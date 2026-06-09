@@ -9,6 +9,7 @@ const statGrid = document.querySelector("#stat-grid");
 const quickActions = document.querySelector("#quick-actions");
 const calendarBoardSecondary = document.querySelector("#calendar-board-secondary");
 const calendarFieldPills = document.querySelector("#calendar-field-pills");
+const salesProductsLayout = document.querySelector("#sales-products-layout");
 const weekRange = document.querySelector("#week-range");
 const weekTodayButton = document.querySelector("#week-today");
 const weekPrevButton = document.querySelector("#week-prev");
@@ -758,6 +759,48 @@ function renderCalendarFieldPills() {
     .join("");
 }
 
+function renderSalesProducts(settings) {
+  if (!salesProductsLayout) return;
+  const normalized = normalizeSettings(settings);
+  const activeAreas = normalized.areas.filter((area) => area.isActive);
+  const summary = `${activeAreas.length} / ${normalized.areas.length} kalem satışta`;
+  const cardsMarkup = normalized.areas
+    .map((area, index) => {
+      const priceLabel = area.price ? `₺${String(area.price).replace(/^₺\s*/, "")}` : "";
+      const meta = [area.type, area.capacity, priceLabel].filter(Boolean).join(" · ") || "Konfigürasyon bekliyor";
+      return `
+        <article class="sales-product-card ${area.isActive ? "is-active" : ""}" data-product-card="${index}">
+          <div class="sales-product-card-head">
+            <div>
+              <span>${area.isActive ? "Satışta" : "Kapalı"}</span>
+              <strong>${escapeHtml(area.name || `Hizmet ${index + 1}`)}</strong>
+            </div>
+            <label class="settings-switch">
+              <input type="checkbox" data-area-active="${index}" ${area.isActive ? "checked" : ""} />
+              <span>Açık</span>
+            </label>
+          </div>
+          <p>${escapeHtml(meta)}</p>
+        </article>
+      `;
+    })
+    .join("");
+
+  salesProductsLayout.innerHTML = `
+    <div class="sales-products-list">
+      <div class="sales-products-summary">
+        <strong>${summary}</strong>
+        <span>Takvimde satışa açacağın slotlar bu hizmet kalemlerinden birine bağlanır.</span>
+      </div>
+      <div class="sales-products-cards">${cardsMarkup}</div>
+    </div>
+    <div class="sales-products-editor">
+      <div class="settings-note">Her satır satılabilir hizmet/alan kalemidir: saha, oda, masa, bakım paketi, derslik veya eğitmen gibi.</div>
+      <div class="sales-products-editor-grid">${areaSettingsFields(normalized)}</div>
+    </div>
+  `;
+}
+
 function buildSlotBadge(label, className) {
   return `<em class="slot-channel-badge ${className}">${label}</em>`;
 }
@@ -1345,7 +1388,7 @@ function areaSettingsFields(settings) {
       (area, index) => `
         <article class="settings-area-card" data-area-card="${index}">
           <div class="settings-area-head">
-            <strong>Alan ${index + 1}</strong>
+            <strong>Satış kalemi ${index + 1}</strong>
             <label class="settings-switch">
               <input type="checkbox" data-area-active="${index}" ${area.isActive ? "checked" : ""} />
               <span>Aktif</span>
@@ -1353,16 +1396,16 @@ function areaSettingsFields(settings) {
           </div>
           <div class="settings-form-grid">
             <label class="settings-input-field">
-              <span>Alan adı</span>
-              <input data-area-name="${index}" type="text" value="${escapeHtml(area.name)}" placeholder="Saha 1, Oda 2, Masa A..." />
+              <span>Hizmet adı</span>
+              <input data-area-name="${index}" type="text" value="${escapeHtml(area.name)}" placeholder="Küçük ırk bakım, Saha 1, Stüdyo A..." />
             </label>
             <label class="settings-input-field">
-              <span>Alan tipi</span>
-              <input data-area-type="${index}" type="text" value="${escapeHtml(area.type)}" placeholder="Saha, oda, masa, eğitmen..." />
+              <span>Satış biçimi</span>
+              <input data-area-type="${index}" type="text" value="${escapeHtml(area.type)}" placeholder="Oda, saha, kişi, saat, eğitmen..." />
             </label>
             <label class="settings-input-field">
-              <span>Kapasite</span>
-              <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity)}" placeholder="2 kişi, 12 kişi..." />
+              <span>Kapasite / kişi</span>
+              <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity)}" placeholder="1 pet, 2 kişi, 12 kişi..." />
             </label>
             <label class="settings-input-field">
               <span>Başlangıç fiyatı</span>
@@ -1500,7 +1543,6 @@ function renderBusinessInfoSettings(settings) {
 
     ${settingsSection("Görseller", "Logo, kapak ve galeri görselleri.", mediaSettingsFields(settings))}
     ${settingsSection("Tesis özellikleri", "Müşterinin rezervasyon öncesi göreceği imkanlar.", facilitySettingsFields(settings))}
-    ${settingsSection("Hizmet alanları", "Saha, oda, masa, eğitmen veya hizmet kapasitesi.", areaSettingsFields(settings))}
     ${settingsSaveMarkup()}
   `;
 }
@@ -2032,6 +2074,9 @@ function collectSettingsPayload() {
       ...item,
       enabled: checked(`[data-facility-id="${item.id}"]`),
     }));
+  }
+
+  if (document.querySelector("[data-area-card]")) {
     next.areas = Array.from(document.querySelectorAll("[data-area-card]")).map((card) => {
       const index = card.dataset.areaCard;
       return {
@@ -2067,6 +2112,40 @@ function collectProfilePayload() {
     payload[input.dataset.profileField] = input.value.trim();
     return payload;
   }, {});
+}
+
+function addSalesProductDraft() {
+  if (!venueState.dashboard) return;
+  venueState.dashboard.settings = collectSettingsPayload();
+  const settings = normalizeSettings(venueState.dashboard.settings);
+  settings.areas.push({
+    name: `Hizmet ${settings.areas.length + 1}`,
+    type: "Saha / oda / masa",
+    capacity: "",
+    price: "",
+    isActive: true,
+  });
+  venueState.dashboard.settings = settings;
+  renderSalesProducts(settings);
+  renderCalendarFieldPills();
+}
+
+async function saveVenueSettings() {
+  setSaveStatus("[data-settings-status]", "Kaydediliyor...");
+  const settings = collectSettingsPayload();
+  const payload = await venueApiRequest("/api/venue/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ venueId: venueState.venueId, settings }),
+  });
+  venueState.dashboard.settings = normalizeSettings(payload.settings);
+  renderVenueIdentity();
+  renderSettingsTabs(venueState.dashboard.settings.tabs);
+  renderSettingsOnboarding(venueState.dashboard.settings);
+  renderSalesProducts(venueState.dashboard.settings);
+  renderCalendarFieldPills();
+  renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+  renderTransactions(venueState.dashboard.transactions || []);
+  setSaveStatus("[data-settings-status]", "Kaydedildi");
 }
 
 function setSaveStatus(selector, message, isError = false) {
@@ -2144,6 +2223,7 @@ async function loadVenueDashboard() {
   renderOverview(payload);
   renderQuickActions(payload.quickActions);
   renderCalendarFieldPills();
+  renderSalesProducts(payload.settings);
   renderWeeklySchedule(calendarBoardSecondary, payload.weekDays);
   renderSubscriptions(payload.subscriptions);
   renderReportSummary(payload.reportSummary || []);
@@ -2395,17 +2475,8 @@ function bindVenueInteractions() {
 
     const addAreaButton = event.target.closest("[data-area-add]");
     if (addAreaButton && venueState.dashboard) {
-      venueState.dashboard.settings = collectSettingsPayload();
-      const settings = normalizeSettings(venueState.dashboard.settings);
-      settings.areas.push({
-        name: `Alan ${settings.areas.length + 1}`,
-        type: "Saha / oda / masa",
-        capacity: "",
-        price: "",
-        isActive: true,
-      });
-      venueState.dashboard.settings = settings;
-      renderSettingsOnboarding(settings);
+      addSalesProductDraft();
+      renderSettingsOnboarding(venueState.dashboard.settings);
       return;
     }
 
@@ -2414,17 +2485,24 @@ function bindVenueInteractions() {
 
     setSaveStatus("[data-settings-status]", "Kaydediliyor...");
     try {
-      const settings = collectSettingsPayload();
-      const payload = await venueApiRequest("/api/venue/settings", {
-        method: "PATCH",
-        body: JSON.stringify({ venueId: venueState.venueId, settings }),
-      });
-      venueState.dashboard.settings = normalizeSettings(payload.settings);
-      renderVenueIdentity();
-      renderSettingsTabs(venueState.dashboard.settings.tabs);
-      renderSettingsOnboarding(venueState.dashboard.settings);
-      renderTransactions(venueState.dashboard.transactions || []);
-      setSaveStatus("[data-settings-status]", "Kaydedildi");
+      await saveVenueSettings();
+    } catch (error) {
+      setSaveStatus("[data-settings-status]", error.message, true);
+    }
+  });
+
+  document.querySelector("#sales-products-view")?.addEventListener("click", async (event) => {
+    const addAreaButton = event.target.closest("[data-area-add]");
+    if (addAreaButton && venueState.dashboard) {
+      addSalesProductDraft();
+      return;
+    }
+
+    const button = event.target.closest("[data-settings-save]");
+    if (!button || !venueState.dashboard) return;
+
+    try {
+      await saveVenueSettings();
     } catch (error) {
       setSaveStatus("[data-settings-status]", error.message, true);
     }

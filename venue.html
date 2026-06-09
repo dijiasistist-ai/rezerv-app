@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee İşletme Paneli</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260609-global-glass-header-4" />
+    <link rel="stylesheet" href="/venue.css?v=20260609-sales-products-1" />
   </head>
   <body>
     <header class="venue-global-header">
@@ -97,6 +97,7 @@
             <button class="venue-nav-heading" type="button" aria-expanded="false">Operasyon</button>
             <div class="venue-nav-group-body">
               <button class="venue-nav-item" data-view="calendar">Takvim</button>
+              <button class="venue-nav-item" data-view="sales-products">Satış Hizmetleri</button>
               <button class="venue-nav-item" data-view="subscriptions">Abonelikler</button>
               <button class="venue-nav-item" data-view="transactions">İşlemler</button>
               <button class="venue-nav-item" data-view="reviews">Değerlendirmeler</button>
@@ -208,6 +209,23 @@
             <div class="schedule-shell">
               <div class="schedule-grid" id="calendar-board-secondary"></div>
             </div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="sales-products-view">
+          <div class="section-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Operasyon</p>
+                <h2>Satışa açık ürün ve hizmetler</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-button" type="button" data-area-add>+ Hizmet ekle</button>
+                <button class="solid-button" data-settings-save type="button">Kaydet</button>
+                <span class="venue-save-status" data-settings-status></span>
+              </div>
+            </div>
+            <div class="sales-products-layout" id="sales-products-layout"></div>
           </div>
         </section>
 
@@ -432,6 +450,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/venue.js?v=20260609-calendar-header-3"></script>
+    <script src="/venue.js?v=20260609-sales-products-1"></script>
   </body>
 </html>
