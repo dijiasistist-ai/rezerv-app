@@ -51,6 +51,7 @@ const port = Number(process.env.PORT || 8091);
 const sessions = new Map();
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
+const HIDE_PUBLIC_VENUES = process.env.NODE_ENV === "production" || process.env.HIDE_PUBLIC_VENUES === "1";
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
 const CALENDAR_SLOT_TIMES = [
   "08:00",
@@ -1002,6 +1003,8 @@ app.get("/api/bootstrap", (_req, res) => {
   const payload = getBootstrapPayload();
   res.json({
     ...payload,
+    featuredListings: HIDE_PUBLIC_VENUES ? [] : payload.featuredListings,
+    hotSlots: HIDE_PUBLIC_VENUES ? [] : payload.hotSlots,
     categories: withActiveVenueCategoryCounts(payload.categories || []),
     brand: {
       name: "tyee",
@@ -1015,6 +1018,11 @@ app.get("/api/legal/customer-terms", (_req, res) => {
 });
 
 app.get("/api/listings", (req, res) => {
+  if (HIDE_PUBLIC_VENUES) {
+    res.json({ total: 0, items: [] });
+    return;
+  }
+
   const items = filterListings({
     category: String(req.query.category || "all"),
     city: String(req.query.city || "all"),
@@ -1025,6 +1033,11 @@ app.get("/api/listings", (req, res) => {
 });
 
 app.get("/api/listings/:id", (req, res) => {
+  if (HIDE_PUBLIC_VENUES) {
+    res.status(404).json({ error: "İşletme bulunamadı." });
+    return;
+  }
+
   const id = String(req.params.id || "");
   const listing = getListingById(id) || getRuntimeVenueListingById(id);
   if (!listing) {
@@ -1117,6 +1130,8 @@ function getEnabledSettingsFacilities(settings = {}) {
 }
 
 function getRuntimeVenueMapItems(origin) {
+  if (HIDE_PUBLIC_VENUES) return [];
+
   const deletedVenueIds = new Set(getDeletedVenueIds());
   return getUsers()
     .filter((user) => user.canManageVenue && !user.isAdmin)
@@ -1206,6 +1221,13 @@ function isGenericServiceLabel(value = "") {
 }
 
 function withActiveVenueCategoryCounts(categories = []) {
+  if (HIDE_PUBLIC_VENUES) {
+    return categories.map((category) => ({
+      ...category,
+      count: "0",
+    }));
+  }
+
   const counts = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).reduce((totals, item) => {
     totals[item.category] = (totals[item.category] || 0) + 1;
     return totals;
@@ -1302,7 +1324,7 @@ app.get("/api/nearby", (req, res) => {
   const origin = { lat, lng };
   const payload = getNearbyMapPayload(origin);
   const runtimeItems = getRuntimeVenueMapItems(payload.origin);
-  const sourceItems = runtimeItems.length ? runtimeItems : payload.items;
+  const sourceItems = HIDE_PUBLIC_VENUES ? [] : runtimeItems.length ? runtimeItems : payload.items;
   const byKey = new Map();
 
   sourceItems.forEach((item) => {
