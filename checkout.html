@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee | Ödeme</title>
-    <link rel="stylesheet" href="/styles.css?v=20260608-checkout-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260609-checkout-contract-1" />
   </head>
   <body class="checkout-page-body">
     <header class="checkout-topbar">
@@ -90,6 +90,12 @@
           <div class="checkout-contract" id="checkout-contract">
             <p>Sözleşme yükleniyor...</p>
           </div>
+          <div class="checkout-accept-row">
+            <label>
+              <input id="checkout-contract-accept" type="checkbox" />
+              <span><a href="#checkout-contract">Sözleşmeyi</a> okudum ve kabul ediyorum</span>
+            </label>
+          </div>
         </section>
 
         <section class="checkout-section">
@@ -103,13 +109,6 @@
             <button type="button" aria-label="Fatura adresi ekle">+</button>
           </div>
         </section>
-
-        <div class="checkout-accept-row">
-          <label>
-            <input id="checkout-contract-accept" type="checkbox" />
-            <span><a href="#checkout-contract">Sözleşmeyi</a> okudum ve kabul ediyorum</span>
-          </label>
-        </div>
       </section>
 
       <aside class="checkout-summary-card" aria-label="Rezervasyon özeti">

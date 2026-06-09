@@ -3521,24 +3521,25 @@ button {
 
 .checkout-accept-row {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 2px;
+  justify-content: flex-start;
+  margin-top: -2px;
 }
 
 .checkout-accept-row label {
-  display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  display: inline-grid;
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  max-width: 430px;
+  gap: 8px;
+  max-width: 100%;
   color: #30333a;
-  font-size: 22px;
-  line-height: 1.25;
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
 }
 
 .checkout-accept-row input {
-  width: 58px;
-  height: 58px;
+  width: 18px;
+  height: 18px;
   margin: 0;
   accent-color: #9b4eb3;
 }
@@ -3546,7 +3547,7 @@ button {
 .checkout-accept-row a {
   color: #287ac9;
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: 2px;
 }
 
 .checkout-summary-card {
