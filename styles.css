@@ -90,8 +90,8 @@ button {
 
 .page-shell {
   width: min(100%, calc(100% - 24px));
-  min-height: calc(100vh - 24px);
-  margin: 12px auto;
+  min-height: calc(100vh - 12px);
+  margin: 0 auto 12px;
   padding-top: 86px;
   overflow: hidden;
   border-radius: 12px;
@@ -101,7 +101,7 @@ button {
 
 .site-header {
   position: fixed;
-  top: 12px;
+  top: 0;
   left: 50%;
   z-index: 80;
   display: grid;

@@ -5,9 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee İşletme Paneli</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260609-fixed-glass-panel-1" />
+    <link rel="stylesheet" href="/venue.css?v=20260609-global-glass-header-1" />
   </head>
   <body>
+    <header class="venue-global-header">
+      <a class="venue-global-brand" href="/" aria-label="tyee ana sayfa">
+        <img src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
+      </a>
+      <nav class="venue-global-nav" aria-label="Ana menü">
+        <a href="/#hero">Keşfet</a>
+        <a href="/#categories">Kategoriler</a>
+        <a href="/#nearby-map">Yakınımda</a>
+        <a href="/#featured">Fırsatlar</a>
+        <a class="is-active" href="/venue.html">İşletme Paneli</a>
+      </nav>
+      <a class="venue-global-account" href="/index.html">Giriş Yap / Kayıt Ol</a>
+    </header>
+
     <div class="venue-auth-wall hidden" id="venue-auth-wall">
       <div class="venue-auth-card">
         <p class="eyebrow">Yetki gerekli</p>
@@ -68,13 +82,6 @@
 
     <div class="venue-layout">
       <aside class="venue-sidebar">
-        <a class="venue-brand" href="/index.html">
-          <img class="venue-logo" src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
-          <span>
-            <small>İşletme Paneli</small>
-          </span>
-        </a>
-
         <nav class="venue-nav" aria-label="İşletme paneli menüsü">
           <div class="venue-nav-group">
             <button class="venue-nav-heading" type="button" aria-expanded="false">Panel</button>
