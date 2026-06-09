@@ -17,6 +17,8 @@ const accountMenuCopy = document.querySelector("#account-menu-copy");
 const accountDashboard = document.querySelector("#account-dashboard");
 const accountAdmin = document.querySelector("#account-admin");
 const accountLogout = document.querySelector("#account-logout");
+const customerHeaderOnlyItems = document.querySelectorAll(".customer-header-only");
+const customerAccountOnlyItems = document.querySelectorAll(".customer-account-only");
 const customerPanel = document.querySelector("#customer-panel");
 const customerPanelClose = document.querySelector("#customer-panel-close");
 const customerPanelDismiss = document.querySelector("#customer-panel-dismiss");
@@ -1346,6 +1348,7 @@ function toggleAccountMenu() {
 function updateAuthUi() {
   if (state.user) {
     const needsVerification = !state.user.emailVerified || (state.user.phone && !state.user.phoneVerified);
+    const isVenueUser = Boolean(state.user.canManageVenue);
     accountLabel.textContent = state.user.name;
     avatarMini.textContent = getInitials(state.user.name);
     avatarMini.classList.remove("hidden");
@@ -1353,8 +1356,8 @@ function updateAuthUi() {
     accountMenuCopy.innerHTML = `
       <strong>${state.user.name}</strong>
       <span>${
-        state.user.canManageVenue
-          ? "Bireysel rezervasyonlarını kullanabilir veya işletme paneline geçebilirsin."
+        isVenueUser
+          ? "İşletme operasyonunu, satış hizmetlerini ve rezervasyon akışını panelden yönetebilirsin."
           : "Hesabın bireysel kullanım için hazır. İşletme paneli için ayrı bir işletme hesabı gerekir."
       }</span>
       ${
@@ -1367,8 +1370,10 @@ function updateAuthUi() {
           : `<em class="account-verify-note is-ok">Hesap doğrulandı</em>`
       }
     `;
-    accountDashboard.classList.toggle("hidden", !state.user.canManageVenue);
+    accountDashboard.classList.toggle("hidden", !isVenueUser);
     accountAdmin.classList.toggle("hidden", !state.user.canAccessAdmin);
+    customerHeaderOnlyItems.forEach((item) => item.classList.toggle("hidden", isVenueUser));
+    customerAccountOnlyItems.forEach((item) => item.classList.toggle("hidden", isVenueUser));
   } else {
     accountLabel.textContent = "Giriş Yap / Kayıt Ol";
     avatarMini.textContent = "";
@@ -1376,6 +1381,8 @@ function updateAuthUi() {
     loginTrigger.classList.remove("is-authenticated");
     accountDashboard.classList.add("hidden");
     accountAdmin.classList.add("hidden");
+    customerHeaderOnlyItems.forEach((item) => item.classList.remove("hidden"));
+    customerAccountOnlyItems.forEach((item) => item.classList.remove("hidden"));
     accountMenuCopy.innerHTML = `
       <strong>Hesap</strong>
       <span>Rezervasyonlarını ve oturumunu yönet.</span>

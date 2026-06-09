@@ -30,7 +30,7 @@
         </nav>
 
         <div class="header-actions">
-          <details class="header-popover-shell">
+          <details class="header-popover-shell customer-header-only">
             <summary class="saved-button">♡ Kaydedilenler</summary>
             <div class="header-popover">
               <div class="popover-head">
@@ -44,7 +44,7 @@
               </div>
             </div>
           </details>
-          <details class="header-popover-shell" id="notification-shell">
+          <details class="header-popover-shell customer-header-only" id="notification-shell">
             <summary class="bell-button" aria-label="Bildirimler">
               <span>🔔</span>
               <em id="notification-count" aria-live="polite">3</em>
@@ -93,14 +93,14 @@
               <button class="account-menu-item hidden" id="account-admin" type="button">
                 Yönetici paneline git
               </button>
-              <div class="account-menu-divider"></div>
-              <button class="account-menu-item" type="button" data-customer-panel="reservations">Rezervasyonlarım</button>
-              <button class="account-menu-item" type="button" data-customer-panel="purchases">Satın Aldıklarım</button>
-              <button class="account-menu-item" type="button" data-customer-panel="reviews">Değerlendirmelerim</button>
-              <button class="account-menu-item" type="button" data-customer-panel="favorites">Favorilerim</button>
-              <button class="account-menu-item" type="button" data-customer-panel="billing">Fatura Adreslerim</button>
-              <button class="account-menu-item" type="button" data-customer-panel="cards">Kayıtlı Kartlarım</button>
-              <div class="account-menu-divider"></div>
+              <div class="account-menu-divider customer-account-only"></div>
+              <button class="account-menu-item customer-account-only" type="button" data-customer-panel="reservations">Rezervasyonlarım</button>
+              <button class="account-menu-item customer-account-only" type="button" data-customer-panel="purchases">Satın Aldıklarım</button>
+              <button class="account-menu-item customer-account-only" type="button" data-customer-panel="reviews">Değerlendirmelerim</button>
+              <button class="account-menu-item customer-account-only" type="button" data-customer-panel="favorites">Favorilerim</button>
+              <button class="account-menu-item customer-account-only" type="button" data-customer-panel="billing">Fatura Adreslerim</button>
+              <button class="account-menu-item customer-account-only" type="button" data-customer-panel="cards">Kayıtlı Kartlarım</button>
+              <div class="account-menu-divider customer-account-only"></div>
               <button class="account-menu-item" id="account-logout" type="button">Çıkış yap</button>
             </div>
           </div>
@@ -751,6 +751,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260609-customer-panel-1"></script>
+    <script src="/app.js?v=20260609-account-role-menu-1"></script>
   </body>
 </html>
