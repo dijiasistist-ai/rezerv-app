@@ -2047,23 +2047,27 @@ a {
 }
 
 .venue-main {
-  padding: 18px 24px 24px;
+  padding: 134px 24px 24px;
   background:
     linear-gradient(135deg, rgba(4, 167, 244, 0.08) 0%, rgba(255, 255, 255, 0) 32%),
     linear-gradient(180deg, #ffffff 0%, #f7f9fd 100%);
 }
 
 .venue-topbar {
-  position: sticky;
+  position: fixed;
   top: 12px;
+  left: 304px;
+  right: 24px;
   z-index: 20;
   min-height: 104px;
   margin-bottom: 16px;
   padding: 17px 18px;
   border: 1px solid #edf1f7;
   border-radius: 10px;
-  background: linear-gradient(120deg, rgba(239, 249, 255, 0.96) 0%, #ffffff 46%, #fff0f6 100%);
-  box-shadow: 0 16px 42px rgba(16, 24, 40, 0.08);
+  background: linear-gradient(120deg, rgba(239, 249, 255, 0.76) 0%, rgba(255, 255, 255, 0.78) 46%, rgba(255, 240, 246, 0.76) 100%);
+  box-shadow: 0 18px 48px rgba(16, 24, 40, 0.12);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
 }
 
 .venue-topbar h1 {
@@ -2249,7 +2253,7 @@ a {
 
 /* Calendar: compact single-screen fit */
 .venue-main:has(#calendar-view:not(.hidden)) {
-  padding: 12px 16px 16px;
+  padding: 88px 16px 16px;
 }
 
 .venue-main:has(#calendar-view:not(.hidden)) .venue-topbar {
@@ -2867,6 +2871,15 @@ a {
     border-bottom: 1px solid #edf1f7;
   }
 
+  .venue-main {
+    padding-top: 136px;
+  }
+
+  .venue-topbar {
+    left: 16px;
+    right: 16px;
+  }
+
   .venue-nav {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
@@ -2905,12 +2918,13 @@ a {
   }
 
   .venue-main {
-    padding: 14px;
+    padding: 128px 14px 14px;
   }
 
   .venue-topbar {
-    position: static;
     display: grid;
+    left: 8px;
+    right: 8px;
     min-height: 0;
   }
 

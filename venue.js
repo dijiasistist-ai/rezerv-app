@@ -390,14 +390,15 @@ function setupLocationPicker(settings) {
     zoomControl: true,
   });
 
-  const tileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  const tileLayer = L.tileLayer("https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
+    attribution: "&copy; Google",
     keepBuffer: 4,
+    subdomains: ["mt0", "mt1", "mt2", "mt3"],
     updateWhenIdle: false,
   }).addTo(map);
   tileLayer.on("tileerror", () => setTimeout(() => tileLayer.redraw(), 300));
-  L.control.attribution({ prefix: false }).addAttribution("&copy; OpenStreetMap &copy; CARTO").addTo(map);
+  L.control.attribution({ prefix: false }).addAttribution("&copy; Google").addTo(map);
 
   const marker = L.marker([lat, lng], {
     draggable: true,
