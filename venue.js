@@ -861,7 +861,7 @@ function renderWeeklySchedule(board, days) {
                         <div class="slot-options" aria-label="Slot durumu seç">
                           <button class="slot-option slot-option-tyee ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="tyee">
                             <span class="slot-option-icon">R</span>
-                            <span>Satışa aç</span>
+                            <span>tyee</span>
                           </button>
                           <button class="slot-option slot-option-closed ${mode === "closed" ? "is-active" : ""}" type="button" data-mode="closed" data-slot-key="${slotKey}" aria-label="Kapalı">
                             <span class="slot-option-icon">K</span>

@@ -1252,8 +1252,6 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
     Object.keys(slotServices).length > 0;
   const isRuntimeVenue = Boolean(getRuntimeVenueListingById(venueId)) || String(venueId).startsWith("venue-");
   const dashboard = mergeVenuePayload(venueId);
-  const serviceOptions = getRuntimeVenueServiceOptions(venueId);
-  const fallbackServiceLabel = serviceOptions[0] || listing.categoryLabel || "";
   const dayIndex = getCalendarDayIndex(date);
   const day = (dashboard.weekDays || [])[dayIndex] || {};
   const daySlots = Array.isArray(day.slots) ? day.slots : [];
@@ -1266,7 +1264,7 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
     const slotKey = `${dayIndex}-${time}`;
     const explicitMode = slotModes[slotKey];
     const explicitService = slotServices[slotKey];
-    const explicitServiceLabel = explicitService?.name || (explicitMode === "rezerv" ? fallbackServiceLabel : "");
+    const explicitServiceLabel = explicitService?.name || "";
     const matchingSlot =
       daySlots.find((slot) => {
         if (slot.time !== time) return false;
@@ -1275,8 +1273,10 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
       }) || daySlots.find((slot) => slot.time === time);
     const mode = getPublicSlotMode(matchingSlot, explicitMode, hasCalendarState);
     const manualEntry = manualEntries[slotKey];
+    const hasExplicitService = Boolean(explicitServiceLabel);
     const serviceMatches =
       !normalizedService ||
+      !hasExplicitService ||
       normalizeSearchText(explicitServiceLabel || matchingSlot?.field || matchingSlot?.meta || "").includes(normalizedService);
     const available = mode === "rezerv" && serviceMatches;
 
