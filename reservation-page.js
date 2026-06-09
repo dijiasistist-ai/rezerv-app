@@ -63,16 +63,24 @@ function getInitials(name = "") {
     .toLocaleUpperCase("tr-TR") || "T";
 }
 
-function todayIso(offset = 1) {
+function formatLocalDateIso(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function todayIso(offset = 0) {
   const date = new Date();
   date.setDate(date.getDate() + offset);
-  return date.toISOString().slice(0, 10);
+  return formatLocalDateIso(date);
 }
 
 function shiftDate(days) {
   const date = new Date(`${dateInput.value || todayIso()}T12:00:00`);
   date.setDate(date.getDate() + days);
-  dateInput.value = date.toISOString().slice(0, 10);
+  dateInput.value = formatLocalDateIso(date);
 }
 
 async function fetchJson(url, options = {}) {
@@ -323,7 +331,7 @@ function renderListing(listing) {
 
 async function loadPage() {
   dateInput.min = todayIso(0);
-  dateInput.value = todayIso(1);
+  dateInput.value = todayIso(0);
   await loadCurrentUser();
   const payload = await fetchJson(`/api/listings/${encodeURIComponent(listingId)}`);
   renderListing(payload.item);
