@@ -26,30 +26,19 @@ const onlineAmount = document.querySelector("#booking-online-amount");
 const totalAmount = document.querySelector("#booking-total-amount");
 const policy = document.querySelector("#booking-policy");
 const feedback = document.querySelector("#booking-feedback");
+const accountLink = document.querySelector("#booking-account-link");
+const accountAvatar = document.querySelector("#booking-account-avatar");
+const accountLabel = document.querySelector("#booking-account-label");
 
 const state = {
   listing: null,
   policy: null,
+  slots: [],
+  availabilityLoading: false,
   selectedSlot: "",
+  token: localStorage.getItem("tyee_token") || "",
+  user: null,
 };
-
-const fallbackSlots = [
-  "08:30",
-  "09:30",
-  "10:30",
-  "11:30",
-  "12:30",
-  "13:30",
-  "14:30",
-  "15:30",
-  "16:30",
-  "17:30",
-  "18:30",
-  "19:30",
-  "20:30",
-  "21:30",
-  "22:30",
-];
 
 function escapeHtml(value = "") {
   return String(value)
@@ -61,6 +50,17 @@ function escapeHtml(value = "") {
 
 function formatCurrency(value = 0) {
   return `₺${new Intl.NumberFormat("tr-TR").format(Math.round(Number(value || 0)))}`;
+}
+
+function getInitials(name = "") {
+  return String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toLocaleUpperCase("tr-TR") || "T";
 }
 
 function todayIso(offset = 1) {
@@ -88,6 +88,52 @@ async function fetchJson(url, options = {}) {
   return payload;
 }
 
+function renderAccountState() {
+  if (!state.user) {
+    accountLink.classList.remove("is-authenticated");
+    accountAvatar.classList.add("hidden");
+    accountAvatar.textContent = "";
+    accountLabel.textContent = "Giriş Yap / Kayıt Ol";
+    accountLink.href = "/index.html";
+    return;
+  }
+
+  accountLink.classList.add("is-authenticated");
+  accountAvatar.classList.remove("hidden");
+  accountAvatar.textContent = getInitials(state.user.name);
+  accountLabel.textContent = state.user.name;
+  accountLink.href = "/index.html";
+}
+
+function prefillCustomerFields() {
+  if (!state.user) return;
+  if (!nameInput.value) nameInput.value = state.user.name || "";
+  if (!phoneInput.value) phoneInput.value = state.user.phone || "";
+  if (!emailInput.value) emailInput.value = state.user.email || "";
+}
+
+async function loadCurrentUser() {
+  if (!state.token) {
+    renderAccountState();
+    return;
+  }
+
+  try {
+    const payload = await fetchJson("/api/auth/me", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${state.token}` },
+    });
+    state.user = payload.user;
+    renderAccountState();
+    prefillCustomerFields();
+  } catch (_error) {
+    localStorage.removeItem("tyee_token");
+    state.token = "";
+    state.user = null;
+    renderAccountState();
+  }
+}
+
 function buildServices(listing) {
   const baseLabel = listing.categoryLabel || "Hizmet";
   if (listing.category === "hali-saha") return ["Saha 1", "Saha 2", "Kapalı saha"];
@@ -102,19 +148,35 @@ function isTimeValue(value = "") {
 }
 
 function renderSlots() {
-  const listing = state.listing;
-  const nextSlot = listing?.availability?.nextSlot || listing?.eveningTime || "";
-  const preferred = isTimeValue(nextSlot) ? nextSlot : "19:30";
-  const slots = [...new Set([preferred, ...fallbackSlots])].slice(0, 16);
+  if (state.availabilityLoading) {
+    slotGrid.innerHTML = `<div class="booking-slot-empty">İşletme takvimi okunuyor...</div>`;
+    return;
+  }
+
+  const slots = state.slots || [];
+  if (!slots.length) {
+    state.selectedSlot = "";
+    slotGrid.innerHTML = `
+      <div class="booking-slot-empty">
+        Bu tarih için işletme takviminde rezervasyona açık saat yok.
+      </div>
+    `;
+    return;
+  }
+
+  const selectedIsAvailable = slots.some((slot) => slot.available && slot.time === state.selectedSlot);
+  if (!selectedIsAvailable) {
+    state.selectedSlot = slots.find((slot) => slot.available)?.time || "";
+  }
 
   slotGrid.innerHTML = slots
-    .map((slot, index) => {
-      const disabled = index < 4;
-      const active = state.selectedSlot === slot;
+    .map((slot) => {
+      const disabled = !slot.available;
+      const active = state.selectedSlot === slot.time;
       return `
-        <button class="${active ? "is-active" : ""}" type="button" data-slot="${slot}" ${disabled ? "disabled" : ""}>
-          <span>${slot}</span>
-          <small>${addHour(slot)}</small>
+        <button class="${active ? "is-active" : ""}" type="button" data-slot="${escapeHtml(slot.time)}" ${disabled ? "disabled" : ""}>
+          <span>${escapeHtml(slot.time)}</span>
+          <small>${escapeHtml(slot.endTime || addHour(slot.time))}</small>
         </button>
       `;
     })
@@ -212,10 +274,34 @@ async function loadPolicy() {
   policy.textContent = billing.settlement || payload.paymentModeLabel || "İşletme ödeme politikası hazır.";
 }
 
+async function loadAvailability() {
+  if (!state.listing) return;
+  state.availabilityLoading = true;
+  renderSlots();
+
+  const query = new URLSearchParams({
+    date: dateInput.value,
+    service: serviceSelect.value || "",
+  });
+  try {
+    const payload = await fetchJson(
+      `/api/listings/${encodeURIComponent(state.listing.id)}/availability?${query.toString()}`,
+    );
+    state.slots = Array.isArray(payload.slots) ? payload.slots : [];
+    state.selectedSlot = payload.nextSlot || "";
+  } catch (error) {
+    state.slots = [];
+    feedback.textContent = error.message;
+  } finally {
+    state.availabilityLoading = false;
+    renderSlots();
+  }
+}
+
 function renderListing(listing) {
   state.listing = listing;
-  const nextSlot = listing.availability?.nextSlot || listing.eveningTime || "";
-  state.selectedSlot = isTimeValue(nextSlot) ? nextSlot : "19:30";
+  state.selectedSlot = "";
+  state.slots = [];
   heroMedia.className = `booking-hero-media ${listing.mediaClass || "media-field"}`;
   rating.textContent = listing.rating || "-";
   category.textContent = listing.categoryLabel || "Rezervasyon";
@@ -229,15 +315,16 @@ function renderListing(listing) {
     .map((item) => `<option>${escapeHtml(item)}</option>`)
     .join("");
   renderFacilities(listing);
-  renderSlots();
   renderReviews(listing);
 }
 
 async function loadPage() {
   dateInput.min = todayIso(0);
   dateInput.value = todayIso(1);
+  await loadCurrentUser();
   const payload = await fetchJson(`/api/listings/${encodeURIComponent(listingId)}`);
   renderListing(payload.item);
+  await loadAvailability();
   await loadPolicy();
 }
 
@@ -248,8 +335,16 @@ slotGrid.addEventListener("click", (event) => {
   renderSlots();
 });
 
-prevDay.addEventListener("click", () => shiftDate(-1));
-nextDay.addEventListener("click", () => shiftDate(1));
+prevDay.addEventListener("click", () => {
+  shiftDate(-1);
+  loadAvailability();
+});
+nextDay.addEventListener("click", () => {
+  shiftDate(1);
+  loadAvailability();
+});
+dateInput.addEventListener("change", () => loadAvailability());
+serviceSelect.addEventListener("change", () => loadAvailability());
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -258,7 +353,9 @@ form.addEventListener("submit", async (event) => {
   feedback.textContent = "";
   feedback.classList.remove("is-success");
   try {
+    if (!state.selectedSlot) throw new Error("Lütfen işletme takviminden açık bir saat seç.");
     await loadPolicy();
+    const selectedSlot = state.slots.find((slot) => slot.time === state.selectedSlot);
     const draft = {
       venueId: state.listing.venueId || state.listing.id,
       listingId: state.listing.id,
@@ -273,7 +370,7 @@ form.addEventListener("submit", async (event) => {
       totalAmount: state.listing.price,
       serviceDate: dateInput.value,
       serviceTime: state.selectedSlot,
-      serviceEndTime: addHour(state.selectedSlot),
+      serviceEndTime: selectedSlot?.endTime || addHour(state.selectedSlot),
       note: "",
       billing: state.policy?.billing || null,
       paymentModeLabel: state.policy?.paymentModeLabel || "",

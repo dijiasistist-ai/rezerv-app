@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee | Rezervasyon</title>
-    <link rel="stylesheet" href="/styles.css?v=20260609-booking-redesign-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260609-booking-auth-1" />
   </head>
   <body class="reservation-page-body">
     <header class="booking-topbar">
@@ -16,7 +16,10 @@
         <a href="/index.html#categories">Kategoriler</a>
         <a href="/index.html#nearby-map">Yakınımda</a>
       </nav>
-      <a class="booking-login" href="/index.html">Giriş Yap / Kayıt Ol</a>
+      <a class="booking-login" id="booking-account-link" href="/index.html">
+        <span class="booking-account-avatar hidden" id="booking-account-avatar"></span>
+        <span id="booking-account-label">Giriş Yap / Kayıt Ol</span>
+      </a>
     </header>
 
     <main class="booking-page" id="booking-page">
@@ -114,6 +117,6 @@
       </section>
     </main>
 
-    <script src="/reservation-page.js?v=20260609-booking-redesign-1"></script>
+    <script src="/reservation-page.js?v=20260609-booking-auth-1"></script>
   </body>
 </html>

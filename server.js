@@ -51,6 +51,27 @@ const port = Number(process.env.PORT || 8091);
 const sessions = new Map();
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
+const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
+const CALENDAR_SLOT_TIMES = [
+  "08:00",
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+  "18:00",
+  "19:00",
+  "20:00",
+  "21:00",
+  "22:00",
+  "23:00",
+  "00:00",
+  "01:00",
+];
 
 app.set("trust proxy", true);
 
@@ -1017,6 +1038,28 @@ app.get("/api/listings/:id", (req, res) => {
   });
 });
 
+app.get("/api/listings/:id/availability", (req, res) => {
+  const id = String(req.params.id || "");
+  const listing = getListingById(id) || getRuntimeVenueListingById(id);
+  if (!listing) {
+    res.status(404).json({ error: "İşletme bulunamadı." });
+    return;
+  }
+
+  const serviceDate = String(req.query.date || new Date().toISOString().slice(0, 10));
+  const serviceLabel = String(req.query.service || "");
+  const slots = getListingAvailabilitySlots({ listing, date: serviceDate, serviceLabel });
+  const firstAvailable = slots.find((slot) => slot.available);
+
+  res.json({
+    date: serviceDate,
+    venueId: listing.venueId || listing.id,
+    slots,
+    openSlots: slots.filter((slot) => slot.available).length,
+    nextSlot: firstAvailable?.time || "",
+  });
+});
+
 function getDistanceKm(origin, target) {
   const toRad = (value) => (value * Math.PI) / 180;
   const earthKm = 6371;
@@ -1157,6 +1200,72 @@ function withActiveVenueCategoryCounts(categories = []) {
     ...category,
     count: formatter.format(counts[category.id] || 0),
   }));
+}
+
+function parseServiceDate(value = "") {
+  const date = new Date(`${String(value || "").slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return new Date();
+  return date;
+}
+
+function getCalendarDayIndex(value = "") {
+  const date = parseServiceDate(value);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const diff = Math.round((date - CALENDAR_BASE_DATE) / dayMs);
+  return ((diff % 7) + 7) % 7;
+}
+
+function addCalendarHour(value = "") {
+  const [hour, minute] = String(value || "").split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "";
+  return `${String((hour + 1) % 24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function getPublicSlotMode(slot, explicitMode, hasCalendarState) {
+  if (explicitMode) return explicitMode;
+  if (!slot) return hasCalendarState ? "closed" : "";
+  if (slot.status === "marketplace") return "rezerv";
+  if (slot.status === "maintenance") return "closed";
+  return "reserved";
+}
+
+function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
+  const venueId = listing.venueId || listing.id;
+  const overlay = getVenueOverlay(venueId);
+  const slotModes = overlay.slotModes || {};
+  const manualEntries = overlay.manualEntries || {};
+  const hasCalendarState = Object.keys(slotModes).length > 0 || Object.keys(manualEntries).length > 0;
+  const isRuntimeVenue = Boolean(getRuntimeVenueListingById(venueId)) || String(venueId).startsWith("venue-");
+  const dashboard = mergeVenuePayload(venueId);
+  const dayIndex = getCalendarDayIndex(date);
+  const day = (dashboard.weekDays || [])[dayIndex] || {};
+  const daySlots = Array.isArray(day.slots) ? day.slots : [];
+  const hasSeedCalendar = !isRuntimeVenue && daySlots.length > 0;
+
+  if (!hasCalendarState && !hasSeedCalendar) return [];
+
+  const normalizedService = normalizeSearchText(serviceLabel);
+  return CALENDAR_SLOT_TIMES.map((time) => {
+    const slotKey = `${dayIndex}-${time}`;
+    const explicitMode = slotModes[slotKey];
+    const matchingSlot =
+      daySlots.find((slot) => {
+        if (slot.time !== time) return false;
+        if (!normalizedService) return true;
+        return normalizeSearchText(slot.field || slot.meta || "").includes(normalizedService);
+      }) || daySlots.find((slot) => slot.time === time);
+    const mode = getPublicSlotMode(matchingSlot, explicitMode, hasCalendarState);
+    const manualEntry = manualEntries[slotKey];
+    const available = mode === "rezerv";
+
+    return {
+      time,
+      endTime: addCalendarHour(time),
+      available,
+      status: available ? "available" : "unavailable",
+      label: available ? "Müsait" : manualEntry ? "Dolu" : mode === "closed" ? "Kapalı" : "Dolu",
+    };
+  }).filter((slot) => slot.available || hasCalendarState || hasSeedCalendar);
 }
 
 app.get("/api/nearby", (req, res) => {
