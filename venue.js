@@ -2,13 +2,18 @@ const venueTitle = document.querySelector("#venue-title");
 const venueAvatar = document.querySelector("#venue-avatar");
 const venueName = document.querySelector("#venue-name");
 const venueBranch = document.querySelector("#venue-branch");
+const venueGlobalAccount = document.querySelector("#venue-global-account");
+const venueGlobalAvatar = document.querySelector("#venue-global-avatar");
+const venueGlobalAccountLabel = document.querySelector("#venue-global-account-label");
 const statGrid = document.querySelector("#stat-grid");
 const quickActions = document.querySelector("#quick-actions");
 const calendarBoardSecondary = document.querySelector("#calendar-board-secondary");
 const calendarFieldPills = document.querySelector("#calendar-field-pills");
 const weekRange = document.querySelector("#week-range");
+const weekTodayButton = document.querySelector("#week-today");
 const weekPrevButton = document.querySelector("#week-prev");
 const weekNextButton = document.querySelector("#week-next");
+const weekNextMonthButton = document.querySelector("#week-next-month");
 const salesModal = document.querySelector("#sales-modal");
 const salesModalClose = document.querySelector("#sales-modal-close");
 const salesCancel = document.querySelector("#sales-cancel");
@@ -22,6 +27,7 @@ const salesTotal = document.querySelector("#sales-total");
 const salesNotes = document.querySelector("#sales-notes");
 const salesSubscription = document.querySelector("#sales-subscription");
 const overviewList = document.querySelector("#overview-list");
+const goCalendarButton = document.querySelector("#go-calendar-button");
 const subscriptionsBody = document.querySelector("#subscriptions-body");
 const newSubscriptionButton = document.querySelector("#new-subscription-button");
 const transactionsBody = document.querySelector("#transactions-body");
@@ -73,7 +79,16 @@ const MONTH_SHORT = [
   "Kas",
   "Ara",
 ];
-const BASE_WEEK_START = new Date(2026, 4, 11);
+function getWeekStart(date = new Date()) {
+  const start = new Date(date);
+  const day = start.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() + diff);
+  return start;
+}
+
+const BASE_WEEK_START = getWeekStart();
 const DEFAULT_SETTINGS_TABS = [
   "İşletme Bilgileri",
   "Ödeme & Sözleşme",
@@ -457,10 +472,31 @@ function renderVenueIdentity() {
   venueBranch.textContent = venueState.dashboard.venue?.branch || "";
 }
 
+function renderGlobalAccount(user = null) {
+  if (!venueGlobalAccount || !venueGlobalAvatar || !venueGlobalAccountLabel) return;
+
+  if (!user) {
+    venueGlobalAccount.classList.remove("is-authenticated");
+    venueGlobalAvatar.classList.add("hidden");
+    venueGlobalAvatar.textContent = "";
+    venueGlobalAccountLabel.textContent = "Giriş Yap / Kayıt Ol";
+    venueGlobalAccount.href = "/index.html";
+    return;
+  }
+
+  const displayName = user.name || user.email || "Hesap";
+  venueGlobalAccount.classList.add("is-authenticated");
+  venueGlobalAvatar.classList.remove("hidden");
+  venueGlobalAvatar.textContent = getInitials(displayName);
+  venueGlobalAccountLabel.textContent = displayName;
+  venueGlobalAccount.href = "/index.html";
+}
+
 async function requireVenueAccess() {
   const token = getToken();
 
   if (!token) {
+    renderGlobalAccount(null);
     authWall.classList.remove("hidden");
     setTimeout(() => {
       window.location.href = "/index.html";
@@ -475,6 +511,7 @@ async function requireVenueAccess() {
   });
 
   if (!response.ok) {
+    renderGlobalAccount(null);
     authWall.classList.remove("hidden");
     localStorage.removeItem("tyee_token");
     setTimeout(() => {
@@ -484,6 +521,7 @@ async function requireVenueAccess() {
   }
 
   const payload = await response.json();
+  renderGlobalAccount(payload.user || null);
   if (!payload.user || !payload.user.canManageVenue) {
     authWall.classList.remove("hidden");
     setTimeout(() => {
@@ -599,6 +637,10 @@ function addDays(date, days) {
 
 function formatDayLabel(date) {
   return `${WEEKDAY_SHORT[date.getDay()]} ${date.getDate()} ${MONTH_SHORT[date.getMonth()]}`;
+}
+
+function formatDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function formatWeekRange(startDate, endDate) {
@@ -778,22 +820,23 @@ async function saveSlotState() {
 function renderWeeklySchedule(board, days) {
   const displayDays = buildDisplayWeek(days);
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+  const todayKey = formatDateKey(today);
   const times = buildTimeSlots();
   const rows = times
     .map((time, timeIndex) => {
       const cells = displayDays
         .map((day, dayIndex) => {
-          const dayKey = `${day.dateObj.getFullYear()}-${day.dateObj.getMonth()}-${day.dateObj.getDate()}`;
+          const dayKey = formatDateKey(day.dateObj);
           const isToday = dayKey === todayKey;
           const slot = day.slots.find((item) => item.time === time);
-          const slotKey = `${dayIndex}-${time}`;
+          const slotKey = `${dayKey}-${time}`;
+          const legacySlotKey = `${dayIndex}-${time}`;
           const selectedClass = venueState.selectedSlotKey === slotKey ? " is-selected" : "";
           const todayClass = isToday ? " is-today-column" : "";
-          const explicitMode = venueState.slotModes[slotKey];
+          const explicitMode = venueState.slotModes[slotKey] ?? venueState.slotModes[legacySlotKey];
           const mode = explicitMode || getDefaultMode(slot);
           const explicitRezervClass = explicitMode === "rezerv" ? " slot-explicit-rezerv" : "";
-          const manualEntry = venueState.manualEntries[slotKey];
+          const manualEntry = venueState.manualEntries[slotKey] ?? venueState.manualEntries[legacySlotKey];
           const serviceInfo = getSlotServiceInfo(slotKey, slot, manualEntry);
           const serviceMeta = buildServiceMeta(serviceInfo);
 
@@ -931,7 +974,7 @@ function renderWeeklySchedule(board, days) {
           <th>Saat</th>
           ${displayDays
             .map((day) => {
-              const dayKey = `${day.dateObj.getFullYear()}-${day.dateObj.getMonth()}-${day.dateObj.getDate()}`;
+              const dayKey = formatDateKey(day.dateObj);
               const isToday = dayKey === todayKey;
               return `<th class="${isToday ? "is-today-head" : ""}">${day.label}</th>`;
             })
@@ -2038,6 +2081,9 @@ function setView(viewId) {
     item.classList.toggle("is-active", item.dataset.view === viewId && !item.dataset.action);
   });
   sections.forEach((section) => section.classList.toggle("hidden", section.id !== `${viewId}-view`));
+  if (viewId === "calendar") {
+    document.querySelector(".venue-main")?.scrollTo({ top: 0, behavior: "smooth" });
+  }
 }
 
 function setNavGroupOpen(activeGroup) {
@@ -2141,6 +2187,20 @@ function bindVenueInteractions() {
     });
   });
 
+  goCalendarButton?.addEventListener("click", () => {
+    setView("calendar");
+    const operationGroup = [...navGroupTriggers]
+      .find((trigger) => trigger.textContent.trim().toLocaleLowerCase("tr-TR") === "operasyon")
+      ?.closest(".venue-nav-group");
+    if (operationGroup) {
+      navGroups.forEach((group) => {
+        const isOperation = group === operationGroup;
+        group.classList.toggle("is-open", isOperation);
+        group.querySelector(".venue-nav-heading")?.setAttribute("aria-expanded", String(isOperation));
+      });
+    }
+  });
+
   calendarBoardSecondary?.addEventListener("click", (event) => {
     if (!venueState.dashboard) return;
 
@@ -2218,6 +2278,20 @@ function bindVenueInteractions() {
   weekNextButton?.addEventListener("click", () => {
     if (!venueState.dashboard) return;
     venueState.currentWeekOffset += 1;
+    venueState.selectedSlotKey = "";
+    renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+  });
+
+  weekTodayButton?.addEventListener("click", () => {
+    if (!venueState.dashboard) return;
+    venueState.currentWeekOffset = 0;
+    venueState.selectedSlotKey = "";
+    renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+  });
+
+  weekNextMonthButton?.addEventListener("click", () => {
+    if (!venueState.dashboard) return;
+    venueState.currentWeekOffset += 4;
     venueState.selectedSlotKey = "";
     renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
   });

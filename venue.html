@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee İşletme Paneli</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260609-global-glass-header-1" />
+    <link rel="stylesheet" href="/venue.css?v=20260609-global-glass-header-4" />
   </head>
   <body>
     <header class="venue-global-header">
       <a class="venue-global-brand" href="/" aria-label="tyee ana sayfa">
-        <img src="/assets/tyee-white.png?v=20260607-logo-white-2" alt="tyee" />
+        <img src="/assets/tyee-header.png?v=20260609-header-logo-2" alt="tyee" />
       </a>
       <nav class="venue-global-nav" aria-label="Ana menü">
         <a href="/#hero">Keşfet</a>
@@ -19,7 +19,10 @@
         <a href="/#featured">Fırsatlar</a>
         <a class="is-active" href="/venue.html">İşletme Paneli</a>
       </nav>
-      <a class="venue-global-account" href="/index.html">Giriş Yap / Kayıt Ol</a>
+      <a class="venue-global-account" id="venue-global-account" href="/index.html">
+        <span class="venue-global-avatar hidden" id="venue-global-avatar"></span>
+        <span id="venue-global-account-label">Giriş Yap / Kayıt Ol</span>
+      </a>
     </header>
 
     <div class="venue-auth-wall hidden" id="venue-auth-wall">
@@ -155,7 +158,7 @@
                 </div>
                 <div class="panel-actions">
                   <button class="ghost-button">Bugün</button>
-                  <button class="solid-button">Takvime Git</button>
+                  <button class="solid-button" id="go-calendar-button" type="button">Takvime Git</button>
                 </div>
               </div>
               <div class="overview-list" id="overview-list"></div>
@@ -180,10 +183,10 @@
               <div class="calendar-controls">
                 <div class="calendar-icon-set">
                   <button class="calendar-icon-button" type="button" aria-label="Takvim">📅</button>
-                  <button class="calendar-icon-button" type="button" aria-label="Hafta başına git">«</button>
+                  <button class="calendar-icon-button" type="button" id="week-today" aria-label="Bu haftaya git">«</button>
                   <button class="calendar-icon-button" type="button" id="week-prev" aria-label="Önceki hafta">‹</button>
                   <button class="calendar-icon-button" type="button" id="week-next" aria-label="Sonraki hafta">›</button>
-                  <button class="calendar-icon-button" type="button" aria-label="Hafta sonuna git">»</button>
+                  <button class="calendar-icon-button" type="button" id="week-next-month" aria-label="Sonraki aya git">»</button>
                 </div>
                 <span class="week-range week-range-pill" id="week-range"></span>
               </div>
@@ -429,6 +432,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/venue.js?v=20260609-google-map-1"></script>
+    <script src="/venue.js?v=20260609-calendar-header-3"></script>
   </body>
 </html>
