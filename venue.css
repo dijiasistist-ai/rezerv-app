@@ -2010,6 +2010,7 @@ a {
 
 .venue-layout {
   grid-template-columns: 238px minmax(0, 1fr);
+  align-items: start;
   width: min(100%, calc(100% - 24px));
   min-height: calc(100vh - 24px);
   margin: 12px auto;
@@ -2020,8 +2021,9 @@ a {
 }
 
 .venue-sidebar {
+  align-self: start;
   height: calc(100vh - 24px);
-  padding: 5px 14px 14px;
+  padding: 24px 14px 14px;
   border-right: 1px solid #edf1f7;
   background: #fff;
   color: var(--ink);

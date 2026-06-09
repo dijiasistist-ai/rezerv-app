@@ -308,7 +308,7 @@ function normalizeSettings(settings = {}) {
     },
     areas: Array.isArray(settings.areas) && settings.areas.length
       ? settings.areas
-      : [{ name: "Ana alan", type: "Saha / oda / masa", capacity: "", price: "", isActive: true }],
+      : [{ name: "Ana hizmet", type: "Hizmet", capacity: "", price: "", isActive: true }],
     facilities: FACILITY_FEATURES.map((feature) => ({
       ...feature,
       enabled: Boolean(savedFacilityMap.get(feature.id)?.enabled),
@@ -714,7 +714,7 @@ function getActiveServiceAreas() {
     ? areas
         .filter((area) => area && area.isActive !== false)
         .map((area) => ({
-          name: String(area.name || "").trim() || "Ana alan",
+          name: String(area.name || "").trim() || "Ana hizmet",
           type: String(area.type || "").trim() || "Hizmet alanı",
           capacity: String(area.capacity || "").trim(),
         }))
@@ -722,13 +722,13 @@ function getActiveServiceAreas() {
 
   return activeAreas.length
     ? activeAreas
-    : [{ name: "Ana alan", type: "Saha / oda / kişi", capacity: "" }];
+    : [{ name: "Ana hizmet", type: "Hizmet", capacity: "" }];
 }
 
 function getSlotServiceInfo(slotKey, slot = null, manualEntry = null) {
   const saved = venueState.slotServices[slotKey];
   const areas = getActiveServiceAreas();
-  const fallbackName = saved?.name || manualEntry?.field || slot?.field || areas[0]?.name || "Ana alan";
+  const fallbackName = saved?.name || manualEntry?.field || slot?.field || areas[0]?.name || "Ana hizmet";
   const matchedArea =
     areas.find((area) => area.name === fallbackName) ||
     areas.find((area) => slot?.field && area.name === slot.field) ||
@@ -795,7 +795,7 @@ function renderSalesProducts(settings) {
       <div class="sales-products-cards">${cardsMarkup}</div>
     </div>
     <div class="sales-products-editor">
-      <div class="settings-note">Her satır satılabilir hizmet/alan kalemidir: saha, oda, masa, bakım paketi, derslik veya eğitmen gibi.</div>
+      <div class="settings-note">Her satır müşterinin rezervasyon ekranında seçeceği satılabilir hizmettir. Tür ve kontenjan/not alanı opsiyoneldir.</div>
       <div class="sales-products-editor-grid">${areaSettingsFields(normalized)}</div>
     </div>
   `;
@@ -827,7 +827,7 @@ function addSubscriptionFromSalesModal() {
   const nextSubscription = {
     id: Math.floor(Date.now() % 1000000),
     customer: salesName.value.trim() || "Yeni abonelik",
-    field: "Ana alan",
+    field: "Ana hizmet",
     day: parsed.day,
     startDate: parsed.startDate,
     time: parsed.time,
@@ -1400,16 +1400,16 @@ function areaSettingsFields(settings) {
               <input data-area-name="${index}" type="text" value="${escapeHtml(area.name)}" placeholder="Küçük ırk bakım, Saha 1, Stüdyo A..." />
             </label>
             <label class="settings-input-field">
-              <span>Satış biçimi</span>
-              <input data-area-type="${index}" type="text" value="${escapeHtml(area.type)}" placeholder="Oda, saha, kişi, saat, eğitmen..." />
+              <span>Hizmet türü</span>
+              <input data-area-type="${index}" type="text" value="${escapeHtml(area.type)}" placeholder="Bakım paketi, saha, oda, ders, seans..." />
             </label>
             <label class="settings-input-field">
-              <span>Kapasite / kişi</span>
-              <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity)}" placeholder="1 pet, 2 kişi, 12 kişi..." />
+              <span>Kontenjan / not</span>
+              <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity)}" placeholder="İsteğe bağlı: 1 pet, 2 kişi, 60 dk..." />
             </label>
             <label class="settings-input-field">
-              <span>Başlangıç fiyatı</span>
-              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺750 / saat" />
+              <span>Satış fiyatı</span>
+              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺2.000" />
             </label>
           </div>
         </article>
@@ -1752,20 +1752,20 @@ function renderAreaSettings(settings) {
           </div>
           <div class="settings-form-grid">
             <label class="settings-input-field">
-              <span>Alan adı</span>
-              <input data-area-name="${index}" type="text" value="${escapeHtml(area.name)}" placeholder="Saha 1, Oda 2, Masa A..." />
+              <span>Hizmet adı</span>
+              <input data-area-name="${index}" type="text" value="${escapeHtml(area.name)}" placeholder="Küçük ırk bakım, Saha 1, Stüdyo A..." />
             </label>
             <label class="settings-input-field">
-              <span>Alan tipi</span>
-              <input data-area-type="${index}" type="text" value="${escapeHtml(area.type)}" placeholder="Saha, oda, masa, eğitmen..." />
+              <span>Hizmet türü</span>
+              <input data-area-type="${index}" type="text" value="${escapeHtml(area.type)}" placeholder="Bakım paketi, saha, oda, ders, seans..." />
             </label>
             <label class="settings-input-field">
-              <span>Kapasite</span>
-              <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity)}" placeholder="2 kişi, 12 kişi..." />
+              <span>Kontenjan / not</span>
+              <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity)}" placeholder="İsteğe bağlı: 1 pet, 2 kişi, 60 dk..." />
             </label>
             <label class="settings-input-field">
-              <span>Başlangıç fiyatı</span>
-              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺750 / saat" />
+              <span>Satış fiyatı</span>
+              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺2.000" />
             </label>
           </div>
         </article>
@@ -2120,7 +2120,7 @@ function addSalesProductDraft() {
   const settings = normalizeSettings(venueState.dashboard.settings);
   settings.areas.push({
     name: `Hizmet ${settings.areas.length + 1}`,
-    type: "Saha / oda / masa",
+    type: "Hizmet",
     capacity: "",
     price: "",
     isActive: true,
@@ -2289,7 +2289,7 @@ function bindVenueInteractions() {
       event.stopPropagation();
       const slotKey = serviceOption.dataset.slotKey;
       venueState.slotServices[slotKey] = {
-        name: serviceOption.dataset.serviceName || "Ana alan",
+        name: serviceOption.dataset.serviceName || "Ana hizmet",
         type: serviceOption.dataset.serviceType || "Hizmet alanı",
         capacity: serviceOption.dataset.serviceCapacity || "",
       };
