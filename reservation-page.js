@@ -164,7 +164,7 @@ function renderSlots() {
     return;
   }
 
-  const slots = state.slots || [];
+  const slots = (state.slots || []).filter((slot) => slot.available);
   if (!slots.length) {
     state.selectedSlot = "";
     slotGrid.innerHTML = `
@@ -175,17 +175,16 @@ function renderSlots() {
     return;
   }
 
-  const selectedIsAvailable = slots.some((slot) => slot.available && slot.time === state.selectedSlot);
+  const selectedIsAvailable = slots.some((slot) => slot.time === state.selectedSlot);
   if (!selectedIsAvailable) {
-    state.selectedSlot = slots.find((slot) => slot.available)?.time || "";
+    state.selectedSlot = slots[0]?.time || "";
   }
 
   slotGrid.innerHTML = slots
     .map((slot) => {
-      const disabled = !slot.available;
       const active = state.selectedSlot === slot.time;
       return `
-        <button class="${active ? "is-active" : ""}" type="button" data-slot="${escapeHtml(slot.time)}" ${disabled ? "disabled" : ""}>
+        <button class="${active ? "is-active" : ""}" type="button" data-slot="${escapeHtml(slot.time)}">
           <span>${escapeHtml(slot.time)}</span>
           <small>${escapeHtml(slot.endTime || addHour(slot.time))}</small>
         </button>

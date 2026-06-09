@@ -5,6 +5,7 @@ const venueBranch = document.querySelector("#venue-branch");
 const statGrid = document.querySelector("#stat-grid");
 const quickActions = document.querySelector("#quick-actions");
 const calendarBoardSecondary = document.querySelector("#calendar-board-secondary");
+const calendarFieldPills = document.querySelector("#calendar-field-pills");
 const weekRange = document.querySelector("#week-range");
 const weekPrevButton = document.querySelector("#week-prev");
 const weekNextButton = document.querySelector("#week-next");
@@ -701,6 +702,19 @@ function buildServiceMeta(serviceInfo) {
   return parts.length ? parts.join(" • ") : "Hizmet/alan";
 }
 
+function renderCalendarFieldPills() {
+  if (!calendarFieldPills) return;
+  calendarFieldPills.innerHTML = getActiveServiceAreas()
+    .map(
+      (area, index) => `
+        <button class="calendar-field-pill ${index === 0 ? "is-active" : ""}" type="button">
+          ${escapeHtml(area.name)}
+        </button>
+      `,
+    )
+    .join("");
+}
+
 function buildSlotBadge(label, className) {
   return `<em class="slot-channel-badge ${className}">${label}</em>`;
 }
@@ -818,13 +832,7 @@ function renderWeeklySchedule(board, days) {
           const popoverClass = `slot-popover${popoverEdgeClass}${popoverVerticalClass}`;
           const slotMainMarkup =
             mode === "rezerv"
-              ? `
-                <div class="open-slot-summary" aria-label="Rezervasyona açık hizmet">
-                  <strong>Satışa açık</strong>
-                  <span>${escapeHtml(serviceInfo.name)}</span>
-                  <small>${escapeHtml(serviceMeta)}</small>
-                </div>
-              `
+              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">tyee</span>`
               : `<strong>${modeLabel}</strong>${badgeMarkup}${modeMeta ? `<span>${modeMeta}</span>` : ""}`;
           const serviceOptionsMarkup = getActiveServiceAreas()
             .map((area) => {
@@ -2088,6 +2096,7 @@ async function loadVenueDashboard() {
   renderStats(payload.stats);
   renderOverview(payload);
   renderQuickActions(payload.quickActions);
+  renderCalendarFieldPills();
   renderWeeklySchedule(calendarBoardSecondary, payload.weekDays);
   renderSubscriptions(payload.subscriptions);
   renderReportSummary(payload.reportSummary || []);

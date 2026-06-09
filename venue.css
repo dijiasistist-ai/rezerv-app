@@ -2524,45 +2524,6 @@ a {
   white-space: nowrap;
 }
 
-#calendar-view .open-slot-summary {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-  width: 100%;
-}
-
-#calendar-view .open-slot-summary strong,
-#calendar-view .open-slot-summary span,
-#calendar-view .open-slot-summary small {
-  display: block;
-  overflow: hidden;
-  margin: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#calendar-view .open-slot-summary strong {
-  color: #0579b8;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-#calendar-view .open-slot-summary span {
-  color: #050b2d;
-  font-size: 10px;
-  font-weight: 900;
-  line-height: 1.05;
-}
-
-#calendar-view .open-slot-summary small {
-  color: #667085;
-  font-size: 8px;
-  font-weight: 800;
-  line-height: 1;
-}
-
 #calendar-view .slot-explicit-rezerv .schedule-choice {
   justify-content: flex-start;
   background: #f3fbff;
@@ -2575,6 +2536,7 @@ a {
   opacity: 1;
 }
 
+#calendar-view .slot-tyee strong,
 #calendar-view .slot-tyee .slot-channel-badge {
   position: absolute;
   width: 1px;

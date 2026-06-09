@@ -1200,6 +1200,11 @@ function getRuntimeVenueServiceOptions(venueId) {
     .filter(Boolean);
 }
 
+function isGenericServiceLabel(value = "") {
+  const normalized = normalizeSearchText(value);
+  return !normalized || normalized === "ana alan" || normalized === "hizmet" || normalized === "hizmet alani";
+}
+
 function withActiveVenueCategoryCounts(categories = []) {
   const counts = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).reduce((totals, item) => {
     totals[item.category] = (totals[item.category] || 0) + 1;
@@ -1273,7 +1278,7 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
       }) || daySlots.find((slot) => slot.time === time);
     const mode = getPublicSlotMode(matchingSlot, explicitMode, hasCalendarState);
     const manualEntry = manualEntries[slotKey];
-    const hasExplicitService = Boolean(explicitServiceLabel);
+    const hasExplicitService = Boolean(explicitServiceLabel) && !isGenericServiceLabel(explicitServiceLabel);
     const serviceMatches =
       !normalizedService ||
       !hasExplicitService ||
