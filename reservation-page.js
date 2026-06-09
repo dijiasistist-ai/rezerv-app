@@ -135,6 +135,9 @@ async function loadCurrentUser() {
 }
 
 function buildServices(listing) {
+  if (Array.isArray(listing.serviceOptions) && listing.serviceOptions.length) {
+    return listing.serviceOptions;
+  }
   const baseLabel = listing.categoryLabel || "Hizmet";
   if (listing.category === "hali-saha") return ["Saha 1", "Saha 2", "Kapalı saha"];
   if (listing.category === "padel") return ["Kort 1", "Kort 2", "Ekipmanlı kort"];

@@ -584,6 +584,7 @@ function mergeVenuePayload(venueId, user = null) {
   payload.slotState = {
     slotModes: overlay.slotModes || {},
     manualEntries: overlay.manualEntries || {},
+    slotServices: overlay.slotServices || {},
   };
 
   return payload;
@@ -1186,7 +1187,17 @@ function getRuntimeVenueListingById(id) {
     serviceTypes: [item.categoryLabel || "hizmet"],
     priceLabel: item.priceLabel || formatCurrency(1000),
     facilities: item.facilities || [],
+    serviceOptions: getRuntimeVenueServiceOptions(item.id),
   };
+}
+
+function getRuntimeVenueServiceOptions(venueId) {
+  const settings = getVenueOverlay(venueId)?.settings || {};
+  const areas = Array.isArray(settings.areas) ? settings.areas : [];
+  return areas
+    .filter((area) => area && area.isActive !== false)
+    .map((area) => String(area.name || "").trim())
+    .filter(Boolean);
 }
 
 function withActiveVenueCategoryCounts(categories = []) {
@@ -1234,9 +1245,15 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
   const overlay = getVenueOverlay(venueId);
   const slotModes = overlay.slotModes || {};
   const manualEntries = overlay.manualEntries || {};
-  const hasCalendarState = Object.keys(slotModes).length > 0 || Object.keys(manualEntries).length > 0;
+  const slotServices = overlay.slotServices || {};
+  const hasCalendarState =
+    Object.keys(slotModes).length > 0 ||
+    Object.keys(manualEntries).length > 0 ||
+    Object.keys(slotServices).length > 0;
   const isRuntimeVenue = Boolean(getRuntimeVenueListingById(venueId)) || String(venueId).startsWith("venue-");
   const dashboard = mergeVenuePayload(venueId);
+  const serviceOptions = getRuntimeVenueServiceOptions(venueId);
+  const fallbackServiceLabel = serviceOptions[0] || listing.categoryLabel || "";
   const dayIndex = getCalendarDayIndex(date);
   const day = (dashboard.weekDays || [])[dayIndex] || {};
   const daySlots = Array.isArray(day.slots) ? day.slots : [];
@@ -1248,15 +1265,20 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
   return CALENDAR_SLOT_TIMES.map((time) => {
     const slotKey = `${dayIndex}-${time}`;
     const explicitMode = slotModes[slotKey];
+    const explicitService = slotServices[slotKey];
+    const explicitServiceLabel = explicitService?.name || (explicitMode === "rezerv" ? fallbackServiceLabel : "");
     const matchingSlot =
       daySlots.find((slot) => {
         if (slot.time !== time) return false;
         if (!normalizedService) return true;
-        return normalizeSearchText(slot.field || slot.meta || "").includes(normalizedService);
+        return normalizeSearchText(explicitServiceLabel || slot.field || slot.meta || "").includes(normalizedService);
       }) || daySlots.find((slot) => slot.time === time);
     const mode = getPublicSlotMode(matchingSlot, explicitMode, hasCalendarState);
     const manualEntry = manualEntries[slotKey];
-    const available = mode === "rezerv";
+    const serviceMatches =
+      !normalizedService ||
+      normalizeSearchText(explicitServiceLabel || matchingSlot?.field || matchingSlot?.meta || "").includes(normalizedService);
+    const available = mode === "rezerv" && serviceMatches;
 
     return {
       time,
@@ -1264,6 +1286,7 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
       available,
       status: available ? "available" : "unavailable",
       label: available ? "Müsait" : manualEntry ? "Dolu" : mode === "closed" ? "Kapalı" : "Dolu",
+      serviceLabel: explicitServiceLabel || matchingSlot?.field || "",
     };
   }).filter((slot) => slot.available || hasCalendarState || hasSeedCalendar);
 }
@@ -1803,8 +1826,16 @@ app.patch("/api/venue/slot-state", requireVenueAccess, (req, res) => {
     slotModes: body.slotModes && typeof body.slotModes === "object" ? body.slotModes : {},
     manualEntries:
       body.manualEntries && typeof body.manualEntries === "object" ? body.manualEntries : {},
+    slotServices:
+      body.slotServices && typeof body.slotServices === "object" ? body.slotServices : {},
   });
-  res.json({ slotState: { slotModes: overlay.slotModes || {}, manualEntries: overlay.manualEntries || {} } });
+  res.json({
+    slotState: {
+      slotModes: overlay.slotModes || {},
+      manualEntries: overlay.manualEntries || {},
+      slotServices: overlay.slotServices || {},
+    },
+  });
 });
 
 app.patch("/api/venue/settings", requireVenueAccess, (req, res) => {

@@ -2524,6 +2524,45 @@ a {
   white-space: nowrap;
 }
 
+#calendar-view .open-slot-summary {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  width: 100%;
+}
+
+#calendar-view .open-slot-summary strong,
+#calendar-view .open-slot-summary span,
+#calendar-view .open-slot-summary small {
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#calendar-view .open-slot-summary strong {
+  color: #0579b8;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+#calendar-view .open-slot-summary span {
+  color: #050b2d;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+#calendar-view .open-slot-summary small {
+  color: #667085;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 #calendar-view .slot-explicit-rezerv .schedule-choice {
   justify-content: flex-start;
   background: #f3fbff;
@@ -2536,7 +2575,6 @@ a {
   opacity: 1;
 }
 
-#calendar-view .slot-tyee strong,
 #calendar-view .slot-tyee .slot-channel-badge {
   position: absolute;
   width: 1px;
@@ -2761,6 +2799,57 @@ a {
 
 #calendar-view .slot-option-manual.is-active .slot-option-icon {
   background: #d89212;
+}
+
+#calendar-view .slot-service-picker {
+  display: grid;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+#calendar-view .slot-service-picker p {
+  margin: 0;
+  color: #667085;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+#calendar-view .slot-service-option {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  padding: 8px 9px;
+  background: #ffffff;
+  color: #263241;
+  text-align: left;
+}
+
+#calendar-view .slot-service-option:hover,
+#calendar-view .slot-service-option.is-active {
+  border-color: rgba(4, 167, 244, 0.55);
+  background: #f3fbff;
+}
+
+#calendar-view .slot-service-option strong,
+#calendar-view .slot-service-option span {
+  display: block;
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#calendar-view .slot-service-option strong {
+  font-size: 11px;
+  font-weight: 900;
+}
+
+#calendar-view .slot-service-option span {
+  color: #667085;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 #calendar-view .slot-popover-edit {

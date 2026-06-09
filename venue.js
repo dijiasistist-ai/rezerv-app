@@ -48,6 +48,7 @@ const venueState = {
   selectedSlotKey: "",
   slotModes: {},
   manualEntries: {},
+  slotServices: {},
   currentWeekOffset: 0,
   activeSettingsTab: "İşletme Bilgileri",
   salesDraftSlotKey: "",
@@ -662,6 +663,44 @@ function buildManualMeta(entry) {
   return "İşletme tarafından girilir";
 }
 
+function getActiveServiceAreas() {
+  const areas = venueState.dashboard?.settings?.areas;
+  const activeAreas = Array.isArray(areas)
+    ? areas
+        .filter((area) => area && area.isActive !== false)
+        .map((area) => ({
+          name: String(area.name || "").trim() || "Ana alan",
+          type: String(area.type || "").trim() || "Hizmet alanı",
+          capacity: String(area.capacity || "").trim(),
+        }))
+    : [];
+
+  return activeAreas.length
+    ? activeAreas
+    : [{ name: "Ana alan", type: "Saha / oda / kişi", capacity: "" }];
+}
+
+function getSlotServiceInfo(slotKey, slot = null, manualEntry = null) {
+  const saved = venueState.slotServices[slotKey];
+  const areas = getActiveServiceAreas();
+  const fallbackName = saved?.name || manualEntry?.field || slot?.field || areas[0]?.name || "Ana alan";
+  const matchedArea =
+    areas.find((area) => area.name === fallbackName) ||
+    areas.find((area) => slot?.field && area.name === slot.field) ||
+    areas[0];
+
+  return {
+    name: saved?.name || matchedArea?.name || fallbackName,
+    type: saved?.type || matchedArea?.type || "Hizmet alanı",
+    capacity: saved?.capacity || matchedArea?.capacity || "",
+  };
+}
+
+function buildServiceMeta(serviceInfo) {
+  const parts = [serviceInfo.type, serviceInfo.capacity].filter(Boolean);
+  return parts.length ? parts.join(" • ") : "Hizmet/alan";
+}
+
 function buildSlotBadge(label, className) {
   return `<em class="slot-channel-badge ${className}">${label}</em>`;
 }
@@ -712,11 +751,13 @@ async function saveSlotState() {
       venueId: venueState.venueId,
       slotModes: venueState.slotModes,
       manualEntries: venueState.manualEntries,
+      slotServices: venueState.slotServices,
     }),
   });
 
   venueState.slotModes = payload.slotState?.slotModes || venueState.slotModes;
   venueState.manualEntries = payload.slotState?.manualEntries || venueState.manualEntries;
+  venueState.slotServices = payload.slotState?.slotServices || venueState.slotServices;
 }
 
 function renderWeeklySchedule(board, days) {
@@ -738,6 +779,8 @@ function renderWeeklySchedule(board, days) {
           const mode = explicitMode || getDefaultMode(slot);
           const explicitRezervClass = explicitMode === "rezerv" ? " slot-explicit-rezerv" : "";
           const manualEntry = venueState.manualEntries[slotKey];
+          const serviceInfo = getSlotServiceInfo(slotKey, slot, manualEntry);
+          const serviceMeta = buildServiceMeta(serviceInfo);
 
           let modeLabel = "Açık";
           let modeMeta = "";
@@ -775,8 +818,33 @@ function renderWeeklySchedule(board, days) {
           const popoverClass = `slot-popover${popoverEdgeClass}${popoverVerticalClass}`;
           const slotMainMarkup =
             mode === "rezerv"
-              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">tyee</span>`
+              ? `
+                <div class="open-slot-summary" aria-label="Rezervasyona açık hizmet">
+                  <strong>Satışa açık</strong>
+                  <span>${escapeHtml(serviceInfo.name)}</span>
+                  <small>${escapeHtml(serviceMeta)}</small>
+                </div>
+              `
               : `<strong>${modeLabel}</strong>${badgeMarkup}${modeMeta ? `<span>${modeMeta}</span>` : ""}`;
+          const serviceOptionsMarkup = getActiveServiceAreas()
+            .map((area) => {
+              const isActive = area.name === serviceInfo.name;
+              return `
+                <button
+                  class="slot-service-option ${isActive ? "is-active" : ""}"
+                  type="button"
+                  data-slot-service="true"
+                  data-slot-key="${slotKey}"
+                  data-service-name="${escapeHtml(area.name)}"
+                  data-service-type="${escapeHtml(area.type)}"
+                  data-service-capacity="${escapeHtml(area.capacity)}"
+                >
+                  <strong>${escapeHtml(area.name)}</strong>
+                  <span>${escapeHtml(buildServiceMeta(area))}</span>
+                </button>
+              `;
+            })
+            .join("");
 
           return `
             <td class="schedule-slot-cell ${compactStatusClass}${explicitRezervClass}${selectedClass}${todayClass}" data-slot-key="${slotKey}" data-day-index="${dayIndex}" data-time="${time}">
@@ -793,7 +861,7 @@ function renderWeeklySchedule(board, days) {
                         <div class="slot-options" aria-label="Slot durumu seç">
                           <button class="slot-option slot-option-tyee ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="tyee">
                             <span class="slot-option-icon">R</span>
-                            <span>tyee</span>
+                            <span>Satışa aç</span>
                           </button>
                           <button class="slot-option slot-option-closed ${mode === "closed" ? "is-active" : ""}" type="button" data-mode="closed" data-slot-key="${slotKey}" aria-label="Kapalı">
                             <span class="slot-option-icon">K</span>
@@ -804,6 +872,16 @@ function renderWeeklySchedule(board, days) {
                             <span>Manuel rezerv</span>
                           </button>
                         </div>
+                        ${
+                          mode === "rezerv"
+                            ? `
+                              <div class="slot-service-picker">
+                                <p>Açılacak hizmet / alan</p>
+                                ${serviceOptionsMarkup}
+                              </div>
+                            `
+                            : ""
+                        }
                         ${
                           mode === "manual"
                             ? `
@@ -2002,6 +2080,7 @@ async function loadVenueDashboard() {
   venueState.venueId = payload.id || "";
   venueState.slotModes = payload.slotState?.slotModes || {};
   venueState.manualEntries = payload.slotState?.manualEntries || {};
+  venueState.slotServices = payload.slotState?.slotServices || {};
 
   renderVenueIdentity();
   renderSidebarSummary(payload);
@@ -2055,6 +2134,23 @@ function bindVenueInteractions() {
   calendarBoardSecondary?.addEventListener("click", (event) => {
     if (!venueState.dashboard) return;
 
+    const serviceOption = event.target.closest("[data-slot-service]");
+    if (serviceOption) {
+      event.stopPropagation();
+      const slotKey = serviceOption.dataset.slotKey;
+      venueState.slotServices[slotKey] = {
+        name: serviceOption.dataset.serviceName || "Ana alan",
+        type: serviceOption.dataset.serviceType || "Hizmet alanı",
+        capacity: serviceOption.dataset.serviceCapacity || "",
+      };
+      venueState.slotModes[slotKey] = "rezerv";
+      renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+      saveSlotState().catch((error) => {
+        console.error(error);
+      });
+      return;
+    }
+
     const bubbleAction = event.target.closest("[data-edit-manual]");
     if (bubbleAction) {
       event.stopPropagation();
@@ -2074,6 +2170,9 @@ function bindVenueInteractions() {
       }
       venueState.slotModes[option.dataset.slotKey] =
         nextMode === "rezerv" ? "rezerv" : nextMode;
+      if (nextMode === "rezerv") {
+        venueState.slotServices[option.dataset.slotKey] = getSlotServiceInfo(option.dataset.slotKey);
+      }
       venueState.selectedSlotKey = "";
       renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
       saveSlotState().catch((error) => {
