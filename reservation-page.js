@@ -26,6 +26,9 @@ const onlineAmount = document.querySelector("#booking-online-amount");
 const totalAmount = document.querySelector("#booking-total-amount");
 const policy = document.querySelector("#booking-policy");
 const feedback = document.querySelector("#booking-feedback");
+const servicePreviewTitle = document.querySelector("#booking-service-preview-title");
+const servicePreviewCopy = document.querySelector("#booking-service-preview-copy");
+const servicePrice = document.querySelector("#booking-service-price");
 const accountLink = document.querySelector("#booking-account-link");
 const accountAvatar = document.querySelector("#booking-account-avatar");
 const accountLabel = document.querySelector("#booking-account-label");
@@ -154,6 +157,24 @@ function buildServices(listing) {
   return [baseLabel, `${baseLabel} 2`, "Özel hizmet"];
 }
 
+function getListingBasePrice(listing) {
+  return Number(listing?.price || 0);
+}
+
+function updateServicePreview() {
+  if (!state.listing) return;
+  const selectedService = serviceSelect.value || state.listing.categoryLabel || "Hizmet";
+  const slotCount = (state.slots || []).filter((slot) => slot.available).length;
+  if (servicePreviewTitle) servicePreviewTitle.textContent = selectedService;
+  if (servicePreviewCopy) {
+    servicePreviewCopy.textContent =
+      slotCount > 0
+        ? `${dateInput.value} icin ${slotCount} uygun saat bulundu.`
+        : "Müsait saatler yükleniyor veya bu tarih için uygun saat bulunmuyor.";
+  }
+  if (servicePrice) servicePrice.textContent = formatCurrency(getListingBasePrice(state.listing));
+}
+
 function isTimeValue(value = "") {
   return /^\d{1,2}:\d{2}$/.test(String(value || ""));
 }
@@ -167,6 +188,7 @@ function renderSlots() {
   const slots = (state.slots || []).filter((slot) => slot.available);
   if (!slots.length) {
     state.selectedSlot = "";
+    updateServicePreview();
     slotGrid.innerHTML = `
       <div class="booking-slot-empty">
         Bu tarih için işletme takviminde rezervasyona açık saat yok.
@@ -179,6 +201,8 @@ function renderSlots() {
   if (!selectedIsAvailable) {
     state.selectedSlot = slots[0]?.time || "";
   }
+
+  updateServicePreview();
 
   slotGrid.innerHTML = slots
     .map((slot) => {
@@ -324,6 +348,7 @@ function renderListing(listing) {
   serviceSelect.innerHTML = buildServices(listing)
     .map((item) => `<option>${escapeHtml(item)}</option>`)
     .join("");
+  updateServicePreview();
   renderFacilities(listing);
   renderReviews(listing);
 }
@@ -373,6 +398,9 @@ form.addEventListener("submit", async (event) => {
       listingName: state.listing.name,
       category: state.listing.category,
       categoryLabel: state.listing.categoryLabel,
+      rating: state.listing.rating,
+      locationLabel: `${state.listing.cityLabel || "Istanbul"}${state.listing.distance ? ` · ${state.listing.distance}` : ""}`,
+      mediaClass: state.listing.mediaClass || "media-field",
       serviceLabel: serviceSelect.value,
       customerName: nameInput.value.trim(),
       customerPhone: phoneInput.value.trim(),

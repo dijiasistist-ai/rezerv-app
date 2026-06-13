@@ -6,6 +6,7 @@ const searchPanel = document.querySelector("#search-panel");
 const queryInput = document.querySelector("#search-query");
 const citySelect = document.querySelector("#search-city");
 const heroMetrics = document.querySelector("#hero-metrics");
+const heroProofCount = document.querySelector("#hero-proof-count");
 const hotSlots = document.querySelector("#hot-slots");
 const resultsSummary = document.querySelector("#results-summary");
 const mosaicCards = document.querySelectorAll("[data-mosaic-category]");
@@ -123,20 +124,26 @@ const state = {
   reservationDraft: null,
   reservationPolicy: null,
   reservationPolicyRequest: 0,
+  heroMetrics: [],
 };
 
 const fallbackCategories = [
   { id: "pet-kuafor", label: "Pet Kuaför", icon: "🐾", count: "0" },
-  { id: "guzellik", label: "Güzellik Merkezi", icon: "💄", count: "0" },
+  { id: "sac-kuafor", label: "Saç Kuaför", icon: "✂️", count: "0" },
+  { id: "masaj", label: "Masaj", icon: "🪷", count: "0" },
   { id: "hali-saha", label: "Halı Saha", icon: "⚽", count: "0" },
-  { id: "padel", label: "Padel Kort", icon: "🎾", count: "0" },
-  { id: "direksiyon", label: "Direksiyon Dersi", icon: "🚘", count: "0" },
-  { id: "ozel-ders", label: "Özel Ders", icon: "🎓", count: "0" },
-  { id: "masaj-spa", label: "Masaj & Spa", icon: "🪷", count: "0" },
-  { id: "kisisel-bakim", label: "Kişisel Bakım", icon: "🧴", count: "0" },
-  { id: "fizyoterapi", label: "Fizyoterapi", icon: "🧘", count: "0" },
-  { id: "yoga-pilates", label: "Yoga & Pilates", icon: "🧘‍♀️", count: "0" },
+  { id: "restaurant", label: "Restaurant", icon: "🍽️", count: "0" },
+  { id: "tattoo", label: "Tattoo", icon: "🖋️", count: "0" },
 ];
+
+const categoryShowcaseMeta = {
+  "pet-kuafor": { mediaClass: "showcase-pet" },
+  "sac-kuafor": { mediaClass: "showcase-hair" },
+  masaj: { mediaClass: "showcase-spa" },
+  "hali-saha": { mediaClass: "showcase-field" },
+  restaurant: { mediaClass: "showcase-restaurant" },
+  tattoo: { mediaClass: "showcase-tattoo" },
+};
 
 const infoHashAliases = {
   hakkimizda: "about",
@@ -163,8 +170,11 @@ function normalize(value = "") {
 function normalizeSearchQuery(value = "") {
   return normalize(value)
     .replace(/\bkuaforu\b/g, "kuafor")
+    .replace(/\bsac salonu\b/g, "sac kuafor")
     .replace(/\bguzelligi\b/g, "guzellik")
     .replace(/\bmasaji\b/g, "masaj")
+    .replace(/\brestoran\b/g, "restaurant")
+    .replace(/\bdovme\b/g, "tattoo")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -635,6 +645,7 @@ function closeNearbyMap() {
 }
 
 function renderHeroMetrics(items = []) {
+  state.heroMetrics = Array.isArray(items) ? items : [];
   heroMetrics.innerHTML = items
     .map(
       (item) => `
@@ -646,6 +657,11 @@ function renderHeroMetrics(items = []) {
       `,
     )
     .join("");
+
+  const totalReservationsMetric = state.heroMetrics.find((item) => normalize(item.label || "") === "toplam rezervasyon");
+  if (heroProofCount) {
+    heroProofCount.textContent = totalReservationsMetric?.value || "0";
+  }
 }
 
 function renderHotSlots(items = []) {
@@ -680,6 +696,12 @@ function renderCategories(items = []) {
   const safeItems = items.length ? items : fallbackCategories;
   state.categories = safeItems;
   const filterItems = [{ id: "all", label: "Hepsi" }, ...safeItems.slice(0, 8)];
+  const featuredByCategory = new Map();
+
+  (state.featuredListings || []).forEach((listing) => {
+    if (!listing?.category || featuredByCategory.has(listing.category)) return;
+    featuredByCategory.set(listing.category, listing);
+  });
 
   filterPillsContainer.innerHTML = filterItems
     .map(
@@ -692,15 +714,21 @@ function renderCategories(items = []) {
     .join("");
 
   categoryRail.innerHTML = safeItems
-    .map(
-      (item) => `
-        <button class="category-card${item.id === state.category ? " is-active" : ""}" data-filter="${item.id}" type="button">
-          <span>${item.icon || "✦"}</span>
-          <strong>${item.label}</strong>
-          <small>${item.count || ""}</small>
+    .map((item) => {
+      const meta = categoryShowcaseMeta[item.id] || {};
+      const liveListing = featuredByCategory.get(item.id);
+      const rating = Number(liveListing?.rating || 0);
+      const reviewCount = Number(liveListing?.reviews || 0);
+      return `
+        <button class="category-card ${meta.mediaClass || ""}${item.id === state.category ? " is-active" : ""}" data-filter="${item.id}" type="button">
+          <span class="category-card-badge">${item.icon || "✦"}</span>
+          <div class="category-card-copy">
+            <strong>${item.label}</strong>
+            <small>★ ${rating ? rating.toFixed(1) : "0.0"} (${reviewCount || 0})</small>
+          </div>
         </button>
-      `,
-    )
+      `;
+    })
     .join("");
 }
 
@@ -1073,12 +1101,12 @@ function closeReservationModal() {
 
 async function loadBootstrap() {
   const payload = await fetchJson("/api/bootstrap");
+  state.featuredListings = payload.featuredListings || [];
   renderCities(payload.cities);
   renderCategories(payload.categories);
   renderMosaicCounts(payload.categories);
   renderHeroMetrics(payload.heroMetrics);
   renderHotSlots(payload.hotSlots);
-  state.featuredListings = payload.featuredListings || [];
   renderListings(state.featuredListings);
   renderResultsSummary(state.featuredListings.length);
   loadInlineNearbyMap().catch(() => setInlineNearbyStatus("Harita yüklenemedi"));

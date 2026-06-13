@@ -1,14 +1,10 @@
 const categoryDefinitions = [
   { id: "pet-kuafor", label: "Pet Kuaför", featuredLabel: "Pet Kuaför", icon: "🐾", cityFocus: "istanbul" },
-  { id: "guzellik", label: "Güzellik Merkezi", featuredLabel: "Güzellik Merkezi", icon: "💄", cityFocus: "istanbul" },
+  { id: "sac-kuafor", label: "Saç Kuaför", featuredLabel: "Saç Kuaför", icon: "✂️", cityFocus: "istanbul" },
+  { id: "masaj", label: "Masaj", featuredLabel: "Masaj", icon: "🪷", cityFocus: "istanbul" },
   { id: "hali-saha", label: "Halı Saha", featuredLabel: "Halı Saha", icon: "⚽", cityFocus: "istanbul" },
-  { id: "padel", label: "Padel Kort", featuredLabel: "Padel Kort", icon: "🎾", cityFocus: "istanbul" },
-  { id: "direksiyon", label: "Direksiyon Dersi", featuredLabel: "Direksiyon Dersi", icon: "🚘", cityFocus: "istanbul" },
-  { id: "ozel-ders", label: "Özel Ders", featuredLabel: "Özel Ders", icon: "🎓", cityFocus: "istanbul" },
-  { id: "masaj", label: "Masaj & Spa", featuredLabel: "Masaj & Spa", icon: "🪷", cityFocus: "istanbul" },
-  { id: "kisisel-bakim", label: "Kişisel Bakım", featuredLabel: "Kişisel Bakım", icon: "🧴", cityFocus: "istanbul" },
-  { id: "fizyoterapi", label: "Fizyoterapi", featuredLabel: "Fizyoterapi", icon: "🧘", cityFocus: "istanbul" },
-  { id: "yoga", label: "Yoga & Pilates", featuredLabel: "Yoga & Pilates", icon: "🧘‍♀️", cityFocus: "istanbul" },
+  { id: "restaurant", label: "Restaurant", featuredLabel: "Restaurant", icon: "🍽️", cityFocus: "istanbul" },
+  { id: "tattoo", label: "Tattoo", featuredLabel: "Tattoo", icon: "🖋️", cityFocus: "istanbul" },
 ];
 
 const marketplaceRecords = {
@@ -22,7 +18,7 @@ function formatCount(value) {
 }
 
 function getMarketplaceStats() {
-  const businesses = marketplaceRecords.approvedBusinesses;
+  const businesses = getPublicListings();
   const reservations = marketplaceRecords.reservations;
   const activeUsers = marketplaceRecords.activeUsers;
   const categoryCounts = businesses.reduce((counts, business) => {
@@ -84,20 +80,20 @@ const listings = [
     serviceTypes: ["pet kuafor", "kopek tras", "kedi bakim", "pet grooming"],
   },
   {
-    id: "moda-padel-club",
-    name: "Moda Padel Club",
-    category: "padel",
+    id: "bosphorus-table",
+    name: "Bosphorus Table",
+    category: "restaurant",
     city: "istanbul",
     cityLabel: "Kadıköy",
     rating: 4.8,
     reviews: 643,
     distance: "1.2 km",
-    price: 600,
-    priceUnit: "saat",
-    summary: "Açık ve kapalı kort · Ekipman ekleme seçeneği",
-    tags: ["Bugün müsait", "Canlı takvim", "Partner bul"],
+    price: 900,
+    priceUnit: "kişi başı ortalama",
+    summary: "Boğaz esintili akşam servisi · Online masa rezervasyonu",
+    tags: ["Bugün müsait", "Anında onay", "Manzara masaları"],
     cta: "Rezervasyon Yap",
-    mediaClass: "media-padel",
+    mediaClass: "media-restaurant",
     featured: true,
     eveningTime: "19:00",
     availability: { today: true, nextSlot: "19:00", openSlots: 10 },
@@ -105,12 +101,12 @@ const listings = [
     conversionScore: 84,
     responseMinutes: 6,
     boost: true,
-    serviceTypes: ["padel", "padel kort", "kort kiralama", "raket"],
+    serviceTypes: ["restaurant", "masa rezervasyonu", "aksam yemegi", "fine dining"],
   },
   {
-    id: "luna-beauty-center",
-    name: "Luna Beauty Center",
-    category: "guzellik",
+    id: "luna-hair-lounge",
+    name: "Luna Hair Lounge",
+    category: "sac-kuafor",
     city: "istanbul",
     cityLabel: "Kadıköy",
     rating: 4.9,
@@ -118,10 +114,10 @@ const listings = [
     distance: "0.8 km",
     price: 750,
     priceUnit: "den başlayan fiyatlar",
-    summary: "Cilt bakımı, lazer ve güzellik paketleri",
-    tags: ["Bugün müsait", "Uzman seçimi", "Paket fiyat"],
+    summary: "Kesim, fön ve boya randevuları tek takvimde",
+    tags: ["Bugün müsait", "Uzman stilist", "Online kapora"],
     cta: "Rezervasyon Yap",
-    mediaClass: "media-beauty",
+    mediaClass: "media-hair",
     featured: true,
     eveningTime: "20:00",
     availability: { today: true, nextSlot: "20:00", openSlots: 6 },
@@ -129,7 +125,7 @@ const listings = [
     conversionScore: 91,
     responseMinutes: 3,
     boost: false,
-    serviceTypes: ["guzellik", "cilt bakimi", "lazer", "manikur", "makyaj"],
+    serviceTypes: ["sac kuafor", "kesim", "fon", "boya", "ombre"],
   },
   {
     id: "kadikoy-arena-hali-saha",
@@ -156,20 +152,20 @@ const listings = [
     serviceTypes: ["hali saha", "futbol", "saha kiralama", "mac"],
   },
   {
-    id: "ahmet-hoca-direksiyon",
-    name: "Ahmet Hoca Direksiyon",
-    category: "direksiyon",
+    id: "ink-house-tattoo",
+    name: "Ink House Tattoo",
+    category: "tattoo",
     city: "istanbul",
     cityLabel: "Kadıköy",
     rating: 4.8,
     reviews: 992,
     distance: "1.1 km",
-    price: 650,
-    priceUnit: "ders",
-    summary: "Manuel ve otomatik araç · Sınav rotası hazırlığı",
-    tags: ["Bugün müsait", "Eğitmen seçimi", "Saatlik ders"],
+    price: 1500,
+    priceUnit: "seans",
+    summary: "Minimal, fine line ve kişiye özel tattoo seansları",
+    tags: ["Bugün müsait", "Sanatçı seçimi", "Ön görüşme"],
     cta: "Rezervasyon Yap",
-    mediaClass: "media-driving",
+    mediaClass: "media-tattoo",
     featured: true,
     eveningTime: "21:00",
     availability: { today: true, nextSlot: "21:00", openSlots: 4 },
@@ -177,7 +173,7 @@ const listings = [
     conversionScore: 82,
     responseMinutes: 9,
     boost: false,
-    serviceTypes: ["direksiyon", "direksiyon dersi", "surus", "ehliyet"],
+    serviceTypes: ["tattoo", "dovme", "fine line", "minimal tattoo"],
   },
   {
     id: "lotus-spa",
@@ -190,7 +186,7 @@ const listings = [
     distance: "0.9 km",
     price: 850,
     priceUnit: "den başlayan fiyatlar",
-    summary: "Masaj, spa ve kişisel bakım randevuları",
+    summary: "Masaj ve spa seansları için sakin rezervasyon akışı",
     tags: ["Bugün müsait", "Sessiz oda", "Paket seçenekleri"],
     cta: "Rezervasyon Yap",
     mediaClass: "media-spa",
@@ -201,23 +197,23 @@ const listings = [
     conversionScore: 87,
     responseMinutes: 5,
     boost: false,
-    serviceTypes: ["masaj", "spa", "thai masaj", "bakim"],
+    serviceTypes: ["masaj", "spa", "thai masaj", "aromaterapi"],
   },
   {
-    id: "akademi-ozel-ders",
-    name: "Akademi Özel Ders",
-    category: "ozel-ders",
+    id: "atelier-34-hair",
+    name: "Atelier 34 Hair Studio",
+    category: "sac-kuafor",
     city: "istanbul",
     cityLabel: "Ataşehir",
     rating: 4.7,
     reviews: 404,
     distance: "2.3 km",
-    price: 500,
-    priceUnit: "ders",
-    summary: "Matematik, fen ve sınav hazırlık öğretmenleri",
-    tags: ["Online uygun", "Öğretmen seç", "Paket ders"],
+    price: 680,
+    priceUnit: "hizmet",
+    summary: "Boya, bakım ve bridal hair paketleri",
+    tags: ["Bugün müsait", "Stilist seçimi", "Bakım paketi"],
     cta: "Rezervasyon Yap",
-    mediaClass: "media-lesson",
+    mediaClass: "media-hair",
     featured: false,
     eveningTime: "18:30",
     availability: { today: true, nextSlot: "18:30", openSlots: 3 },
@@ -225,44 +221,48 @@ const listings = [
     conversionScore: 79,
     responseMinutes: 12,
     boost: false,
-    serviceTypes: ["ozel ders", "matematik", "fen", "sinav hazirlik"],
+    serviceTypes: ["sac kuafor", "gelin saci", "sac bakimi", "fon"],
   },
   {
-    id: "flora-fizyoterapi",
-    name: "Flora Fizyoterapi",
-    category: "fizyoterapi",
+    id: "marina-ocakbasi",
+    name: "Marina Ocakbaşı",
+    category: "restaurant",
     city: "istanbul",
     cityLabel: "Bağdat Caddesi",
     rating: 4.9,
     reviews: 332,
     distance: "1.6 km",
     price: 900,
-    priceUnit: "seans",
-    summary: "Fizyoterapi, klinik pilates ve manuel terapi",
-    tags: ["Uzman seçimi", "Sağlık notu", "Paket seans"],
+    priceUnit: "kişi başı ortalama",
+    summary: "Kalabalık gruplar için hızlı masa planı ve rezervasyon",
+    tags: ["Grup rezervasyonu", "Aile alanı", "Anında onay"],
     cta: "Rezervasyon Yap",
-    mediaClass: "media-physio",
+    mediaClass: "media-restaurant",
     featured: false,
-    eveningTime: "18:00",
-    availability: { today: false, nextSlot: "Yarın 11:00", openSlots: 2 },
+    eveningTime: "20:45",
+    availability: { today: true, nextSlot: "20:45", openSlots: 2 },
     profileScore: 95,
     conversionScore: 81,
     responseMinutes: 7,
     boost: false,
-    serviceTypes: ["fizyoterapi", "klinik pilates", "manuel terapi", "saglik"],
+    serviceTypes: ["restaurant", "ocakbasi", "aksam yemegi", "masa"],
   },
 ];
 
 const hotSlots = [
-  { time: "19:00", title: "Padel Kort", venue: "Moda Padel Club", mediaClass: "media-padel" },
+  { time: "19:00", title: "Restaurant", venue: "Bosphorus Table", mediaClass: "media-restaurant" },
   { time: "19:30", title: "Pet Kuaför", venue: "Pet House Grooming", mediaClass: "media-pet" },
-  { time: "20:00", title: "Güzellik Merkezi", venue: "Luna Beauty", mediaClass: "media-beauty" },
+  { time: "20:00", title: "Saç Kuaför", venue: "Luna Hair Lounge", mediaClass: "media-hair" },
   { time: "20:30", title: "Halı Saha", venue: "Kadıköy Arena", mediaClass: "media-field" },
-  { time: "21:00", title: "Direksiyon Dersi", venue: "Ahmet Hoca", mediaClass: "media-driving" },
-  { time: "21:30", title: "Masaj & Spa", venue: "Lotus Spa", mediaClass: "media-spa" },
+  { time: "21:00", title: "Tattoo", venue: "Ink House Tattoo", mediaClass: "media-tattoo" },
+  { time: "21:30", title: "Masaj", venue: "Lotus Spa", mediaClass: "media-spa" },
 ];
 
 function getPublicListings() {
+  if (!marketplaceRecords.approvedBusinesses.length) {
+    return listings;
+  }
+
   return marketplaceRecords.approvedBusinesses.map((business) => ({
     id: business.id,
     name: business.name,
@@ -736,16 +736,12 @@ function formatPrice(value) {
 }
 
 const categoryMarketFit = {
-  guzellik: 1.16,
+  "sac-kuafor": 1.16,
   "pet-kuafor": 1.14,
   "hali-saha": 1.11,
   masaj: 1.08,
-  padel: 1.05,
-  direksiyon: 1.03,
-  "ozel-ders": 1.02,
-  fizyoterapi: 0.98,
-  "kisisel-bakim": 0.98,
-  yoga: 0.94,
+  restaurant: 1.07,
+  tattoo: 1.04,
 };
 
 function clamp(value, min = 0, max = 1) {
@@ -879,7 +875,7 @@ function enrichListing(listing, rankContext = {}) {
 
   return {
     ...listing,
-    reviews: 0,
+    reviews: Number(listing.reviews || 0),
     categoryLabel: category ? category.featuredLabel : listing.category,
     priceLabel: formatPrice(listing.price),
     rankScore,
@@ -919,13 +915,13 @@ function getListingById(id) {
 
 const mapCoordinates = {
   "pet-house-grooming": { lat: 40.9861, lng: 29.0278 },
-  "moda-padel-club": { lat: 40.9824, lng: 29.0252 },
-  "luna-beauty-center": { lat: 40.9893, lng: 29.0304 },
+  "bosphorus-table": { lat: 40.9824, lng: 29.0252 },
+  "luna-hair-lounge": { lat: 40.9893, lng: 29.0304 },
   "kadikoy-arena-hali-saha": { lat: 40.9916, lng: 29.0372 },
-  "ahmet-hoca-direksiyon": { lat: 40.9954, lng: 29.0218 },
+  "ink-house-tattoo": { lat: 40.9954, lng: 29.0218 },
   "lotus-spa": { lat: 40.9848, lng: 29.0338 },
-  "akademi-ozel-ders": { lat: 40.9928, lng: 29.1246 },
-  "flora-fizyoterapi": { lat: 40.9692, lng: 29.0718 },
+  "atelier-34-hair": { lat: 40.9928, lng: 29.1246 },
+  "marina-ocakbasi": { lat: 40.9692, lng: 29.0718 },
 };
 
 function getDistanceKm(origin, target) {

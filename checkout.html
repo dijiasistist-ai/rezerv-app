@@ -21,68 +21,100 @@
 
     <main class="checkout-layout">
       <section class="checkout-main">
-        <h1>Ödeme Bilgileri</h1>
-
-        <div class="checkout-tabs" role="tablist" aria-label="Ödeme tipi">
-          <button class="is-active" type="button" data-payment-tab="card">Kredi Kartı</button>
-          <button type="button" data-payment-tab="transfer">EFT / Havale</button>
+        <div class="checkout-title-block">
+          <p class="eyebrow">Review and confirm</p>
+          <h1>Rezervasyonunu onayla</h1>
+          <p class="checkout-intro">
+            Ödeme yöntemini seç, bilgilerini tamamla ve rezervasyonunu birkaç adımda bitir.
+          </p>
         </div>
 
-        <section class="checkout-card-form" id="checkout-card-form">
-          <label class="checkout-field checkout-wide">
-            <span>Kart numarası</span>
-            <input inputmode="numeric" placeholder="Kredi kartı veya banka kartı numaranız" />
-          </label>
-          <label class="checkout-field checkout-wide">
-            <span>Kart sahibi</span>
-            <input placeholder="Kart sahibi adı soyadı" />
-          </label>
-          <label class="checkout-field">
-            <span>Ay</span>
-            <select>
-              <option>Ay</option>
-              <option>01</option>
-              <option>02</option>
-              <option>03</option>
-              <option>04</option>
-              <option>05</option>
-              <option>06</option>
-              <option>07</option>
-              <option>08</option>
-              <option>09</option>
-              <option>10</option>
-              <option>11</option>
-              <option>12</option>
-            </select>
-          </label>
-          <label class="checkout-field">
-            <span>Yıl</span>
-            <select>
-              <option>Yıl</option>
-              <option>2026</option>
-              <option>2027</option>
-              <option>2028</option>
-              <option>2029</option>
-              <option>2030</option>
-            </select>
-          </label>
-          <label class="checkout-field">
-            <span>CVV</span>
-            <input inputmode="numeric" placeholder="Cvc No" />
-          </label>
+        <section class="checkout-section checkout-choice-section">
+          <h2>Ödeme seçeneği</h2>
+          <div class="checkout-payment-choices" role="radiogroup" aria-label="Ödeme seçeneği">
+            <button class="checkout-choice-card" id="checkout-choice-full" type="button" data-payment-choice="full">
+              <span class="checkout-choice-indicator" aria-hidden="true"></span>
+              <span class="checkout-choice-copy">
+                <strong>Tamamını şimdi öde</strong>
+                <small id="checkout-choice-full-copy">Tek işlemde tamamla</small>
+              </span>
+              <span class="checkout-choice-price" id="checkout-choice-full-price">-</span>
+            </button>
+            <button class="checkout-choice-card is-active" id="checkout-choice-deposit" type="button" data-payment-choice="deposit">
+              <span class="checkout-choice-indicator" aria-hidden="true"></span>
+              <span class="checkout-choice-copy">
+                <strong>Ön ödemeyi şimdi öde</strong>
+                <small id="checkout-choice-deposit-copy">Minimum tutar tahsil edilir</small>
+              </span>
+              <span class="checkout-choice-price" id="checkout-choice-deposit-price">-</span>
+            </button>
+          </div>
         </section>
 
-        <section class="checkout-transfer hidden" id="checkout-transfer">
-          <strong>Banka transferi ile rezervasyon</strong>
-          <p>Rezervasyon talebin oluşturulur. İşletme ve tyee ekibi ödeme durumunu takip eder.</p>
-          <div>
-            <span>Alıcı</span>
-            <strong>tyee Teknoloji A.Ş.</strong>
+        <section class="checkout-section checkout-method-section">
+          <h2>Ödeme yöntemi</h2>
+
+          <div class="checkout-tabs" role="tablist" aria-label="Ödeme tipi">
+            <button class="is-active" type="button" data-payment-tab="card">Kredi Kartı</button>
+            <button type="button" data-payment-tab="transfer">EFT / Havale</button>
           </div>
-          <div>
-            <span>IBAN</span>
-            <strong>TR00 0000 0000 0000 0000 0000 00</strong>
-          </div>
+
+          <section class="checkout-card-form" id="checkout-card-form">
+            <label class="checkout-field checkout-wide">
+              <span>Kart üzerindeki isim</span>
+              <input placeholder="Kart sahibi adı soyadı" />
+            </label>
+            <label class="checkout-field checkout-wide">
+              <span>Kart numarası</span>
+              <input inputmode="numeric" placeholder="Kredi kartı veya banka kartı numaranız" />
+            </label>
+            <label class="checkout-field">
+              <span>Son kullanma ayı</span>
+              <select>
+                <option>Ay</option>
+                <option>01</option>
+                <option>02</option>
+                <option>03</option>
+                <option>04</option>
+                <option>05</option>
+                <option>06</option>
+                <option>07</option>
+                <option>08</option>
+                <option>09</option>
+                <option>10</option>
+                <option>11</option>
+                <option>12</option>
+              </select>
+            </label>
+            <label class="checkout-field">
+              <span>Son kullanma yılı</span>
+              <select>
+                <option>Yıl</option>
+                <option>2026</option>
+                <option>2027</option>
+                <option>2028</option>
+                <option>2029</option>
+                <option>2030</option>
+              </select>
+            </label>
+            <label class="checkout-field">
+              <span>Güvenlik kodu</span>
+              <input inputmode="numeric" placeholder="123" />
+            </label>
+          </section>
+
+          <section class="checkout-transfer hidden" id="checkout-transfer">
+            <strong>Banka transferi ile rezervasyon</strong>
+            <p>Rezervasyon talebin oluşturulur. İşletme ve tyee ekibi ödeme durumunu takip eder.</p>
+            <div>
+              <span>Alıcı</span>
+              <strong>tyee Teknoloji A.Ş.</strong>
+            </div>
+            <div>
+              <span>IBAN</span>
+              <strong>TR00 0000 0000 0000 0000 0000 00</strong>
+            </div>
+          </section>
         </section>
 
         <section class="checkout-section">
@@ -99,7 +131,7 @@
         </section>
 
         <section class="checkout-section">
-          <h2>Fatura Adresi</h2>
+          <h2>Fatura adresi</h2>
           <div class="checkout-address-row">
             <select>
               <option>Lütfen fatura adresi seçin</option>
@@ -112,33 +144,64 @@
       </section>
 
       <aside class="checkout-summary-card" aria-label="Rezervasyon özeti">
-        <h2>Rezervasyon Özeti</h2>
-        <p id="checkout-venue">İşletme</p>
-        <p id="checkout-service">Hizmet</p>
-        <p id="checkout-date">Tarih</p>
-        <p id="checkout-time">Saat</p>
-
-        <div class="checkout-summary-line">
-          <span id="checkout-online-label">Kartınızdan Çekilecek Tutar</span>
-          <strong id="checkout-online-amount">-</strong>
-        </div>
-        <div class="checkout-summary-line">
-          <span>Tesiste Ödenecek Tutar</span>
-          <strong id="checkout-venue-amount">-</strong>
-        </div>
-        <div class="checkout-summary-line">
-          <span>Toplam Tutar</span>
-          <strong id="checkout-total-amount">-</strong>
+        <div class="checkout-summary-venue">
+          <div class="checkout-summary-media media-field" id="checkout-summary-media"></div>
+          <div class="checkout-summary-venue-copy">
+            <strong id="checkout-venue">İşletme</strong>
+            <p id="checkout-rating">5.0 ★★★★★</p>
+            <p id="checkout-location">Konum bilgisi</p>
+          </div>
         </div>
 
-        <button class="checkout-promo" type="button">Promosyon Kodu Kullan</button>
+        <div class="checkout-summary-meta">
+          <p id="checkout-date">Tarih</p>
+          <p id="checkout-time">Saat</p>
+        </div>
+
+        <div class="checkout-service-line">
+          <div>
+            <strong id="checkout-service">Hizmet</strong>
+            <p id="checkout-service-subline">Seçilen hizmet</p>
+          </div>
+          <strong id="checkout-service-price">-</strong>
+        </div>
+
+        <div class="checkout-summary-breakdown">
+          <div class="checkout-summary-line">
+            <span id="checkout-online-label">Kartınızdan çekilecek tutar</span>
+            <strong id="checkout-online-amount">-</strong>
+          </div>
+          <div class="checkout-summary-line">
+            <span>Tesiste ödenecek tutar</span>
+            <strong id="checkout-venue-amount">-</strong>
+          </div>
+          <div class="checkout-summary-line checkout-summary-line-total">
+            <span>Toplam</span>
+            <strong id="checkout-total-amount">-</strong>
+          </div>
+        </div>
+
+        <div class="checkout-summary-promo">
+          <span>İndirim ve avantajlar</span>
+          <button class="checkout-promo" type="button">Ekle</button>
+        </div>
+        <div class="checkout-pay-row">
+          <div>
+            <strong>Şimdi öde</strong>
+            <p id="checkout-pay-later-copy">Kalan tutarı tesiste ödersin</p>
+          </div>
+          <div class="checkout-pay-amounts">
+            <strong id="checkout-pay-now-amount">-</strong>
+            <span id="checkout-pay-later-amount">-</span>
+          </div>
+        </div>
         <div class="checkout-timer">
-          <span>Kalan Süre:</span>
+          <span>Kalan süre</span>
           <strong id="checkout-countdown">05:00</strong>
           <button type="button" id="checkout-extend">uzat</button>
         </div>
         <p class="checkout-feedback" id="checkout-feedback"></p>
-        <button class="solid-button checkout-submit" id="checkout-submit" type="button">Rezervasyonu Onayla</button>
+        <button class="solid-button checkout-submit" id="checkout-submit" type="button">Şimdi öde</button>
       </aside>
     </main>
 

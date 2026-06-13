@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee İşletme Paneli</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260609-sales-products-1" />
+    <link rel="stylesheet" href="/venue.css?v=20260612-fresha-panel-1" />
   </head>
   <body>
     <header class="venue-global-header">
@@ -87,9 +87,9 @@
       <aside class="venue-sidebar">
         <nav class="venue-nav" aria-label="İşletme paneli menüsü">
           <div class="venue-nav-group">
-            <button class="venue-nav-heading" type="button" aria-expanded="false">Panel</button>
+            <button class="venue-nav-heading" type="button" aria-expanded="false">Dashboard</button>
             <div class="venue-nav-group-body">
-              <button class="venue-nav-item is-active" data-view="overview">Genel Bakış</button>
+              <button class="venue-nav-item is-active" data-view="overview">Ana Panel</button>
             </div>
           </div>
 
@@ -97,18 +97,21 @@
             <button class="venue-nav-heading" type="button" aria-expanded="false">Operasyon</button>
             <div class="venue-nav-group-body">
               <button class="venue-nav-item" data-view="calendar">Takvim</button>
-              <button class="venue-nav-item" data-view="sales-products">Satış Hizmetleri</button>
-              <button class="venue-nav-item" data-view="subscriptions">Abonelikler</button>
-              <button class="venue-nav-item" data-view="transactions">İşlemler</button>
+              <button class="venue-nav-item" data-view="transactions">Checkout & Satış</button>
+              <button class="venue-nav-item" data-view="customers">Müşteriler</button>
+              <button class="venue-nav-item" data-view="campaigns">Pazarlama</button>
+              <button class="venue-nav-item" data-view="sales-products">Hizmet Menüsü</button>
+              <button class="venue-nav-item" data-view="subscriptions">Paketler</button>
+              <button class="venue-nav-item" data-view="finance">İşletme Performansı</button>
               <button class="venue-nav-item" data-view="reviews">Değerlendirmeler</button>
-              <button class="venue-nav-item" data-view="reports">Raporlama</button>
+              <button class="venue-nav-item" data-view="reports">Raporlar</button>
             </div>
           </div>
 
           <div class="venue-nav-group">
-            <button class="venue-nav-heading" type="button" aria-expanded="false">Ayarlar</button>
+            <button class="venue-nav-heading" type="button" aria-expanded="false">Kurulum</button>
             <div class="venue-nav-group-body">
-              <button class="venue-nav-item venue-nav-subitem" data-view="settings">İşletme Bilgileri</button>
+              <button class="venue-nav-item venue-nav-subitem" data-view="settings">İşletme Ayarları</button>
             </div>
           </div>
 
@@ -118,8 +121,8 @@
         <div class="sidebar-summary">
           <span class="sidebar-dot"></span>
           <div>
-            <strong>Bugün müsait</strong>
-            <small>18 slot marketplace'e açık</small>
+            <strong>Takvim canlı</strong>
+            <small>Bugün 18 açık slot rezervasyona uygun</small>
           </div>
         </div>
       </aside>
@@ -127,9 +130,9 @@
       <main class="venue-main">
         <header class="venue-topbar">
           <div>
-            <p class="eyebrow">tyee işletme konsolu</p>
+            <p class="eyebrow">Tyee business workspace</p>
             <h1 id="venue-title">Venue Console</h1>
-            <span class="topbar-subtitle">Rezervasyon, takvim, abonelik ve tahsilat akışını tek panelde yönet.</span>
+            <span class="topbar-subtitle">Takvim, müşteri kartları, checkout ve raporları tek panelde yönet.</span>
           </div>
 
           <div class="topbar-actions">
@@ -154,12 +157,12 @@
             <section class="panel wide-panel">
               <div class="panel-head">
                 <div>
-                  <p class="eyebrow">Özet</p>
-                  <h2>Bugünün operasyon notları</h2>
+                  <p class="eyebrow">Dashboard</p>
+                  <h2>Bugünün çalışma özeti</h2>
                 </div>
                 <div class="panel-actions">
                   <button class="ghost-button">Bugün</button>
-                  <button class="solid-button" id="go-calendar-button" type="button">Takvime Git</button>
+                  <button class="solid-button" id="go-calendar-button" type="button">Takvimi Aç</button>
                 </div>
               </div>
               <div class="overview-list" id="overview-list"></div>
@@ -168,7 +171,7 @@
             <section class="panel side-panel">
               <div class="panel-head compact">
                 <div>
-                  <p class="eyebrow">Bugün</p>
+                  <p class="eyebrow">Quick actions</p>
                   <h2>Hızlı işlemler</h2>
                 </div>
               </div>
@@ -195,8 +198,8 @@
 
             <div class="panel-head calendar-panel-head">
               <div>
-                <p class="eyebrow">Takvim</p>
-                <h2>Haftalık rezervasyon planı</h2>
+                  <p class="eyebrow">Calendar</p>
+                  <h2>Takvim ve müsaitlik planı</h2>
               </div>
               <div class="calendar-legend" aria-label="Takvim renkleri">
                 <span><i class="legend-open"></i>Müsait</span>
@@ -216,8 +219,8 @@
           <div class="section-card">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Operasyon</p>
-                <h2>Satışa açık ürün ve hizmetler</h2>
+                <p class="eyebrow">Services</p>
+                <h2>Hizmet menüsü ve rezervasyon ayarları</h2>
               </div>
               <div class="panel-actions">
                 <button class="ghost-button" type="button" data-area-add>+ Hizmet ekle</button>
@@ -229,16 +232,73 @@
           </div>
         </section>
 
+        <section class="view-section hidden" id="customers-view">
+          <div class="section-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Clients</p>
+                <h2>Müşteri kartları ve ziyaret geçmişi</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-button" type="button">Segment filtrele</button>
+                <button class="solid-button" type="button">Müşteri notu ekle</button>
+              </div>
+            </div>
+            <div class="crm-summary-grid" id="crm-summary-grid"></div>
+            <div class="crm-layout">
+              <div class="crm-customer-list" id="crm-customer-list"></div>
+              <aside class="crm-customer-focus" id="crm-customer-focus"></aside>
+            </div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="campaigns-view">
+          <div class="section-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Marketing</p>
+                <h2>Hatırlatma, geri çağırma ve sadakat akışları</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-button" type="button">Taslaklar</button>
+                <button class="solid-button" type="button">Yeni akış oluştur</button>
+              </div>
+            </div>
+            <div class="campaigns-kpi-grid" id="campaigns-kpi-grid"></div>
+            <div class="campaigns-board" id="campaigns-board"></div>
+          </div>
+        </section>
+
+        <section class="view-section hidden" id="finance-view">
+          <div class="section-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Performance</p>
+                <h2>Gelir, gider ve net performans görünümü</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="ghost-button" type="button">Gider ekle</button>
+                <button class="solid-button" type="button">PDF indir</button>
+              </div>
+            </div>
+            <div class="finance-kpi-grid" id="finance-kpi-grid"></div>
+            <div class="finance-layout">
+              <div class="finance-card-stack" id="finance-card-stack"></div>
+              <div class="finance-pnl-shell" id="finance-pnl-shell"></div>
+            </div>
+          </div>
+        </section>
+
         <section class="view-section hidden" id="subscriptions-view">
           <div class="section-card">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Haftalık abonelik satış</p>
-                <h2>Aktif ve pasif paketleri tek bakışta yönetin</h2>
+                <p class="eyebrow">Memberships</p>
+                <h2>Aktif paketleri ve üyelikleri yönetin</h2>
               </div>
               <div class="panel-actions">
                 <button class="ghost-button">Filtrele</button>
-                <button class="solid-button" id="new-subscription-button" type="button">Yeni abonelik</button>
+                <button class="solid-button" id="new-subscription-button" type="button">Yeni paket</button>
               </div>
             </div>
             <div class="table-shell">
@@ -265,12 +325,12 @@
           <div class="section-card">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">İşlemler ve raporlama</p>
-                <h2>Rezervasyon ve Tyee komisyon akışı</h2>
+                <p class="eyebrow">Checkout</p>
+                <h2>Ödeme, satış ve checkout geçmişi</h2>
               </div>
               <div class="panel-actions">
-                <button class="ghost-button">Excel'e aktar</button>
-                <button class="solid-button">Rapor indir</button>
+                <button class="ghost-button">Satış dışa aktar</button>
+                <button class="solid-button">Yeni satış oluştur</button>
               </div>
             </div>
 
@@ -304,11 +364,11 @@
               <span>Tarih filtre tipi</span>
               <label class="radio-chip is-active">
                 <input type="radio" name="date-filter-type" checked />
-                <span>Oluşturulma zamanına göre</span>
+                <span>Satış zamanına göre</span>
               </label>
               <label class="radio-chip">
                 <input type="radio" name="date-filter-type" />
-                <span>Rezervasyon tarihine göre</span>
+                <span>Randevu tarihine göre</span>
               </label>
             </div>
 
@@ -346,8 +406,8 @@
           <div class="section-card">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Kurum raporu</p>
-                <h2>Yönetici özeti ve performans görünümü</h2>
+                <p class="eyebrow">Reports</p>
+                <h2>Yönetici özeti ve ekip performansı</h2>
               </div>
               <div class="panel-actions">
                 <select class="report-period-select" id="venue-report-period" aria-label="Rapor dönemi">
@@ -356,7 +416,7 @@
                   <option>Bu çeyrek</option>
                   <option>Yıllık</option>
                 </select>
-                <button class="solid-button" id="refresh-venue-report" type="button">Rapor hazırla</button>
+                <button class="solid-button" id="refresh-venue-report" type="button">Rapor oluştur</button>
               </div>
             </div>
             <div class="report-summary-grid" id="reports-summary-grid"></div>
@@ -373,8 +433,8 @@
               <div class="panel settings-panel settings-panel-wide">
                 <div class="panel-head compact">
                   <div>
-                    <p class="eyebrow">İşletme konfigürasyonu</p>
-                    <h2>İşletmenizin çalışma şeklini tanımlayın</h2>
+                    <p class="eyebrow">Setup</p>
+                    <h2>İşletmenin çalışma şeklini tanımla</h2>
                   </div>
                 </div>
                 <div class="settings-onboarding-form" id="settings-onboarding-form"></div>
@@ -402,8 +462,8 @@
           <div class="section-card">
             <div class="panel-head compact">
               <div>
-                <p class="eyebrow">Değerlendirmeler</p>
-                <h2>Tesisiniz için bırakılan yorumları ve puanlamaları yönetin</h2>
+                <p class="eyebrow">Reviews</p>
+                <h2>Yorumları ve puanlamaları yönet</h2>
               </div>
             </div>
             <div class="reviews-shell" id="reviews-shell"></div>
@@ -450,6 +510,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/venue.js?v=20260609-sales-products-1"></script>
+    <script src="/venue.js?v=20260612-fresha-panel-1"></script>
   </body>
 </html>

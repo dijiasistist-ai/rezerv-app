@@ -1322,9 +1322,21 @@ app.get("/api/nearby", (req, res) => {
   const lat = Number(req.query.lat || 41.0351);
   const lng = Number(req.query.lng || 29.0268);
   const origin = { lat, lng };
+
+  if (HIDE_PUBLIC_VENUES) {
+    res.json({
+      origin: {
+        lat: Number.isFinite(origin.lat) ? origin.lat : 41.0351,
+        lng: Number.isFinite(origin.lng) ? origin.lng : 29.0268,
+      },
+      items: [],
+    });
+    return;
+  }
+
   const payload = getNearbyMapPayload(origin);
   const runtimeItems = getRuntimeVenueMapItems(payload.origin);
-  const sourceItems = HIDE_PUBLIC_VENUES ? [] : runtimeItems.length ? runtimeItems : payload.items;
+  const sourceItems = runtimeItems.length ? runtimeItems : payload.items;
   const byKey = new Map();
 
   sourceItems.forEach((item) => {

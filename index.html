@@ -6,13 +6,13 @@
     <title>tyee | Rezervasyon Marketplace</title>
     <meta
       name="description"
-      content="Pet kuaför, padel, halı saha, güzellik merkezi, direksiyon dersi ve daha fazlası için anında rezervasyon marketplace'i."
+      content="Saç kuaför, masaj, pet kuaför, halı saha, restaurant ve tattoo işletmelerini keşfet, karşılaştır ve anında rezervasyon oluştur."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/styles.css?v=20260609-fixed-glass-header-2" />
+    <link rel="stylesheet" href="/styles.css?v=20260613-mobile-responsive-1" />
   </head>
   <body>
     <div class="page-shell">
@@ -23,10 +23,8 @@
 
         <nav class="main-nav" aria-label="Ana menü">
           <a class="is-active" href="#hero">Keşfet</a>
-          <a href="#categories">Kategoriler</a>
-          <a href="#nearby-map" id="nearby-map-trigger">Yakınımda</a>
-          <a href="#featured">Fırsatlar</a>
-          <a href="/venue.html" id="business-nav-link">İşletme Paneli</a>
+          <a href="#featured" id="nearby-map-trigger">Yakınımda</a>
+          <a href="/venue.html" id="business-nav-link">İşletmeler İçin</a>
         </nav>
 
         <div class="header-actions">
@@ -111,100 +109,61 @@
         <section class="hero" id="hero">
           <div class="hero-copy">
             <h1>
-              Pet kuaförden padel kortuna, güzellik merkezinden direksiyon dersine kadar
-              binlerce hizmeti keşfet, karşılaştır ve anında rezervasyon yap.
+              Bir sonraki randevun burada başlıyor.
             </h1>
-
-            <div class="trust-chips" aria-label="Öne çıkan avantajlar">
-              <span>✓ Canlı müsaitlik</span>
-              <span>✓ Anında rezervasyon</span>
-              <span>✓ Güvenli ödeme</span>
-              <span>✓ Ücretsiz iptal seçeneği</span>
-            </div>
-          </div>
-
-          <div class="hero-mosaic" aria-label="Popüler hizmet vitrini">
-            <article class="mosaic-card media-pet" data-mosaic-category="pet-kuafor">
-              <div class="mosaic-label">
-                <span>Pet Kuaför</span>
-                <small>0 işletme</small>
-              </div>
-            </article>
-            <article class="mosaic-card media-padel" data-mosaic-category="padel">
-              <div class="mosaic-label">
-                <span>Padel Kort</span>
-                <small>0 işletme</small>
-              </div>
-            </article>
-            <article class="mosaic-card media-beauty" data-mosaic-category="guzellik">
-              <div class="mosaic-label">
-                <span>Güzellik Merkezi</span>
-                <small>0 işletme</small>
-              </div>
-            </article>
-            <article class="mosaic-card media-field" data-mosaic-category="hali-saha">
-              <div class="mosaic-label">
-                <span>Halı Saha</span>
-                <small>0 işletme</small>
-              </div>
-            </article>
-            <article class="mosaic-card media-driving" data-mosaic-category="direksiyon">
-              <div class="mosaic-label">
-                <span>Direksiyon Dersi</span>
-                <small>0 öğretmen</small>
-              </div>
-            </article>
-            <article class="mosaic-card media-spa" data-mosaic-category="masaj">
-              <div class="mosaic-label">
-                <span>Masaj & Spa</span>
-                <small>0 işletme</small>
-              </div>
-            </article>
+            <p class="hero-subtitle">
+              Yakınındaki kaliteli işletmeleri keşfet, müsait saatleri görüntüle ve rezervasyonunu saniyeler içinde oluştur.
+            </p>
           </div>
 
           <form class="search-panel" id="search-panel">
             <label class="search-field search-field-main">
+              <span class="search-field-icon icon-search" aria-hidden="true"></span>
               <input
                 id="search-query"
                 type="text"
-                placeholder="Pet kuaförü, padel, halı saha, masaj..."
+                placeholder="Örn: Makeup, masaj, restaurant, tattoo"
               />
             </label>
-            <label class="search-field">
+            <label class="search-field search-field-location">
+              <span class="search-field-icon icon-pin" aria-hidden="true"></span>
               <span class="sr-only">Nerede?</span>
               <select id="search-city"></select>
             </label>
-            <button class="solid-button search-button" type="submit">Ara</button>
+            <button class="solid-button search-button" type="submit">Ara →</button>
           </form>
+
+          <div class="hero-proof">
+            <span class="hero-proof-avatars" aria-hidden="true">
+              <i></i><i></i><i></i><i></i>
+            </span>
+            <strong id="hero-proof-count">0</strong> kişi bu hafta Tyee ile rezervasyon yaptı
+          </div>
 
           <div class="popular-searches">
             <strong>Popüler aramalar:</strong>
-            <button type="button" data-search="Pet kuaförü">Pet kuaförü</button>
-            <button type="button" data-search="Padel">Padel</button>
+            <button type="button" data-search="Saç kuaför">Saç kuaför</button>
             <button type="button" data-search="Halı saha">Halı saha</button>
-            <button type="button" data-search="Direksiyon hocası">Direksiyon hocası</button>
-            <button type="button" data-search="Güzellik merkezi">Güzellik merkezi</button>
             <button type="button" data-search="Masaj">Masaj</button>
+            <button type="button" data-search="Pet kuaför">Pet kuaför</button>
+            <button type="button" data-search="Restaurant">Restaurant</button>
+            <button type="button" data-search="Tattoo">Tattoo</button>
             <button type="button" data-search="">Hepsi ›</button>
           </div>
         </section>
 
         <section class="category-band" id="categories">
           <div class="section-title-row">
-            <h2>Kategoriler</h2>
-            <button class="round-arrow" id="category-next" type="button" aria-label="Sonraki kategorileri göster">›</button>
+            <h2>Bu hafta popüler</h2>
+            <a class="section-link" href="#featured">Tümünü keşfet</a>
           </div>
           <div class="category-rail" id="category-rail">
             <button class="category-card" data-filter="pet-kuafor" type="button"><span>🐾</span><strong>Pet Kuaför</strong><small>0</small></button>
-            <button class="category-card" data-filter="guzellik" type="button"><span>💄</span><strong>Güzellik Merkezi</strong><small>0</small></button>
+            <button class="category-card" data-filter="sac-kuafor" type="button"><span>✂️</span><strong>Saç Kuaför</strong><small>0</small></button>
+            <button class="category-card" data-filter="masaj" type="button"><span>🪷</span><strong>Masaj</strong><small>0</small></button>
             <button class="category-card" data-filter="hali-saha" type="button"><span>⚽</span><strong>Halı Saha</strong><small>0</small></button>
-            <button class="category-card" data-filter="padel" type="button"><span>🎾</span><strong>Padel Kort</strong><small>0</small></button>
-            <button class="category-card" data-filter="direksiyon" type="button"><span>🚘</span><strong>Direksiyon Dersi</strong><small>0</small></button>
-            <button class="category-card" data-filter="ozel-ders" type="button"><span>🎓</span><strong>Özel Ders</strong><small>0</small></button>
-            <button class="category-card" data-filter="masaj-spa" type="button"><span>🪷</span><strong>Masaj & Spa</strong><small>0</small></button>
-            <button class="category-card" data-filter="kisisel-bakim" type="button"><span>🧴</span><strong>Kişisel Bakım</strong><small>0</small></button>
-            <button class="category-card" data-filter="fizyoterapi" type="button"><span>🧘</span><strong>Fizyoterapi</strong><small>0</small></button>
-            <button class="category-card" data-filter="yoga-pilates" type="button"><span>🧘‍♀️</span><strong>Yoga & Pilates</strong><small>0</small></button>
+            <button class="category-card" data-filter="restaurant" type="button"><span>🍽️</span><strong>Restaurant</strong><small>0</small></button>
+            <button class="category-card" data-filter="tattoo" type="button"><span>🖋️</span><strong>Tattoo</strong><small>0</small></button>
           </div>
         </section>
 

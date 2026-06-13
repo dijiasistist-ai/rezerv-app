@@ -10,6 +10,14 @@ const quickActions = document.querySelector("#quick-actions");
 const calendarBoardSecondary = document.querySelector("#calendar-board-secondary");
 const calendarFieldPills = document.querySelector("#calendar-field-pills");
 const salesProductsLayout = document.querySelector("#sales-products-layout");
+const crmSummaryGrid = document.querySelector("#crm-summary-grid");
+const crmCustomerList = document.querySelector("#crm-customer-list");
+const crmCustomerFocus = document.querySelector("#crm-customer-focus");
+const campaignsKpiGrid = document.querySelector("#campaigns-kpi-grid");
+const campaignsBoard = document.querySelector("#campaigns-board");
+const financeKpiGrid = document.querySelector("#finance-kpi-grid");
+const financeCardStack = document.querySelector("#finance-card-stack");
+const financePnlShell = document.querySelector("#finance-pnl-shell");
 const weekRange = document.querySelector("#week-range");
 const weekTodayButton = document.querySelector("#week-today");
 const weekPrevButton = document.querySelector("#week-prev");
@@ -64,6 +72,114 @@ const venueState = {
   dashboard: null,
 };
 
+const venueCrmSummary = [
+  { label: "Toplam müşteri", value: "1.248", meta: "Bu ay +82 yeni müşteri kartı" },
+  { label: "Tekrar gelen", value: "%64", meta: "Son 90 günde tekrar rezervasyon" },
+  { label: "Pazarlama izni açık", value: "812", meta: "WhatsApp / SMS uygun" },
+  { label: "Geri çağırılacak", value: "94", meta: "30 gündür gelmeyen müşteri" },
+];
+
+const venueCustomerCards = [
+  {
+    name: "Sude Yılmaz",
+    segment: "Sadık müşteri",
+    visits: "18 ziyaret",
+    spend: "₺12.400 toplam",
+    nextAction: "Sadakat akışına dahil",
+    note: "En çok cuma 19:00 slotunu alıyor, checkout sonrası tekrar rezervasyon oranı yüksek.",
+  },
+  {
+    name: "Mert Kaan",
+    segment: "Riskli kayıp",
+    visits: "4 ziyaret",
+    spend: "₺2.100 toplam",
+    nextAction: "14 gündür gelmedi",
+    note: "Son randevuda memnuniyet yüksek ama yeniden booking yapmadı.",
+  },
+  {
+    name: "Ece Su",
+    segment: "Yeni müşteri",
+    visits: "1 ziyaret",
+    spend: "₺850 toplam",
+    nextAction: "İlk ziyaret sonrası follow-up gönder",
+    note: "Masaj & spa için geldi, bakım paketi ve ikinci ziyaret akışı önerilebilir.",
+  },
+];
+
+const venueCustomerFocusCard = {
+  name: "Sude Yılmaz",
+  label: "Yüksek yaşam boyu değer",
+  stats: [
+    ["Son ziyaret", "06 Haz 2026"],
+    ["Son hizmet", "Saha 1 · 20:00"],
+    ["Ort. sepet", "₺688"],
+    ["Pazarlama izni", "WhatsApp + SMS açık"],
+  ],
+  timeline: [
+    "03 Haziran: Cuma akşamı slot aldı, kaporayı online ödedi ve checkout tamamlandı.",
+    "20 Mayıs: Arkadaş grubu ile geldi, müşteri kartına saha tercihi not edildi.",
+    "02 Mayıs: Sadakat kampanyasından dönüp tekrar rezervasyon yaptı.",
+  ],
+};
+
+const venueCampaignKpis = [
+  { label: "Aktif akış", value: "6", meta: "3 otomatik, 3 manuel" },
+  { label: "Geri kazanılan müşteri", value: "38", meta: "Son 30 gün" },
+  { label: "Kampanya cirosu", value: "₺27.400", meta: "CRM kaynaklı rezervasyon" },
+  { label: "Mesaj teslim oranı", value: "%93", meta: "WhatsApp + SMS" },
+];
+
+const venueCampaignFlows = [
+  {
+    title: "No-show sonrası geri çağırma",
+    channel: "WhatsApp",
+    status: "Aktif",
+    detail: "48 saat içinde hatırlatma ve yüzde 10 dönüş kampanyası",
+  },
+  {
+    title: "30 gün gelmeyen müşteriler",
+    channel: "SMS",
+    status: "Hazır",
+    detail: "Eski müşterilere boş saat kampanyası",
+  },
+  {
+    title: "Doğum günü sadakat akışı",
+    channel: "WhatsApp",
+    status: "Aktif",
+    detail: "Kişisel mesaj + ekstra avantaj kodu",
+  },
+  {
+    title: "İlk ziyaretten 7 gün sonra tekrar çağırma",
+    channel: "E-posta",
+    status: "Taslak",
+    detail: "İlk deneyim sonrası ikinci rezervasyonu tetikleme",
+  },
+];
+
+const venueFinanceKpis = [
+  { label: "Bu ay satış", value: "₺184.600", meta: "Marketplace + manuel + paket" },
+  { label: "Net işletme geliri", value: "₺136.900", meta: "Komisyon ve gider sonrası" },
+  { label: "Toplam gider", value: "₺31.400", meta: "Personel, kira, sarf" },
+  { label: "Brüt kar marjı", value: "%42", meta: "Hizmet bazlı görünüm" },
+];
+
+const venueFinanceCards = [
+  { title: "Tahsilat karışımı", body: "Online kapora ₺38.500, tesiste tahsilat ₺96.100, paket satış ₺50.000" },
+  { title: "En karlı hizmet", body: "Akşam prime-time saha rezervasyonları checkout sonrası ortalama yüzde 54 marj üretiyor." },
+  { title: "Gider alarmı", body: "Bu ay sarf giderleri yüzde 11 yükseldi. Stok ve tedarik kontrolü önerilir." },
+];
+
+const venuePnlRows = [
+  ["Marketplace rezervasyon", "₺82.400"],
+  ["Manuel / walk-in satış", "₺52.200"],
+  ["Üyelik / paket", "₺50.000"],
+  ["Personel gideri", "-₺14.800"],
+  ["Kira ve genel gider", "-₺11.400"],
+  ["Sarf ve temizlik", "-₺5.200"],
+  ["Tyee platform payı", "-₺13.500"],
+  ["Net kalan", "₺139.700"],
+];
+
 const DEFAULT_LOCATION_CENTER = { lat: 41.0082, lng: 28.9784 };
 const WEEKDAY_SHORT = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cts"];
 const MONTH_SHORT = [
@@ -95,21 +211,45 @@ const DEFAULT_SETTINGS_TABS = [
   "Ödeme & Sözleşme",
 ];
 const FACILITY_FEATURES = [
-  { id: "shower", label: "Duş", icon: "🚿" },
-  { id: "male-restroom", label: "Erkek tuvaleti", icon: "🚹" },
-  { id: "female-restroom", label: "Kadın tuvaleti", icon: "🚺" },
-  { id: "food", label: "Yemek", icon: "🍽️" },
-  { id: "parking", label: "Otopark", icon: "🅿️" },
-  { id: "card", label: "Kredi kartı", icon: "💳" },
-  { id: "camera", label: "Kamera", icon: "🎥" },
-  { id: "equipment", label: "Ekipman / ayakkabı", icon: "🎒" },
-  { id: "goalkeeper", label: "Kaleci", icon: "🥅" },
-  { id: "kids", label: "Çocuk oyun alanı", icon: "🧒" },
-  { id: "cafe", label: "Cafe", icon: "☕" },
-  { id: "prayer", label: "İbadet alanı", icon: "🌙" },
-  { id: "wifi", label: "İnternet", icon: "📶" },
-  { id: "locker", label: "Soyunma odası", icon: "🔐" },
+  { id: "card", label: "Kredi kartı", icon: "💳", scopes: ["all"] },
+  { id: "camera", label: "Kamera", icon: "🎥", scopes: ["all"] },
+  { id: "parking", label: "Otopark", icon: "🅿️", scopes: ["all"] },
+  { id: "wifi", label: "İnternet", icon: "📶", scopes: ["all"] },
+  { id: "cafe", label: "Cafe", icon: "☕", scopes: ["all"] },
+  { id: "food", label: "Yemek", icon: "🍽️", scopes: ["restaurant", "hali-saha", "padel", "masaj & spa"] },
+  { id: "kids", label: "Çocuk oyun alanı", icon: "🧒", scopes: ["güzellik merkezi", "masaj & spa", "yoga & pilates", "özel ders"] },
+  { id: "prayer", label: "İbadet alanı", icon: "🌙", scopes: ["hali-saha", "padel"] },
+  { id: "shower", label: "Duş", icon: "🚿", scopes: ["hali-saha", "padel", "masaj & spa"] },
+  { id: "male-restroom", label: "Erkek tuvaleti", icon: "🚹", scopes: ["hali-saha", "padel", "restaurant"] },
+  { id: "female-restroom", label: "Kadın tuvaleti", icon: "🚺", scopes: ["hali-saha", "padel", "restaurant", "güzellik merkezi"] },
+  { id: "equipment", label: "Ekipman / ayakkabı", icon: "🎒", scopes: ["hali-saha", "padel", "özel ders"] },
+  { id: "goalkeeper", label: "Kaleci", icon: "🥅", scopes: ["hali-saha"] },
+  { id: "locker", label: "Soyunma odası", icon: "🔐", scopes: ["hali-saha", "padel", "masaj & spa"] },
+  { id: "pet-waiting", label: "Bekleme alanı", icon: "🐶", scopes: ["pet kuaför"] },
+  { id: "pet-safe-care", label: "Güvenli bakım alanı", icon: "🫧", scopes: ["pet kuaför"] },
+  { id: "sterile-tools", label: "Steril ekipman", icon: "🧼", scopes: ["güzellik merkezi", "tattoo", "pet kuaför"] },
+  { id: "private-room", label: "Özel bakım odası", icon: "🛏️", scopes: ["masaj & spa", "güzellik merkezi", "tattoo"] },
 ];
+
+function normalizeCategoryKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("tr-TR");
+}
+
+function getFacilityCategoryKey(settings = {}) {
+  return normalizeCategoryKey(
+    settings?.details?.category || settings?.selects?.find((item) => item.label === "İşletme Tipi")?.value || "",
+  );
+}
+
+function getVisibleFacilityFeatures(settings = {}) {
+  const categoryKey = getFacilityCategoryKey(settings);
+  return FACILITY_FEATURES.filter((feature) => {
+    const scopes = Array.isArray(feature.scopes) ? feature.scopes : ["all"];
+    return scopes.includes("all") || (categoryKey && scopes.includes(categoryKey));
+  });
+}
 
 const BUSINESS_CONTRACT_VERSION = "İşletme Sözleşmesi v1.0 - 08.06.2026";
 const BUSINESS_CONTRACT_SECTIONS = [
@@ -467,7 +607,7 @@ function renderVenueIdentity() {
   if (!venueState.dashboard) return;
 
   const displayName = getVenueDisplayName();
-  venueTitle.textContent = `${displayName} yönetim paneli`;
+  venueTitle.textContent = `${displayName} business workspace`;
   venueAvatar.textContent = getInitials(displayName);
   venueName.textContent = displayName;
   venueBranch.textContent = venueState.dashboard.venue?.branch || "";
@@ -1052,15 +1192,167 @@ function renderQuickActions(items) {
     .join("");
 }
 
+function renderCrmSummary() {
+  if (!crmSummaryGrid) return;
+  crmSummaryGrid.innerHTML = venueCrmSummary
+    .map(
+      (item) => `
+        <article class="report-summary-card">
+          <small>${escapeHtml(item.label)}</small>
+          <strong>${escapeHtml(item.value)}</strong>
+          <span>${escapeHtml(item.meta)}</span>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderCustomersView() {
+  if (crmCustomerList) {
+    crmCustomerList.innerHTML = venueCustomerCards
+      .map(
+        (item) => `
+          <article class="crm-customer-card">
+            <div class="crm-customer-card-head">
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>${escapeHtml(item.segment)}</span>
+            </div>
+            <p>${escapeHtml(item.note)}</p>
+            <div class="crm-customer-card-meta">
+              <span>${escapeHtml(item.visits)}</span>
+              <span>${escapeHtml(item.spend)}</span>
+            </div>
+            <small>${escapeHtml(item.nextAction)}</small>
+          </article>
+        `,
+      )
+      .join("");
+  }
+
+  if (crmCustomerFocus) {
+    crmCustomerFocus.innerHTML = `
+      <div class="crm-focus-header">
+        <span>${escapeHtml(venueCustomerFocusCard.label)}</span>
+        <h3>${escapeHtml(venueCustomerFocusCard.name)}</h3>
+      </div>
+      <div class="crm-focus-stats">
+        ${venueCustomerFocusCard.stats
+          .map(
+            ([label, value]) => `
+              <div class="detail-row">
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(value)}</strong>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="crm-focus-timeline">
+        <strong>Müşteri zaman çizelgesi</strong>
+        <ul>
+          ${venueCustomerFocusCard.timeline.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+        </ul>
+      </div>
+    `;
+  }
+}
+
+function renderCampaignsView() {
+  if (campaignsKpiGrid) {
+    campaignsKpiGrid.innerHTML = venueCampaignKpis
+      .map(
+        (item) => `
+          <article class="report-summary-card">
+            <small>${escapeHtml(item.label)}</small>
+            <strong>${escapeHtml(item.value)}</strong>
+            <span>${escapeHtml(item.meta)}</span>
+          </article>
+        `,
+      )
+      .join("");
+  }
+
+  if (campaignsBoard) {
+    campaignsBoard.innerHTML = venueCampaignFlows
+      .map(
+        (flow) => `
+          <article class="campaign-flow-card">
+            <div class="campaign-flow-head">
+              <strong>${escapeHtml(flow.title)}</strong>
+              <span>${escapeHtml(flow.status)}</span>
+            </div>
+            <p>${escapeHtml(flow.detail)}</p>
+            <small>${escapeHtml(flow.channel)}</small>
+          </article>
+        `,
+      )
+      .join("");
+  }
+}
+
+function renderFinanceView() {
+  if (financeKpiGrid) {
+    financeKpiGrid.innerHTML = venueFinanceKpis
+      .map(
+        (item) => `
+          <article class="report-summary-card">
+            <small>${escapeHtml(item.label)}</small>
+            <strong>${escapeHtml(item.value)}</strong>
+            <span>${escapeHtml(item.meta)}</span>
+          </article>
+        `,
+      )
+      .join("");
+  }
+
+  if (financeCardStack) {
+    financeCardStack.innerHTML = venueFinanceCards
+      .map(
+        (item) => `
+          <article class="finance-insight-card">
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.body)}</p>
+          </article>
+        `,
+      )
+      .join("");
+  }
+
+  if (financePnlShell) {
+    financePnlShell.innerHTML = `
+      <div class="finance-pnl-card">
+        <div class="panel-head compact">
+          <div>
+            <p class="eyebrow">Aylık görünüm</p>
+            <h2>Basit kar / zarar</h2>
+          </div>
+        </div>
+        <div class="finance-pnl-rows">
+          ${venuePnlRows
+            .map(
+              ([label, value]) => `
+                <div class="detail-row">
+                  <span>${escapeHtml(label)}</span>
+                  <strong>${escapeHtml(value)}</strong>
+                </div>
+              `,
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+}
+
 function renderOverview(payload) {
   if (payload.isFreshVenue) {
     overviewList.innerHTML = `
       <article class="overview-item is-empty">
         <div>
-          <strong>Henüz operasyon verisi yok</strong>
-          <p>Rezervasyon, abonelik ve tahsilat kaydı oluştuğunda bu alan otomatik dolacak.</p>
+          <strong>Henüz canlı operasyon verisi yok</strong>
+          <p>Rezervasyon, checkout ve müşteri hareketleri geldikçe dashboard otomatik dolacak.</p>
         </div>
-        <span>0 işlem</span>
+        <span>0 kayıt</span>
       </article>
     `;
     return;
@@ -1068,23 +1360,23 @@ function renderOverview(payload) {
 
   const notes = [
     {
-      title: "En yoğun pencere",
+      title: "En yoğun zaman dilimi",
       body: "18:00–22:00 arasında doluluk yüzde 92 seviyesine çıkıyor.",
       meta: "Bu akşam",
     },
     {
-      title: "Boş kalan alan",
-      body: "Perşembe 20:00 sonrası için 3 slot satışa açılabilir.",
+      title: "Açık satış fırsatı",
+      body: "Perşembe 20:00 sonrası için 3 slot rezervasyona açılabilir.",
       meta: "3 slot",
     },
     {
-      title: "Abonelik yenileme",
-      body: "Bu hafta biten 6 aktif abonelik için teklif hazırlanmalı.",
+      title: "Üyelik yenileme",
+      body: "Bu hafta biten 6 aktif üyelik için yenileme teklifi hazırlanmalı.",
       meta: "6 müşteri",
     },
     {
-      title: "Tahsilat özeti",
-      body: "Bugün online tahsilat ağırlıklı, EFT takibi gereken 2 işlem var.",
+      title: "Checkout özeti",
+      body: "Bugün online tahsilat ağırlıklı, EFT takibi gereken 2 satış var.",
       meta: "2 işlem",
     },
   ];
@@ -1107,12 +1399,12 @@ function renderOverview(payload) {
 function renderSidebarSummary(payload) {
   if (!sidebarSummaryTitle || !sidebarSummaryMeta) return;
   if (payload.isFreshVenue) {
-    sidebarSummaryTitle.textContent = "Başlangıç";
-    sidebarSummaryMeta.textContent = "Henüz slot açılmadı";
+    sidebarSummaryTitle.textContent = "Kurulum";
+    sidebarSummaryMeta.textContent = "Henüz açık randevu slotu yok";
     return;
   }
-  sidebarSummaryTitle.textContent = "Bugün müsait";
-  sidebarSummaryMeta.textContent = "18 slot marketplace'e açık";
+  sidebarSummaryTitle.textContent = "Takvim canlı";
+  sidebarSummaryMeta.textContent = "18 açık slot şu an rezervasyona uygun";
 }
 
 function statusPill(status) {
@@ -1124,7 +1416,7 @@ function renderSubscriptions(items) {
   if (!items.length) {
     subscriptionsBody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-table-cell">Henüz abonelik kaydı yok.</td>
+        <td colspan="8" class="empty-table-cell">Henüz üyelik veya paket kaydı yok.</td>
       </tr>
     `;
     return;
@@ -1152,7 +1444,7 @@ function renderTransactions(items) {
   if (!items.length) {
     transactionsBody.innerHTML = `
       <tr>
-        <td colspan="18" class="empty-table-cell">Henüz işlem kaydı yok.</td>
+        <td colspan="18" class="empty-table-cell">Henüz checkout veya satış kaydı yok.</td>
       </tr>
     `;
     return;
@@ -1424,8 +1716,9 @@ function areaSettingsFields(settings) {
 }
 
 function facilitySettingsFields(settings) {
-  const selectedCount = (settings.facilities || []).filter((item) => item.enabled).length;
-  const facilitiesMarkup = (settings.facilities || [])
+  const visibleFeatures = getVisibleFacilityFeatures(settings);
+  const selectedCount = visibleFeatures.filter((item) => item.enabled).length;
+  const facilitiesMarkup = visibleFeatures
     .map(
       (item) => `
         <label class="settings-feature-card">
@@ -1440,7 +1733,7 @@ function facilitySettingsFields(settings) {
   return `
     <div class="settings-feature-summary">
       <strong>${selectedCount} özellik seçili</strong>
-      <span>Müşteri tesis detayında yalnızca işaretlediğin özellikleri görecek.</span>
+      <span>Müşteri tesis detayında yalnızca kategoriye uygun ve işaretlediğin özellikleri görecek.</span>
     </div>
     <div class="settings-feature-grid">${facilitiesMarkup}</div>
   `;
@@ -2074,6 +2367,11 @@ function collectSettingsPayload() {
       ...item,
       enabled: checked(`[data-facility-id="${item.id}"]`),
     }));
+    const allowedFeatureIds = new Set(getVisibleFacilityFeatures(next).map((item) => item.id));
+    next.facilities = next.facilities.map((item) => ({
+      ...item,
+      enabled: allowedFeatureIds.has(item.id) ? item.enabled : false,
+    }));
   }
 
   if (document.querySelector("[data-area-card]")) {
@@ -2224,6 +2522,10 @@ async function loadVenueDashboard() {
   renderQuickActions(payload.quickActions);
   renderCalendarFieldPills();
   renderSalesProducts(payload.settings);
+  renderCrmSummary();
+  renderCustomersView();
+  renderCampaignsView();
+  renderFinanceView();
   renderWeeklySchedule(calendarBoardSecondary, payload.weekDays);
   renderSubscriptions(payload.subscriptions);
   renderReportSummary(payload.reportSummary || []);
@@ -2459,6 +2761,13 @@ function bindVenueInteractions() {
     venueState.dashboard.settings = collectSettingsPayload();
     venueState.activeSettingsTab = tab.dataset.settingsTab;
     renderSettingsTabs(venueState.dashboard.settings.tabs);
+    renderSettingsOnboarding(venueState.dashboard.settings);
+  });
+
+  settingsOnboardingForm?.addEventListener("change", (event) => {
+    const categoryField = event.target.closest("#settings-detail-category");
+    if (!categoryField || !venueState.dashboard) return;
+    venueState.dashboard.settings = collectSettingsPayload();
     renderSettingsOnboarding(venueState.dashboard.settings);
   });
 

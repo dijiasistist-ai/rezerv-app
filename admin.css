@@ -149,11 +149,51 @@ button {
   line-height: 1.05;
 }
 
+.admin-hero-note {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 16px;
+}
+
+.admin-priority-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.admin-priority-card {
+  min-height: 126px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 34px rgba(16, 24, 40, 0.06);
+}
+
+.admin-priority-card small {
+  color: var(--brand-strong);
+  font-size: 10px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.admin-priority-card strong {
+  display: block;
+  margin: 10px 0 8px;
+  font-size: 22px;
+}
+
+.admin-priority-card span {
+  color: var(--muted);
 }
 
 .summary-card {
@@ -816,6 +856,7 @@ button {
   }
 
   .summary-grid,
+  .admin-priority-strip,
   .admin-workspace,
   .action-grid,
   .report-metric-grid {
@@ -846,6 +887,7 @@ button {
   }
 
   .summary-grid,
+  .admin-priority-strip,
   .admin-workspace,
   .action-grid,
   .role-editor,

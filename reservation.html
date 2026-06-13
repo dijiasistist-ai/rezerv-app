@@ -43,51 +43,89 @@
           <form class="booking-card" id="booking-form">
             <div class="booking-card-head">
               <div>
-                <p class="eyebrow">Rezervasyon</p>
-                <h2>Rezervasyon Yap</h2>
+                <p class="eyebrow">Hizmeti seç ve devam et</p>
+                <h2>Rezervasyonunu oluştur</h2>
               </div>
             </div>
 
-            <div class="booking-date-row">
-              <button type="button" id="booking-prev-day" aria-label="Önceki gün">‹</button>
-              <input id="booking-date" type="date" required />
-              <button type="button" id="booking-next-day" aria-label="Sonraki gün">›</button>
-            </div>
-
-            <label class="booking-select-label">
-              <span>Alan / hizmet</span>
-              <select id="booking-service"></select>
-            </label>
-
-            <div class="booking-slot-grid" id="booking-slots"></div>
-
-            <div class="booking-customer-grid">
-              <label>
-                <span>Ad soyad</span>
-                <input id="booking-name" type="text" required />
-              </label>
-              <label>
-                <span>Telefon</span>
-                <input id="booking-phone" type="tel" required />
-              </label>
-              <label class="booking-wide">
-                <span>E-posta</span>
-                <input id="booking-email" type="email" />
-              </label>
-            </div>
-
-            <div class="booking-price-row">
-              <div>
-                <span id="booking-online-label">Ön ödeme</span>
-                <strong id="booking-online-amount">-</strong>
+            <section class="booking-flow-card">
+              <div class="booking-flow-head">
+                <div>
+                  <p class="eyebrow">1. Hizmet</p>
+                  <h3>Alan / hizmet seçimi</h3>
+                </div>
+                <span class="booking-flow-badge" id="booking-service-price">-</span>
               </div>
-              <div>
-                <span>Toplam Tutar</span>
-                <strong id="booking-total-amount">-</strong>
+              <label class="booking-select-label booking-select-panel">
+                <span>Seçilebilir hizmetler</span>
+                <select id="booking-service"></select>
+              </label>
+              <div class="booking-service-preview">
+                <div>
+                  <strong id="booking-service-preview-title">Hizmet seçiliyor</strong>
+                  <p id="booking-service-preview-copy">Müsait saatleri görmek için bir hizmet seç.</p>
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div class="booking-policy" id="booking-policy">Ödeme politikası hazırlanıyor.</div>
+            <section class="booking-flow-card">
+              <div class="booking-flow-head">
+                <div>
+                  <p class="eyebrow">2. Zaman</p>
+                  <h3>Tarih ve saat</h3>
+                </div>
+              </div>
+              <div class="booking-date-row">
+                <button type="button" id="booking-prev-day" aria-label="Önceki gün">‹</button>
+                <input id="booking-date" type="date" required />
+                <button type="button" id="booking-next-day" aria-label="Sonraki gün">›</button>
+              </div>
+              <div class="booking-slot-grid" id="booking-slots"></div>
+            </section>
+
+            <section class="booking-flow-card">
+              <div class="booking-flow-head">
+                <div>
+                  <p class="eyebrow">3. Bilgilerin</p>
+                  <h3>İletişim detayları</h3>
+                </div>
+              </div>
+              <div class="booking-customer-grid">
+                <label>
+                  <span>Ad soyad</span>
+                  <input id="booking-name" type="text" required />
+                </label>
+                <label>
+                  <span>Telefon</span>
+                  <input id="booking-phone" type="tel" required />
+                </label>
+                <label class="booking-wide">
+                  <span>E-posta</span>
+                  <input id="booking-email" type="email" />
+                </label>
+              </div>
+            </section>
+
+            <section class="booking-flow-card booking-payment-preview">
+              <div class="booking-flow-head">
+                <div>
+                  <p class="eyebrow">4. Ödeme</p>
+                  <h3>Ödeme özeti</h3>
+                </div>
+              </div>
+              <div class="booking-price-row">
+                <div>
+                  <span id="booking-online-label">Ön ödeme</span>
+                  <strong id="booking-online-amount">-</strong>
+                </div>
+                <div>
+                  <span>Toplam Tutar</span>
+                  <strong id="booking-total-amount">-</strong>
+                </div>
+              </div>
+              <div class="booking-policy" id="booking-policy">Ödeme politikası hazırlanıyor.</div>
+            </section>
+
             <p class="booking-feedback" id="booking-feedback"></p>
             <button class="solid-button booking-submit" type="submit">Rezervasyonu Oluştur</button>
           </form>

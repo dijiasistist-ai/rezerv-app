@@ -4,10 +4,22 @@ const venueName = document.querySelector("#checkout-venue");
 const serviceName = document.querySelector("#checkout-service");
 const dateText = document.querySelector("#checkout-date");
 const timeText = document.querySelector("#checkout-time");
+const ratingText = document.querySelector("#checkout-rating");
+const locationText = document.querySelector("#checkout-location");
+const summaryMedia = document.querySelector("#checkout-summary-media");
 const onlineLabel = document.querySelector("#checkout-online-label");
 const onlineAmount = document.querySelector("#checkout-online-amount");
 const venueAmount = document.querySelector("#checkout-venue-amount");
 const totalAmount = document.querySelector("#checkout-total-amount");
+const servicePrice = document.querySelector("#checkout-service-price");
+const serviceSubline = document.querySelector("#checkout-service-subline");
+const payNowAmount = document.querySelector("#checkout-pay-now-amount");
+const payLaterAmount = document.querySelector("#checkout-pay-later-amount");
+const payLaterCopy = document.querySelector("#checkout-pay-later-copy");
+const choiceFullPrice = document.querySelector("#checkout-choice-full-price");
+const choiceDepositPrice = document.querySelector("#checkout-choice-deposit-price");
+const choiceFullCopy = document.querySelector("#checkout-choice-full-copy");
+const choiceDepositCopy = document.querySelector("#checkout-choice-deposit-copy");
 const countdown = document.querySelector("#checkout-countdown");
 const extendButton = document.querySelector("#checkout-extend");
 const submitButton = document.querySelector("#checkout-submit");
@@ -17,8 +29,10 @@ const checkoutContract = document.querySelector("#checkout-contract");
 const cardForm = document.querySelector("#checkout-card-form");
 const transferBox = document.querySelector("#checkout-transfer");
 const paymentTabs = document.querySelectorAll("[data-payment-tab]");
+const paymentChoices = document.querySelectorAll("[data-payment-choice]");
 
 let remainingSeconds = 300;
+let selectedPaymentChoice = "deposit";
 
 function formatCurrency(value = 0) {
   return `${new Intl.NumberFormat("tr-TR").format(Math.round(Number(value || 0)))} TL`;
@@ -93,15 +107,31 @@ function renderSummary() {
   }
 
   const billing = draft.billing || {};
+  const total = billing.totalAmount || draft.totalAmount || 0;
+  const online = billing.customerOnlinePayment || 0;
+  const venue = billing.customerVenuePayment || 0;
   venueName.textContent = draft.venueName || "İşletme";
   serviceName.textContent = draft.serviceLabel || "Hizmet";
+  serviceSubline.textContent = draft.categoryLabel || "Seçilen hizmet";
   dateText.textContent = formatDate(draft.serviceDate);
   timeText.textContent = `${draft.serviceTime} - ${draft.serviceEndTime || ""}`.trim();
-  onlineLabel.textContent = billing.customerOnlinePayment > 0 ? "Kartınızdan Çekilecek Tutar" : "Online Tahsilat";
-  onlineAmount.textContent = formatCurrency(billing.customerOnlinePayment || 0);
-  venueAmount.textContent = formatCurrency(billing.customerVenuePayment || 0);
-  totalAmount.textContent = formatCurrency(billing.totalAmount || draft.totalAmount || 0);
-  submitButton.textContent = `${formatCurrency(billing.customerOnlinePayment || billing.totalAmount || draft.totalAmount || 0)} öde`;
+  ratingText.textContent = draft.rating ? `${draft.rating} ★★★★★` : "5.0 ★★★★★";
+  locationText.textContent = draft.locationLabel || "Konum bilgisi yakında";
+  if (summaryMedia) {
+    summaryMedia.className = `checkout-summary-media ${draft.mediaClass || "media-field"}`;
+  }
+  onlineLabel.textContent = online > 0 ? "Kartınızdan çekilecek tutar" : "Online tahsilat";
+  onlineAmount.textContent = formatCurrency(online);
+  venueAmount.textContent = formatCurrency(venue);
+  totalAmount.textContent = formatCurrency(total);
+  servicePrice.textContent = formatCurrency(total);
+  choiceFullPrice.textContent = formatCurrency(total);
+  choiceDepositPrice.textContent = formatCurrency(online || total);
+  choiceFullCopy.textContent = "Tek işlemde tamamla";
+  choiceDepositCopy.textContent = venue > 0 ? "Minimum tutar tahsil edilir" : "Şimdi ödeyerek tamamla";
+  payLaterAmount.textContent = venue > 0 ? formatCurrency(venue) : "Tesiste ödeme yok";
+  payLaterCopy.textContent = venue > 0 ? "Kalan tutarı tesiste ödersin" : "Rezervasyonun tamamen ödenmiş olur";
+  setPaymentChoice(selectedPaymentChoice);
 }
 
 function renderTimer() {
@@ -116,8 +146,31 @@ function setPaymentTab(tab) {
   transferBox.classList.toggle("hidden", tab !== "transfer");
 }
 
+function setPaymentChoice(choice) {
+  selectedPaymentChoice = choice === "full" ? "full" : "deposit";
+  const billing = draft?.billing || {};
+  const total = billing.totalAmount || draft?.totalAmount || 0;
+  const online = billing.customerOnlinePayment || 0;
+  const venue = billing.customerVenuePayment || 0;
+  const payNow = selectedPaymentChoice === "full" ? total : online || total;
+  const payLater = selectedPaymentChoice === "full" ? 0 : venue;
+
+  paymentChoices.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.paymentChoice === selectedPaymentChoice);
+    button.setAttribute("aria-checked", String(button.dataset.paymentChoice === selectedPaymentChoice));
+  });
+
+  payNowAmount.textContent = formatCurrency(payNow);
+  payLaterAmount.textContent = payLater > 0 ? formatCurrency(payLater) : "Tesiste ödeme yok";
+  submitButton.textContent = `${formatCurrency(payNow)} öde`;
+}
+
 paymentTabs.forEach((button) => {
   button.addEventListener("click", () => setPaymentTab(button.dataset.paymentTab));
+});
+
+paymentChoices.forEach((button) => {
+  button.addEventListener("click", () => setPaymentChoice(button.dataset.paymentChoice));
 });
 
 extendButton?.addEventListener("click", () => {
@@ -140,7 +193,10 @@ submitButton?.addEventListener("click", async () => {
 
     const response = await fetchJson("/api/reservations", {
       method: "POST",
-      body: JSON.stringify(draft),
+      body: JSON.stringify({
+        ...draft,
+        selectedPaymentChoice,
+      }),
     });
     sessionStorage.removeItem("tyee_checkout_draft");
     feedback.textContent = response.message || "Rezervasyon oluşturuldu.";
