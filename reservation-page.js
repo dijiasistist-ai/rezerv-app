@@ -155,6 +155,10 @@ async function loadCurrentUser() {
 }
 
 function buildServices(listing) {
+  const serviceCatalog = getServiceCatalog(listing);
+  if (serviceCatalog.length) {
+    return serviceCatalog.map((service) => service.name);
+  }
   if (Array.isArray(listing.serviceOptions) && listing.serviceOptions.length) {
     return listing.serviceOptions;
   }
@@ -170,18 +174,43 @@ function getListingBasePrice(listing) {
   return Number(listing?.price || 0);
 }
 
+function getServiceCatalog(listing) {
+  return (Array.isArray(listing?.serviceCatalog) ? listing.serviceCatalog : [])
+    .map((service) => ({
+      name: String(service?.name || "").trim(),
+      type: String(service?.type || "").trim(),
+      duration: String(service?.duration || "").trim(),
+      price: Number(service?.price || 0),
+    }))
+    .filter((service) => service.name);
+}
+
+function getSelectedServiceItem(listing = state.listing) {
+  const selectedService = serviceSelect.value || "";
+  return getServiceCatalog(listing).find((service) => service.name === selectedService) || null;
+}
+
+function getSelectedServicePrice(listing = state.listing) {
+  const selectedService = getSelectedServiceItem(listing);
+  return selectedService?.price || getListingBasePrice(listing);
+}
+
 function updateServicePreview() {
   if (!state.listing) return;
   const selectedService = serviceSelect.value || state.listing.categoryLabel || "Hizmet";
+  const selectedServiceItem = getSelectedServiceItem();
   const slotCount = (state.slots || []).filter((slot) => slot.available).length;
   if (servicePreviewTitle) servicePreviewTitle.textContent = selectedService;
   if (servicePreviewCopy) {
     servicePreviewCopy.textContent =
       slotCount > 0
-        ? `${dateInput.value} icin ${slotCount} uygun saat bulundu.`
+        ? `${dateInput.value} için ${slotCount} uygun saat bulundu.`
         : "Müsait saatler yükleniyor veya bu tarih için uygun saat bulunmuyor.";
   }
-  if (servicePrice) servicePrice.textContent = formatCurrency(getListingBasePrice(state.listing));
+  if (servicePrice) {
+    const meta = [selectedServiceItem?.type, selectedServiceItem?.duration].filter(Boolean).join(" · ");
+    servicePrice.textContent = [formatCurrency(getSelectedServicePrice()), meta].filter(Boolean).join(" · ");
+  }
 }
 
 function isTimeValue(value = "") {
@@ -303,9 +332,10 @@ function renderFacilities(listing) {
 async function loadPolicy() {
   if (!state.listing) return;
   policy.textContent = "Ödeme politikası hazırlanıyor.";
+  const selectedTotal = getSelectedServicePrice(state.listing);
   const query = new URLSearchParams({
     venueId: state.listing.venueId || state.listing.id,
-    totalAmount: String(state.listing.price || 0),
+    totalAmount: String(selectedTotal || 0),
   });
   const payload = await fetchJson(`/api/reservations/payment-policy?${query.toString()}`);
   state.policy = payload;
@@ -313,7 +343,7 @@ async function loadPolicy() {
   const billing = payload.billing || {};
   onlineLabel.textContent = billing.customerOnlinePayment > 0 ? "Online ödenecek" : "Online ödeme";
   onlineAmount.textContent = formatCurrency(billing.customerOnlinePayment || 0);
-  totalAmount.textContent = formatCurrency(billing.totalAmount || state.listing.price || 0);
+  totalAmount.textContent = formatCurrency(billing.totalAmount || selectedTotal || 0);
   policy.textContent = billing.settlement || payload.paymentModeLabel || "İşletme ödeme politikası hazır.";
 }
 
@@ -361,6 +391,10 @@ function renderListing(listing) {
   serviceSelect.innerHTML = buildServices(listing)
     .map((item) => `<option>${escapeHtml(item)}</option>`)
     .join("");
+  const nextAvailableDate = listing.availability?.nextDate || listing.nextDate || "";
+  if (nextAvailableDate && (!dateInput.min || nextAvailableDate >= dateInput.min)) {
+    dateInput.value = nextAvailableDate;
+  }
   updateServicePreview();
   renderFacilities(listing);
   renderReviews(listing);
@@ -393,10 +427,11 @@ nextDay.addEventListener("click", () => {
 });
 dateInput.addEventListener("change", () => loadAvailability());
 serviceSelect.addEventListener("change", () => loadAvailability());
+serviceSelect.addEventListener("change", () => loadPolicy());
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!state.listing || !state.selectedSlot) return;
+  if (!state.listing) return;
 
   feedback.textContent = "";
   feedback.classList.remove("is-success");
@@ -418,7 +453,7 @@ form.addEventListener("submit", async (event) => {
       customerName: nameInput.value.trim(),
       customerPhone: phoneInput.value.trim(),
       customerEmail: emailInput.value.trim(),
-      totalAmount: state.listing.price,
+      totalAmount: getSelectedServicePrice(state.listing),
       serviceDate: dateInput.value,
       serviceTime: state.selectedSlot,
       serviceEndTime: selectedSlot?.endTime || addHour(state.selectedSlot),

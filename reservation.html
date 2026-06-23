@@ -4,22 +4,75 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee | Rezervasyon</title>
-    <link rel="stylesheet" href="/styles.css?v=20260623-marketplace-demo-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260623-marketplace-blue-1" />
   </head>
   <body class="reservation-page-body">
-    <header class="booking-topbar">
-      <a class="booking-brand" href="/index.html" aria-label="tyee ana sayfa">
-        <img src="/assets/tyee-header.png?v=20260609-header-logo-2" alt="tyee" />
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="tyee ana sayfa">
+        <img class="brand-logo" src="/assets/tyee-header.png?v=20260609-header-logo-2" alt="tyee" />
       </a>
-      <nav aria-label="Rezervasyon menüsü">
-        <a href="/index.html#featured">Keşfet</a>
-        <a href="/index.html#categories">Kategoriler</a>
+
+      <nav class="main-nav" aria-label="Ana menü">
+        <a href="/index.html#hero">Keşfet</a>
         <a href="/index.html#nearby-map">Yakınımda</a>
+        <a href="/venue.html">İşletmeler İçin</a>
       </nav>
-      <a class="booking-login" id="booking-account-link" href="/index.html">
-        <span class="booking-account-avatar hidden" id="booking-account-avatar"></span>
-        <span id="booking-account-label">Giriş Yap / Kayıt Ol</span>
-      </a>
+
+      <div class="header-actions">
+        <details class="header-popover-shell customer-header-only">
+          <summary class="saved-button">♡ Kaydedilenler</summary>
+          <div class="header-popover">
+            <div class="popover-head">
+              <strong>Kaydedilenler</strong>
+              <span>Beğendiğin işletmeleri burada tutacağız.</span>
+            </div>
+            <div class="popover-empty">
+              <span>♡</span>
+              <strong>Henüz kayıtlı işletme yok</strong>
+              <small>İşletme kartlarındaki kalbe basınca buraya eklenir.</small>
+            </div>
+          </div>
+        </details>
+        <details class="header-popover-shell customer-header-only" id="notification-shell">
+          <summary class="bell-button" aria-label="Bildirimler">
+            <span>🔔</span>
+            <em id="notification-count" aria-live="polite">3</em>
+          </summary>
+          <div class="header-popover notification-menu">
+            <div class="popover-head">
+              <strong>Bildirimler</strong>
+              <span id="notification-status">Rezervasyon ve hesap akışı bildirimleri.</span>
+            </div>
+            <button class="notification-item" type="button" data-notification-id="location-permission">
+              <span>✓</span>
+              <div>
+                <strong>Konum izni hazır</strong>
+                <small>Yakınımdaki işletmeleri listelemek için konumunu kullanabiliriz.</small>
+              </div>
+            </button>
+            <button class="notification-item" type="button" data-notification-id="reservation-roadmap">
+              <span>R</span>
+              <div>
+                <strong>Rezervasyon altyapısı hazır</strong>
+                <small>Takvim ve müsaitlik akışı işletme panelinden yönetiliyor.</small>
+              </div>
+            </button>
+            <button class="notification-item" type="button" data-notification-id="profile-completion">
+              <span>!</span>
+              <div>
+                <strong>Profil bilgilerini tamamla</strong>
+                <small>Rezervasyonların ve hesap bilgilerin burada yönetilecek.</small>
+              </div>
+            </button>
+          </div>
+        </details>
+        <div class="account-shell">
+          <a class="account-button booking-login" id="booking-account-link" href="/index.html">
+            <span class="avatar-mini booking-account-avatar hidden" id="booking-account-avatar"></span>
+            <span class="account-label" id="booking-account-label">Giriş Yap / Kayıt Ol</span>
+          </a>
+        </div>
+      </div>
     </header>
 
     <main class="booking-page" id="booking-page">
@@ -155,6 +208,6 @@
       </section>
     </main>
 
-    <script src="/reservation-page.js?v=20260623-marketplace-demo-1"></script>
+    <script src="/reservation-page.js?v=20260623-reservation-submit-1"></script>
   </body>
 </html>

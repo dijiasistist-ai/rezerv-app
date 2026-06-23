@@ -281,27 +281,10 @@ async function sendPhoneVerification(user) {
   });
 }
 
-const DEMO_MARKETPLACE_SEED_VERSION = "2026-06-23-marketplace-v2";
+const DEMO_MARKETPLACE_SEED_VERSION = "2026-06-23-marketplace-v3-closed-calendar";
 
-function createDemoSlots(primaryServiceName = "Rezervasyon") {
-  const slotModes = {};
-  const slotServices = {};
-  const times = ["10:00", "11:00", "14:00", "15:00", "17:00", "19:00", "20:00"];
-  const serviceName = primaryServiceName ? "Hizmet" : "Hizmet";
-
-  Array.from({ length: 7 }).forEach((_, dayIndex) => {
-    times.forEach((time) => {
-      const key = `${dayIndex}-${time}`;
-      slotModes[key] = "rezerv";
-      slotServices[key] = {
-        name: serviceName,
-        capacity: "1",
-        price: "",
-      };
-    });
-  });
-
-  return { slotModes, slotServices };
+function createDemoSlots() {
+  return { slotModes: {}, slotServices: {} };
 }
 
 function createDemoFacilities(items = []) {
@@ -336,7 +319,7 @@ function ensureDemoVenueUser(email, demo) {
   const existingOverlay = getVenueOverlay(demo.venueId);
   if (existingOverlay._demoSeedVersion === DEMO_MARKETPLACE_SEED_VERSION) return user;
 
-  const { slotModes, slotServices } = createDemoSlots(demo.areas?.[0]?.name || "Rezervasyon");
+  const { slotModes, slotServices } = createDemoSlots();
   saveVenueOverlay(demo.venueId, {
     _demoSeedVersion: DEMO_MARKETPLACE_SEED_VERSION,
     settings: {
@@ -395,7 +378,7 @@ function ensureDemoVenueUser(email, demo) {
     manualEntries: {},
     calendarPreferences: {
       slotStepMinutes: 60,
-      openDays: [0, 1, 2, 3, 4, 5, 6],
+      openDays: [],
       publicBookingEnabled: true,
     },
   });
@@ -604,7 +587,7 @@ function seedExistingNemoVenue() {
   if (existingOverlay._nemoDetailVersion === DEMO_MARKETPLACE_SEED_VERSION) return;
   if (existingName && !existingName.includes("nemo")) return;
 
-  const { slotModes, slotServices } = createDemoSlots("Hizmet");
+  const { slotModes, slotServices } = createDemoSlots();
   saveVenueOverlay(venueId, {
     _nemoDetailVersion: DEMO_MARKETPLACE_SEED_VERSION,
     settings: {
@@ -668,7 +651,7 @@ function seedExistingNemoVenue() {
     manualEntries: {},
     calendarPreferences: {
       slotStepMinutes: 60,
-      openDays: [0, 1, 2, 3, 4, 5, 6],
+      openDays: [],
       publicBookingEnabled: true,
     },
   });
@@ -676,7 +659,21 @@ function seedExistingNemoVenue() {
 
 function seedUsers() {
   migrateLegacyUsers();
-  ensureSeedUser("demo@tyee.app", { name: "Demo Kullanıcı", password: "123456" });
+  const demoVenueUser = ensureSeedUser("demo@tyee.app", { name: "Demo İşletme", password: "123456" });
+  upsertUser({
+    ...demoVenueUser,
+    name: "Demo İşletme",
+    email: "demo@tyee.app",
+    passwordHash: hashPassword("123456"),
+    canManageVenue: true,
+    isAdmin: false,
+    venueId: "mira-makeup-studio",
+    emailVerified: true,
+    phoneVerified: true,
+    emailVerificationToken: "",
+    phoneVerificationCode: "",
+    passwordResetToken: "",
+  });
   ensureSeedUser("firma@tyee.app", {
     name: "Zincirlikuyu Arena",
     password: "123456",
@@ -1420,14 +1417,14 @@ function buildVenueCalendarOpsPayload({ payload = {}, overlay = {}, reservations
   return {
     preferences,
     controls: [
-      { id: "today", label: "Today", action: "today" },
-      { id: "team", label: "Scheduled team", action: "team" },
-      { id: "visibility", label: "Visibility", action: "visibility" },
-      { id: "filters", label: "Filters", action: "filters" },
-      { id: "settings", label: "Calendar Settings", action: "settings" },
-      { id: "waitlist", label: "Waitlist", action: "waitlist", count: pendingCount },
-      { id: "reset", label: "Reset view", action: "reset" },
-      { id: "add", label: "Add", action: "quick-add" },
+      { id: "today", label: "Bugün", action: "today" },
+      { id: "team", label: "Planlı ekip", action: "team" },
+      { id: "visibility", label: "Görünürlük", action: "visibility" },
+      { id: "filters", label: "Filtreler", action: "filters" },
+      { id: "settings", label: "Takvim ayarı", action: "settings" },
+      { id: "waitlist", label: "Bekleme", action: "waitlist", count: pendingCount },
+      { id: "reset", label: "Görünümü sıfırla", action: "reset" },
+      { id: "add", label: "Yeni", action: "quick-add" },
     ],
     filters: [
       { id: "all", label: "Tümü" },
@@ -1959,11 +1956,18 @@ function getVenuePriceInfo(settings = {}) {
 }
 
 function getVenueNextSlot(venueId) {
+  return getVenueNextSlotInfo(venueId).time || "Yakında";
+}
+
+function getVenueNextSlotInfo(venueId) {
   const slotModes = getVenueOverlay(venueId)?.slotModes || {};
   const openKey = Object.keys(slotModes)
     .sort()
     .find((key) => slotModes[key] === "rezerv");
-  return openKey ? openKey.split("-").slice(1).join("-") : "Yakında";
+  if (!openKey) return { date: "", time: "" };
+  const dateKeyMatch = openKey.match(/^(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2})$/);
+  if (dateKeyMatch) return { date: dateKeyMatch[1], time: dateKeyMatch[2] };
+  return { date: "", time: getSlotTimeFromStateKey(openKey) };
 }
 
 function getEnabledSettingsFacilities(settings = {}) {
@@ -2000,8 +2004,10 @@ function getRuntimeVenueMapItems(origin) {
       const activeAreas = getActiveVenueAreas(settings);
       const priceInfo = getVenuePriceInfo(settings);
       const serviceTypes = [...new Set(activeAreas.map((area) => area.type || category.label).filter(Boolean))].slice(0, 6);
-      const serviceOptions = activeAreas.map((area) => area.name).slice(0, 16);
+      const serviceCatalog = getRuntimeVenueServiceCatalog(venueId).slice(0, 16);
+      const serviceOptions = serviceCatalog.map((service) => service.name);
       const distanceKm = getDistanceKm(origin, { lat, lng });
+      const nextSlotInfo = getVenueNextSlotInfo(venueId);
       return {
         id: venueId,
         name: settings.businessName || user.name || "İşletme",
@@ -2013,7 +2019,8 @@ function getRuntimeVenueMapItems(origin) {
         lng,
         distanceKm: Number(distanceKm.toFixed(2)),
         distanceLabel: `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`,
-        nextSlot: getVenueNextSlot(venueId),
+        nextSlot: nextSlotInfo.time || "Yakında",
+        nextDate: nextSlotInfo.date,
         price: priceInfo.price,
         priceLabel: priceInfo.priceLabel,
         priceUnit: priceInfo.priceUnit,
@@ -2024,6 +2031,7 @@ function getRuntimeVenueMapItems(origin) {
         summary: details.description || `${category.label} hizmetleri ve müsaitlik bilgileri işletme panelinden yönetiliyor.`,
         serviceTypes: serviceTypes.length ? serviceTypes : [category.label],
         serviceOptions: serviceOptions.length ? serviceOptions : [category.label],
+        serviceCatalog,
         source: "venue-settings",
       };
     })
@@ -2033,6 +2041,7 @@ function getRuntimeVenueMapItems(origin) {
 function getRuntimeVenueListingById(id) {
   const item = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).find((venue) => venue.id === id);
   if (!item) return null;
+  const listingPrice = item.price || Number(String(item.priceLabel || "0").replace(/[^\d]/g, "")) || 1000;
 
   return {
     id: item.id,
@@ -2045,24 +2054,25 @@ function getRuntimeVenueListingById(id) {
     rating: 4.8,
     reviews: 0,
     distance: item.distanceLabel || "",
-    price: item.price || Number(String(item.priceLabel || "0").replace(/[^\d]/g, "")) || 1000,
+    price: listingPrice,
     priceUnit: item.priceUnit || "hizmet",
     summary: item.summary || `${item.categoryLabel || "Hizmet"} · Canlı işletme profili`,
     tags: ["Yakında müsait", "Tyee işletmesi", "Güvenli rezervasyon"],
-    cta: "Rezervasyon Yap",
+    cta: "Rezerv et",
     mediaClass: item.mediaClass || "media-field",
     mediaUrl: item.mediaUrl || "",
     featured: true,
     eveningTime: item.nextSlot || "19:30",
-    availability: { today: true, nextSlot: item.nextSlot || "19:30", openSlots: 4 },
+    availability: { today: true, nextSlot: item.nextSlot || "19:30", nextDate: item.nextDate || "", openSlots: 4 },
     profileScore: 86,
     conversionScore: 80,
     responseMinutes: 12,
     boost: false,
     serviceTypes: item.serviceTypes || [item.categoryLabel || "hizmet"],
-    priceLabel: item.priceLabel || formatPriceLabel(1000),
+    priceLabel: item.price ? item.priceLabel : formatPriceLabel(listingPrice),
     facilities: item.facilities || [],
     serviceOptions: item.serviceOptions?.length ? item.serviceOptions : getRuntimeVenueServiceOptions(item.id),
+    serviceCatalog: item.serviceCatalog || getRuntimeVenueServiceCatalog(item.id),
   };
 }
 
@@ -2102,17 +2112,55 @@ function mergeListingItems(...groups) {
 }
 
 function getRuntimeVenueServiceOptions(venueId) {
-  const settings = getVenueOverlay(venueId)?.settings || {};
+  const catalogOptions = getRuntimeVenueServiceCatalog(venueId).map((item) => item.name);
+  if (catalogOptions.length) return catalogOptions;
+
+  const overlay = getVenueOverlay(venueId);
+  const settings = overlay?.settings || {};
   const areas = Array.isArray(settings.areas) ? settings.areas : [];
-  return areas
+  const areaOptions = areas
     .filter((area) => area && area.isActive !== false)
     .map((area) => String(area.name || "").trim())
     .filter(Boolean);
+  const slotOptions = Object.values(overlay?.slotServices || {})
+    .map((item) => String(item?.name || "").trim())
+    .filter(Boolean);
+  const options = [...new Set([...areaOptions, ...slotOptions])];
+  const specificOptions = options.filter((item) => !isGenericServiceLabel(item));
+  return specificOptions.length ? specificOptions : options;
+}
+
+function getRuntimeVenueServiceCatalog(venueId) {
+  const overlay = getVenueOverlay(venueId);
+  const settings = overlay?.settings || {};
+  const areaCatalog = getActiveVenueAreas(settings)
+    .map((area) => ({
+      name: area.name,
+      type: area.type || "Hizmet",
+      duration: area.capacity || "60 dk",
+      price: area.numericPrice || 0,
+      priceLabel: area.numericPrice ? formatPriceLabel(area.numericPrice) : "0",
+    }))
+    .filter((area) => !isGenericServiceLabel(area.name));
+
+  if (areaCatalog.length) return areaCatalog;
+
+  const slotOptions = Object.values(overlay?.slotServices || {})
+    .map((item) => String(item?.name || "").trim())
+    .filter((name) => name && !isGenericServiceLabel(name));
+
+  return [...new Set(slotOptions)].map((name) => ({
+    name,
+    type: "Hizmet",
+    duration: "60 dk",
+    price: 0,
+    priceLabel: "0",
+  }));
 }
 
 function isGenericServiceLabel(value = "") {
   const normalized = normalizeSearchText(value);
-  return !normalized || normalized === "ana alan" || normalized === "hizmet" || normalized === "hizmet alani";
+  return !normalized || normalized === "ana alan" || normalized === "ana hizmet" || normalized === "hizmet" || normalized === "hizmet alani";
 }
 
 function withActiveVenueCategoryCounts(categories = []) {
@@ -2139,6 +2187,24 @@ function parseServiceDate(value = "") {
   const date = new Date(`${String(value || "").slice(0, 10)}T12:00:00`);
   if (Number.isNaN(date.getTime())) return new Date();
   return date;
+}
+
+function formatServiceDateKey(value = "") {
+  const date = parseServiceDate(value);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function getSlotTimeFromStateKey(key = "") {
+  const value = String(key || "");
+  const dateKeyMatch = value.match(/^\d{4}-\d{2}-\d{2}-(\d{2}:\d{2})$/);
+  if (dateKeyMatch) return dateKeyMatch[1];
+  const legacyKeyMatch = value.match(/^\d+-(\d{2}:\d{2})$/);
+  if (legacyKeyMatch) return legacyKeyMatch[1];
+  return value.split("-").pop() || "";
 }
 
 function getCalendarDayIndex(value = "") {
@@ -2175,6 +2241,7 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
   const isRuntimeVenue = Boolean(getRuntimeVenueListingById(venueId)) || String(venueId).startsWith("venue-");
   const dashboard = mergeVenuePayload(venueId);
   const dayIndex = getCalendarDayIndex(date);
+  const dateKey = formatServiceDateKey(date);
   const day = (dashboard.weekDays || [])[dayIndex] || {};
   const daySlots = Array.isArray(day.slots) ? day.slots : [];
   const hasSeedCalendar = !isRuntimeVenue && daySlots.length > 0;
@@ -2183,9 +2250,10 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
 
   const normalizedService = normalizeSearchText(serviceLabel);
   return CALENDAR_SLOT_TIMES.map((time) => {
-    const slotKey = `${dayIndex}-${time}`;
-    const explicitMode = slotModes[slotKey];
-    const explicitService = slotServices[slotKey];
+    const slotKey = `${dateKey}-${time}`;
+    const legacySlotKey = `${dayIndex}-${time}`;
+    const explicitMode = slotModes[slotKey] ?? slotModes[legacySlotKey];
+    const explicitService = slotServices[slotKey] ?? slotServices[legacySlotKey];
     const explicitServiceLabel = explicitService?.name || "";
     const matchingSlot =
       daySlots.find((slot) => {
@@ -2194,7 +2262,7 @@ function getListingAvailabilitySlots({ listing, date, serviceLabel = "" }) {
         return normalizeSearchText(explicitServiceLabel || slot.field || slot.meta || "").includes(normalizedService);
       }) || daySlots.find((slot) => slot.time === time);
     const mode = getPublicSlotMode(matchingSlot, explicitMode, hasCalendarState);
-    const manualEntry = manualEntries[slotKey];
+    const manualEntry = manualEntries[slotKey] ?? manualEntries[legacySlotKey];
     const hasExplicitService = Boolean(explicitServiceLabel) && !isGenericServiceLabel(explicitServiceLabel);
     const serviceMatches =
       !normalizedService ||

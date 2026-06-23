@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260623-marketplace-demo-1" />
+    <link rel="stylesheet" href="/venue.css?v=20260623-calendar-polish-1" />
   </head>
   <body>
     <header class="venue-global-header">
@@ -120,14 +120,6 @@
 
           <button class="venue-nav-item venue-nav-logout" type="button" data-action="logout">Çıkış Yap</button>
         </nav>
-
-        <div class="sidebar-summary">
-          <span class="sidebar-dot"></span>
-          <div>
-            <strong>Takvim canlı</strong>
-            <small>Bugün 18 açık slot rezervasyona uygun</small>
-          </div>
-        </div>
       </aside>
 
       <div class="venue-workspace">
@@ -189,7 +181,6 @@
                 </div>
                 <div class="panel-actions">
                   <button class="ghost-button">Bugün</button>
-                  <button class="solid-button" type="button" data-guide-view="calendar">Takvimi Aç</button>
                 </div>
               </div>
               <div class="overview-list" id="overview-list"></div>
@@ -210,7 +201,7 @@
           <section class="view-section" id="calendar-view">
           <div class="operation-hero">
             <div class="operation-hero-copy">
-              <p class="eyebrow">Start here</p>
+              <p class="eyebrow">Başlangıç</p>
               <h2>Günün operasyonu takvimden başlar.</h2>
               <p>Fresha’daki gibi merkez ekran takvim. Rezervasyon, müşteri ve checkout akışının ilk durağı burası.</p>
             </div>
@@ -221,27 +212,37 @@
           </div>
           <div class="section-card">
             <div class="calendar-toolbar">
-              <div class="calendar-field-pills" id="calendar-field-pills"></div>
-              <div class="calendar-controls">
+              <div class="calendar-toolbar-left">
+                <span class="calendar-toolbar-kicker">Canlı takvim</span>
+                <div class="calendar-field-pills" id="calendar-field-pills"></div>
+              </div>
+              <div class="calendar-controls" aria-label="Hafta gezgini">
+                <button class="calendar-today-button" type="button" id="week-today">Bugün</button>
                 <div class="calendar-icon-set">
-                  <button class="calendar-icon-button" type="button" aria-label="Takvim">📅</button>
-                  <button class="calendar-icon-button" type="button" id="week-today" aria-label="Bu haftaya git">«</button>
                   <button class="calendar-icon-button" type="button" id="week-prev" aria-label="Önceki hafta">‹</button>
                   <button class="calendar-icon-button" type="button" id="week-next" aria-label="Sonraki hafta">›</button>
                   <button class="calendar-icon-button" type="button" id="week-next-month" aria-label="Sonraki aya git">»</button>
                 </div>
                 <span class="week-range week-range-pill" id="week-range"></span>
               </div>
+              <div class="calendar-view-actions" aria-label="Takvim görünümü">
+                <div class="calendar-view-switch">
+                  <button type="button">Gün</button>
+                  <button class="is-active" type="button">Hafta</button>
+                  <button type="button">Ay</button>
+                </div>
+                <button class="calendar-create-button" id="calendar-new-appointment" type="button">Yeni randevu</button>
+              </div>
             </div>
             <div class="calendar-ops-strip" id="calendar-ops-strip"></div>
 
             <div class="panel-head calendar-panel-head">
               <div>
-                  <p class="eyebrow">Calendar</p>
+                  <p class="eyebrow">Takvim</p>
                   <h2>Takvim ve müsaitlik planı</h2>
               </div>
               <div class="calendar-legend" aria-label="Takvim renkleri">
-                <span><i class="legend-open"></i>Müsait</span>
+                <span><i class="legend-open"></i>Tyee</span>
                 <span><i class="legend-online"></i>Online</span>
                 <span><i class="legend-subscription"></i>Abonelik</span>
                 <span><i class="legend-manual"></i>Manuel</span>
@@ -556,7 +557,7 @@
           <section class="rail-panel">
             <div class="rail-head">
               <div>
-                <p class="eyebrow">Today</p>
+                <p class="eyebrow">Bugün</p>
                 <h3>Sıradaki rezervasyonlar</h3>
               </div>
             </div>
@@ -566,7 +567,7 @@
           <section class="rail-panel">
             <div class="rail-head">
               <div>
-                <p class="eyebrow">Waitlist</p>
+                <p class="eyebrow">Bekleme</p>
                 <h3>Bekleme listesi</h3>
               </div>
               <button class="rail-mini-action" type="button" data-waitlist-add>+</button>
@@ -577,7 +578,7 @@
           <section class="rail-panel">
             <div class="rail-head">
               <div>
-                <p class="eyebrow">Operations</p>
+                <p class="eyebrow">Operasyon</p>
                 <h3>İşletme notları</h3>
               </div>
             </div>

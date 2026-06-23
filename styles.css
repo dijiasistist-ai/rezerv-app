@@ -9,6 +9,9 @@
   --panel: #ffffff;
   --green: #07a65a;
   --blue: #04a7f4;
+  --tyee-blue: #2f7ee6;
+  --tyee-blue-deep: #236bd2;
+  --tyee-blue-shadow: rgba(64, 144, 240, 0.28);
   --shadow: 0 16px 38px rgba(16, 24, 40, 0.09);
   --max-width: 1480px;
   --section-width: min(var(--max-width), calc(100% - 96px));
@@ -393,9 +396,9 @@ button {
 
 .solid-button {
   border: 0;
-  background: linear-gradient(135deg, #04a7f4 0%, #ff2d74 100%);
+  background: linear-gradient(135deg, var(--tyee-blue) 0%, #48a0f0 100%);
   color: #fff;
-  box-shadow: 0 10px 24px rgba(4, 167, 244, 0.24);
+  box-shadow: 0 10px 24px var(--tyee-blue-shadow);
 }
 
 .account-shell {
@@ -1766,7 +1769,7 @@ button {
   left: 0;
   min-width: 84px;
   padding: 5px 10px;
-  background: #9450a8;
+  background: var(--tyee-blue);
   color: #fff;
   font-size: var(--fs-micro);
   font-weight: var(--weight-bold);
@@ -1834,7 +1837,7 @@ button {
 }
 
 .nearby-facility-foot em {
-  color: #9450a8;
+  color: var(--tyee-blue-deep);
   font-size: var(--fs-sm);
   font-style: normal;
   font-weight: var(--weight-bold);
@@ -1851,10 +1854,15 @@ button {
   min-height: 31px;
   border-radius: 999px;
   padding: 0 12px;
-  background: #9450a8;
-  box-shadow: none;
+  background: linear-gradient(135deg, var(--tyee-blue) 0%, #48a0f0 100%);
+  box-shadow: 0 10px 22px var(--tyee-blue-shadow);
   font-size: var(--fs-sm);
   font-weight: var(--weight-bold);
+}
+
+.nearby-facility-foot .solid-button:hover {
+  background: linear-gradient(135deg, var(--tyee-blue-deep) 0%, #4090f0 100%);
+  box-shadow: 0 12px 26px rgba(64, 144, 240, 0.34);
 }
 
 .metrics-bar {
@@ -1985,7 +1993,7 @@ button {
   width: 24px;
   height: 24px;
   border-radius: 7px;
-  background: linear-gradient(135deg, var(--brand), #ff2d74);
+  background: linear-gradient(135deg, var(--tyee-blue), #48a0f0);
   transform: translateY(-50%);
 }
 
@@ -2707,7 +2715,7 @@ button {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #7f3fb0;
+  background: var(--tyee-blue);
   font-size: 18px;
 }
 
@@ -2776,9 +2784,9 @@ button {
   width: 12px;
   height: 12px;
   border-radius: 0 0 3px 0;
-  background: #71349c;
+  background: var(--tyee-blue-deep);
   transform: translateX(-50%) rotate(45deg);
-  box-shadow: 0 8px 18px rgba(35, 14, 62, 0.28);
+  box-shadow: 0 8px 18px var(--tyee-blue-shadow);
 }
 
 .tyee-map-pin span,
@@ -2791,8 +2799,8 @@ button {
   height: 42px;
   border: 4px solid #fff;
   border-radius: 50%;
-  background: #7f3fb0;
-  box-shadow: 0 8px 18px rgba(35, 14, 62, 0.28);
+  background: var(--tyee-blue);
+  box-shadow: 0 8px 18px var(--tyee-blue-shadow);
   font-size: 22px;
 }
 
@@ -2807,18 +2815,18 @@ button {
   bottom: -5px;
   width: 13px;
   height: 13px;
-  background: #f47fb2;
-  box-shadow: 0 8px 18px rgba(111, 36, 86, 0.24);
+  background: var(--tyee-blue-deep);
+  box-shadow: 0 8px 18px var(--tyee-blue-shadow);
 }
 
 .tyee-map-pin.is-pet-pin span {
   width: 46px;
   height: 46px;
   border: 4px solid #fff;
-  background: linear-gradient(145deg, #fffafd 0%, #ffe1ee 58%, #f783b8 100%);
+  background: linear-gradient(145deg, #effaff 0%, #d7f2ff 58%, var(--tyee-blue) 100%);
   box-shadow:
-    0 9px 20px rgba(111, 36, 86, 0.24),
-    inset 0 -5px 12px rgba(244, 127, 178, 0.18);
+    0 9px 20px var(--tyee-blue-shadow),
+    inset 0 -5px 12px rgba(4, 167, 244, 0.18);
 }
 
 .tyee-map-pin.is-pet-pin .pet-paw-marker {
@@ -2826,7 +2834,7 @@ button {
   width: 31px;
   height: 31px;
   overflow: visible;
-  fill: #5d257a;
+  fill: var(--brand-dark);
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.58));
 }
 
@@ -2843,7 +2851,7 @@ button {
   height: 54px;
   border: 5px solid #fff;
   border-radius: 50%;
-  background: linear-gradient(135deg, #04a7f4, #ef3f92);
+  background: linear-gradient(135deg, var(--tyee-blue), #48a0f0);
   box-shadow: 0 12px 24px rgba(16, 24, 40, 0.24);
   color: #fff;
   font-size: 26px;
@@ -3010,7 +3018,7 @@ button {
 
 .reservation-page-body {
   min-height: 100vh;
-  padding-top: 82px;
+  padding-top: 112px;
   background:
     linear-gradient(180deg, #f6fbff 0, #fff 360px),
     #fff;
@@ -3058,17 +3066,17 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--line);
+  min-height: 38px;
+  border: 0;
   border-radius: 8px;
-  padding: 12px 16px;
-  background: #fff;
+  padding: 0 9px;
+  background: transparent;
   font-family: var(--font-nav);
   font-weight: var(--weight-semibold);
 }
 
 .booking-login.is-authenticated {
-  border-color: #b9e7ff;
-  background: #f1f9ff;
+  background: transparent;
   color: var(--brand-dark);
 }
 
@@ -3078,7 +3086,7 @@ button {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #04a7f4, #ef3f92);
+  background: linear-gradient(135deg, var(--tyee-blue), #48a0f0);
   color: #fff;
   font-size: 12px;
   font-weight: var(--weight-strong);
@@ -3140,7 +3148,7 @@ button {
   min-width: 58px;
   min-height: 38px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #04a7f4, #ef3f92);
+  background: linear-gradient(135deg, var(--tyee-blue), #48a0f0);
   color: #fff;
   font-size: 18px;
   font-weight: var(--weight-bold);
@@ -3416,8 +3424,8 @@ button {
 }
 
 .booking-slot-grid button.is-active {
-  border-color: #9b4eb3;
-  background: #9b4eb3;
+  border-color: var(--tyee-blue);
+  background: var(--tyee-blue);
   color: #fff;
 }
 
@@ -3573,8 +3581,8 @@ button {
 }
 
 .checkout-tabs button.is-active {
-  border-color: #9b4eb3;
-  color: #9b4eb3;
+  border-color: var(--tyee-blue);
+  color: var(--tyee-blue-deep);
 }
 
 .checkout-card-form {
@@ -3666,7 +3674,7 @@ button {
 .checkout-address-row button {
   border: 0;
   border-radius: 18px;
-  background: linear-gradient(135deg, #04a7f4, #ff2d74);
+  background: linear-gradient(135deg, var(--tyee-blue), #48a0f0);
   color: #fff;
   font-size: 30px;
   font-weight: var(--weight-bold);
@@ -3694,7 +3702,7 @@ button {
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: #9b4eb3;
+  accent-color: var(--tyee-blue);
 }
 
 .checkout-accept-row a {
@@ -3718,7 +3726,7 @@ button {
 
 .checkout-summary-card h2 {
   margin: 0 0 4px;
-  color: #9b4eb3;
+  color: var(--tyee-blue-deep);
   font-size: 34px;
   line-height: 1.1;
 }
@@ -5459,8 +5467,8 @@ button {
 
 .checkout-choice-card:hover,
 .checkout-choice-card.is-active {
-  border-color: #7c5cff;
-  box-shadow: 0 12px 34px rgba(124, 92, 255, 0.12);
+  border-color: var(--tyee-blue);
+  box-shadow: 0 12px 34px rgba(4, 167, 244, 0.12);
   transform: translateY(-1px);
 }
 
@@ -5473,8 +5481,8 @@ button {
 }
 
 .checkout-choice-card.is-active .checkout-choice-indicator {
-  border-color: #7c5cff;
-  background: #7c5cff;
+  border-color: var(--tyee-blue);
+  background: var(--tyee-blue);
 }
 
 .checkout-choice-copy {

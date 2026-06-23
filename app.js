@@ -456,6 +456,15 @@ function buildUserIcon() {
   });
 }
 
+function getReservationUrl(itemOrId = {}) {
+  const listingId = typeof itemOrId === "string" ? itemOrId : itemOrId.listingId || itemOrId.id;
+  return listingId ? `/reservation.html?id=${encodeURIComponent(listingId)}` : "/reservation.html";
+}
+
+function openReservationPage(itemOrId = {}) {
+  window.location.href = getReservationUrl(itemOrId);
+}
+
 function refreshMapSlot(slot) {
   if (!slot?.map) return;
 
@@ -551,6 +560,7 @@ function renderNearbyMapCanvas(map, origin, items = [], markerGroup = "modal") {
         `<strong>${item.name}</strong><br /><span>${item.categoryLabel} · ${item.cityLabel}</span><br /><small>${item.distanceLabel}</small>`,
       );
     marker.tyeeId = item.id;
+    marker.on("click", () => openReservationPage(item));
     slot.markers.push(marker);
   });
 
@@ -832,7 +842,7 @@ function renderNearbyListings(items = state.nearbyItems) {
               <div class="nearby-facility-foot">
                 <em>₺${item.priceLabel || "0"}</em>
                 <small>${item.nextSlot || "Yakında"} müsait</small>
-                <button class="solid-button" data-reservation-id="${item.id}" type="button">Rezervasyon Yap</button>
+                <button class="solid-button" data-reservation-id="${item.id}" type="button">Rezerv et</button>
               </div>
             </div>
           </article>
@@ -1524,12 +1534,14 @@ nearbyMapDismiss?.addEventListener("click", closeNearbyMap);
 nearbyResults?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-marker-id]");
   if (!button) return;
-  highlightNearbyMarker(button.dataset.markerId, "modal");
+  const item = state.nearbyItems.find((candidate) => candidate.id === button.dataset.markerId);
+  openReservationPage(item || button.dataset.markerId);
 });
 inlineNearbyResults?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-marker-id]");
   if (!button) return;
-  highlightNearbyMarker(button.dataset.markerId, "inline");
+  const item = state.nearbyItems.find((candidate) => candidate.id === button.dataset.markerId);
+  openReservationPage(item || button.dataset.markerId);
 });
 
 listingGrid?.addEventListener("click", (event) => {
@@ -1540,15 +1552,14 @@ listingGrid?.addEventListener("click", (event) => {
     const item =
       state.nearbyItems.find((candidate) => candidate.id === itemId) ||
       state.featuredListings.find((candidate) => candidate.id === itemId);
-    if (item) {
-      window.location.href = `/reservation.html?id=${encodeURIComponent(item.id)}`;
-    }
+    openReservationPage(item || itemId);
     return;
   }
 
   const card = event.target.closest(".nearby-facility-card[data-marker-id]");
   if (!card) return;
-  highlightNearbyMarker(card.dataset.markerId, "inline");
+  const item = state.nearbyItems.find((candidate) => candidate.id === card.dataset.markerId);
+  openReservationPage(item || card.dataset.markerId);
 });
 
 reservationClose?.addEventListener("click", closeReservationModal);

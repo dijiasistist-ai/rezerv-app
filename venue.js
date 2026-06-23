@@ -25,6 +25,7 @@ const weekTodayButton = document.querySelector("#week-today");
 const weekPrevButton = document.querySelector("#week-prev");
 const weekNextButton = document.querySelector("#week-next");
 const weekNextMonthButton = document.querySelector("#week-next-month");
+const calendarNewAppointment = document.querySelector("#calendar-new-appointment");
 const salesModal = document.querySelector("#sales-modal");
 const salesModalClose = document.querySelector("#sales-modal-close");
 const salesCancel = document.querySelector("#sales-cancel");
@@ -42,8 +43,6 @@ const goCalendarButton = document.querySelector("#go-calendar-button");
 const subscriptionsBody = document.querySelector("#subscriptions-body");
 const newSubscriptionButton = document.querySelector("#new-subscription-button");
 const transactionsBody = document.querySelector("#transactions-body");
-const sidebarSummaryTitle = document.querySelector(".sidebar-summary strong");
-const sidebarSummaryMeta = document.querySelector(".sidebar-summary small");
 const venueGuidesChecklist = document.querySelector("#venue-guides-checklist");
 const venueNextAppointments = document.querySelector("#venue-next-appointments");
 const venueWaitlist = document.querySelector("#venue-waitlist");
@@ -101,7 +100,7 @@ const VIEW_META = {
   calendar: {
     title: "Takvim",
     subtitle: "Rezervasyon, müsaitlik, müşteri ve checkout akışının başladığı ana operasyon ekranı.",
-    railVisible: true,
+    railVisible: false,
   },
   transactions: {
     title: "Checkout & Satış",
@@ -1344,7 +1343,7 @@ function buildTimeSlots() {
 }
 
 function getDefaultMode(slot) {
-  if (!slot) return "rezerv";
+  if (!slot) return "closed";
   if (slot.status === "marketplace") return "rezerv";
   if (slot.status === "maintenance") return "closed";
   return "reserved";
@@ -1383,6 +1382,14 @@ function addDays(date, days) {
 
 function formatDayLabel(date) {
   return `${WEEKDAY_SHORT[date.getDay()]} ${date.getDate()} ${MONTH_SHORT[date.getMonth()]}`;
+}
+
+function getDayHeaderParts(date) {
+  return {
+    weekday: WEEKDAY_SHORT[date.getDay()],
+    date: String(date.getDate()).padStart(2, "0"),
+    month: MONTH_SHORT[date.getMonth()],
+  };
 }
 
 function formatDateKey(date) {
@@ -1543,10 +1550,10 @@ function renderCalendarOpsStrip() {
       <button class="calendar-ops-pill" type="button" data-calendar-action="team">Ekip: ${escapeHtml(
         ops.team.find((item) => item.id === selectedTeam)?.name || "Tüm ekip",
       )}</button>
-      <button class="calendar-ops-pill" type="button" data-calendar-action="waitlist">Waitlist ${waitCount ? `(${waitCount})` : ""}</button>
-      <button class="calendar-ops-pill" type="button" data-calendar-action="settings">Calendar Settings</button>
-      <button class="calendar-ops-pill" type="button" data-calendar-action="reset">Reset</button>
-      <button class="calendar-ops-pill is-primary" type="button" data-calendar-action="quick-add">Add</button>
+      <button class="calendar-ops-pill" type="button" data-calendar-action="waitlist">Bekleme ${waitCount ? `(${waitCount})` : ""}</button>
+      <button class="calendar-ops-pill" type="button" data-calendar-action="settings">Takvim ayarı</button>
+      <button class="calendar-ops-pill" type="button" data-calendar-action="reset">Sıfırla</button>
+      <button class="calendar-ops-pill is-primary" type="button" data-calendar-action="quick-add">Yeni</button>
     </div>
   `;
 }
@@ -1655,7 +1662,7 @@ function openWaitlistDrawer(id = "") {
     paymentStatus: item.priority === "high" ? "Öncelikli" : "Normal",
     total: "—",
     commission: "—",
-    channel: "Waitlist",
+    channel: "Bekleme listesi",
     notes: item.note || "Müşteriye uygun slot bulunduğunda rezervasyona çevrilebilir.",
   });
 }
@@ -1842,7 +1849,7 @@ function renderWeeklySchedule(board, days) {
           let modeLabel = "Açık";
           let modeMeta = "";
           let modeClass = "is-tyee";
-          let actionLabel = "tyee satışına aç";
+          let actionLabel = "Müşteri rezervasyonuna aç";
           let badgeMarkup = buildSlotBadge("R", "is-tyee");
 
           if (mode === "closed") {
@@ -1880,7 +1887,7 @@ function renderWeeklySchedule(board, days) {
           const popoverClass = `slot-popover${popoverEdgeClass}${popoverVerticalClass}`;
           const slotMainMarkup =
             mode === "rezerv"
-              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık">tyee</span>`
+              ? `<span class="open-slot-dot" aria-label="Rezervasyona açık"></span><strong class="open-slot-title">tyee</strong><span class="open-slot-meta">${escapeHtml(serviceMeta)}</span>`
               : `<strong>${modeLabel}</strong>${badgeMarkup}${modeMeta ? `<span>${modeMeta}</span>` : ""}`;
           const serviceOptionsMarkup = getActiveServiceAreas()
             .map((area) => {
@@ -1915,9 +1922,9 @@ function renderWeeklySchedule(board, days) {
                           <span>${actionLabel}</span>
                         </div>
                         <div class="slot-options" aria-label="Slot durumu seç">
-                          <button class="slot-option slot-option-tyee ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="tyee">
+                          <button class="slot-option slot-option-tyee ${mode === "rezerv" ? "is-active" : ""}" type="button" data-mode="rezerv" data-slot-key="${slotKey}" aria-label="Açık satış">
                             <span class="slot-option-icon">R</span>
-                            <span>tyee</span>
+                            <span>Açık satış</span>
                           </button>
                           <button class="slot-option slot-option-closed ${mode === "closed" ? "is-active" : ""}" type="button" data-mode="closed" data-slot-key="${slotKey}" aria-label="Kapalı">
                             <span class="slot-option-icon">K</span>
@@ -1980,12 +1987,19 @@ function renderWeeklySchedule(board, days) {
     <table class="schedule-table">
       <thead>
         <tr>
-          <th>Saat</th>
+          <th class="schedule-time-head"><span>Saat</span></th>
           ${displayDays
             .map((day) => {
               const dayKey = formatDateKey(day.dateObj);
               const isToday = dayKey === todayKey;
-              return `<th class="${isToday ? "is-today-head" : ""}">${day.label}</th>`;
+              const parts = getDayHeaderParts(day.dateObj);
+              return `
+                <th class="${isToday ? "is-today-head" : ""}">
+                  <span class="schedule-day-name">${escapeHtml(parts.weekday)}</span>
+                  <span class="schedule-day-date">${escapeHtml(parts.date)}</span>
+                  <span class="schedule-day-month">${escapeHtml(parts.month)}</span>
+                </th>
+              `;
             })
             .join("")}
         </tr>
@@ -2350,17 +2364,6 @@ function renderOverview(payload) {
       `,
     )
     .join("");
-}
-
-function renderSidebarSummary(payload) {
-  if (!sidebarSummaryTitle || !sidebarSummaryMeta) return;
-  if (payload.isFreshVenue) {
-    sidebarSummaryTitle.textContent = "Kurulum";
-    sidebarSummaryMeta.textContent = "Henüz açık randevu slotu yok";
-    return;
-  }
-  sidebarSummaryTitle.textContent = "Takvim canlı";
-  sidebarSummaryMeta.textContent = "18 açık slot şu an rezervasyona uygun";
 }
 
 function getGuideSteps(payload) {
@@ -3766,6 +3769,7 @@ function openNavGroupForView(viewId) {
 
 function setView(viewId) {
   const meta = VIEW_META[viewId] || VIEW_META.calendar;
+  document.body.dataset.venueView = viewId;
   navItems.forEach((item) => {
     item.classList.toggle("is-active", item.dataset.view === viewId && !item.dataset.action);
   });
@@ -3841,7 +3845,6 @@ async function loadVenueDashboard() {
   venueState.slotServices = payload.slotState?.slotServices || {};
 
   renderVenueIdentity();
-  renderSidebarSummary(payload);
   renderGuidanceRail(payload);
 
   renderStats(payload.stats);
@@ -4140,6 +4143,11 @@ function bindVenueInteractions() {
     venueState.currentWeekOffset += 4;
     venueState.selectedSlotKey = "";
     renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+  });
+
+  calendarNewAppointment?.addEventListener("click", () => {
+    if (!venueState.dashboard) return;
+    openSalesModal(null, "19:00", "");
   });
 
   [salesModalClose, salesCancel].forEach((element) => {
