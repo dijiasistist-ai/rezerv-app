@@ -1288,12 +1288,20 @@ button {
   background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.24)), url("https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1200&q=80");
 }
 
+.showcase-beauty {
+  background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.24)), url("https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=80");
+}
+
 .showcase-spa {
   background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.24)), url("https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80");
 }
 
 .showcase-field {
   background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.24)), url("https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80");
+}
+
+.showcase-padel {
+  background-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.24)), url("https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&w=1200&q=80");
 }
 
 .showcase-restaurant {

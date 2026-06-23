@@ -1,8 +1,13 @@
 const categoryDefinitions = [
   { id: "pet-kuafor", label: "Pet Kuaför", featuredLabel: "Pet Kuaför", icon: "🐾", cityFocus: "istanbul" },
   { id: "sac-kuafor", label: "Saç Kuaför", featuredLabel: "Saç Kuaför", icon: "✂️", cityFocus: "istanbul" },
+  { id: "guzellik", label: "Güzellik", featuredLabel: "Güzellik Merkezi", icon: "💄", cityFocus: "istanbul" },
   { id: "masaj", label: "Masaj", featuredLabel: "Masaj", icon: "🪷", cityFocus: "istanbul" },
   { id: "hali-saha", label: "Halı Saha", featuredLabel: "Halı Saha", icon: "⚽", cityFocus: "istanbul" },
+  { id: "tenis", label: "Tenis", featuredLabel: "Tenis", icon: "🎾", cityFocus: "istanbul" },
+  { id: "padel", label: "Padel", featuredLabel: "Padel Kort", icon: "🎾", cityFocus: "istanbul" },
+  { id: "yoga", label: "Yoga", featuredLabel: "Yoga & Pilates", icon: "🧘", cityFocus: "istanbul" },
+  { id: "ozel-ders", label: "Özel Ders", featuredLabel: "Özel Ders", icon: "🎓", cityFocus: "istanbul" },
   { id: "restaurant", label: "Restaurant", featuredLabel: "Restaurant", icon: "🍽️", cityFocus: "istanbul" },
   { id: "tattoo", label: "Tattoo", featuredLabel: "Tattoo", icon: "🖋️", cityFocus: "istanbul" },
 ];
@@ -738,10 +743,15 @@ function formatPrice(value) {
 const categoryMarketFit = {
   "sac-kuafor": 1.16,
   "pet-kuafor": 1.14,
+  guzellik: 1.15,
   "hali-saha": 1.11,
+  tenis: 1.1,
+  padel: 1.1,
+  yoga: 1.09,
   masaj: 1.08,
   restaurant: 1.07,
   tattoo: 1.04,
+  "ozel-ders": 1.03,
 };
 
 function clamp(value, min = 0, max = 1) {

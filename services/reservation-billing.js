@@ -8,9 +8,9 @@ const PAYMENT_MODES = {
 };
 
 const PAYMENT_MODE_LABELS = {
-  [PAYMENT_MODES.COMMISSION_DEPOSIT]: "Ön ödeme",
-  [PAYMENT_MODES.FULL_ONLINE]: "Tam online ödeme",
-  [PAYMENT_MODES.VENUE_PAYMENT]: "Sadece rezervasyon",
+  [PAYMENT_MODES.COMMISSION_DEPOSIT]: "Ön ödeme (kapora)",
+  [PAYMENT_MODES.FULL_ONLINE]: "Ödemenin tamamını al",
+  [PAYMENT_MODES.VENUE_PAYMENT]: "Sadece randevu",
 };
 
 function toMoney(value = 0) {

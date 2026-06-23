@@ -1,4 +1,5 @@
 const venueTitle = document.querySelector("#venue-title");
+const venueTopbarSubtitle = document.querySelector("#venue-topbar-subtitle");
 const venueAvatar = document.querySelector("#venue-avatar");
 const venueName = document.querySelector("#venue-name");
 const venueBranch = document.querySelector("#venue-branch");
@@ -9,6 +10,7 @@ const statGrid = document.querySelector("#stat-grid");
 const quickActions = document.querySelector("#quick-actions");
 const calendarBoardSecondary = document.querySelector("#calendar-board-secondary");
 const calendarFieldPills = document.querySelector("#calendar-field-pills");
+const calendarOpsStrip = document.querySelector("#calendar-ops-strip");
 const salesProductsLayout = document.querySelector("#sales-products-layout");
 const crmSummaryGrid = document.querySelector("#crm-summary-grid");
 const crmCustomerList = document.querySelector("#crm-customer-list");
@@ -42,6 +44,17 @@ const newSubscriptionButton = document.querySelector("#new-subscription-button")
 const transactionsBody = document.querySelector("#transactions-body");
 const sidebarSummaryTitle = document.querySelector(".sidebar-summary strong");
 const sidebarSummaryMeta = document.querySelector(".sidebar-summary small");
+const venueGuidesChecklist = document.querySelector("#venue-guides-checklist");
+const venueNextAppointments = document.querySelector("#venue-next-appointments");
+const venueWaitlist = document.querySelector("#venue-waitlist");
+const venueOpsNotes = document.querySelector("#venue-ops-notes");
+const venueSideRail = document.querySelector("#venue-side-rail");
+const workspaceFlow = document.querySelector("#workspace-flow");
+const appointmentDrawer = document.querySelector("#appointment-drawer");
+const appointmentDrawerClose = document.querySelector("#appointment-drawer-close");
+const appointmentDrawerDismiss = document.querySelector("#appointment-drawer-dismiss");
+const appointmentDrawerTitle = document.querySelector("#appointment-drawer-title");
+const appointmentDrawerBody = document.querySelector("#appointment-drawer-body");
 const reportSummaryGrid = document.querySelector("#report-summary-grid");
 const reportsSummaryGrid = document.querySelector("#reports-summary-grid");
 const venueReportDocument = document.querySelector("#venue-report-document");
@@ -70,56 +83,71 @@ const venueState = {
   salesDraftSlotKey: "",
   venueId: "zincirlikuyu-arena",
   dashboard: null,
+  activeAppointment: null,
+  selectedServiceIndex: 0,
+  customerSubview: "list",
+  selectedCustomerIndex: 0,
+  customerSearch: "",
+  calendarFilter: "all",
+  calendarTeam: "all",
 };
 
-const venueCrmSummary = [
-  { label: "Toplam müşteri", value: "1.248", meta: "Bu ay +82 yeni müşteri kartı" },
-  { label: "Tekrar gelen", value: "%64", meta: "Son 90 günde tekrar rezervasyon" },
-  { label: "Pazarlama izni açık", value: "812", meta: "WhatsApp / SMS uygun" },
-  { label: "Geri çağırılacak", value: "94", meta: "30 gündür gelmeyen müşteri" },
-];
-
-const venueCustomerCards = [
-  {
-    name: "Sude Yılmaz",
-    segment: "Sadık müşteri",
-    visits: "18 ziyaret",
-    spend: "₺12.400 toplam",
-    nextAction: "Sadakat akışına dahil",
-    note: "En çok cuma 19:00 slotunu alıyor, checkout sonrası tekrar rezervasyon oranı yüksek.",
+const VIEW_META = {
+  overview: {
+    title: "Kontrol Merkezi",
+    subtitle: "Günün durumu, boş saatler ve işletmenin kısa performans özeti.",
+    railVisible: false,
   },
-  {
-    name: "Mert Kaan",
-    segment: "Riskli kayıp",
-    visits: "4 ziyaret",
-    spend: "₺2.100 toplam",
-    nextAction: "14 gündür gelmedi",
-    note: "Son randevuda memnuniyet yüksek ama yeniden booking yapmadı.",
+  calendar: {
+    title: "Takvim",
+    subtitle: "Rezervasyon, müsaitlik, müşteri ve checkout akışının başladığı ana operasyon ekranı.",
+    railVisible: true,
   },
-  {
-    name: "Ece Su",
-    segment: "Yeni müşteri",
-    visits: "1 ziyaret",
-    spend: "₺850 toplam",
-    nextAction: "İlk ziyaret sonrası follow-up gönder",
-    note: "Masaj & spa için geldi, bakım paketi ve ikinci ziyaret akışı önerilebilir.",
+  transactions: {
+    title: "Checkout & Satış",
+    subtitle: "Kapora, kalan ödeme, satış kapanışı ve rezervasyondan tahsilata giden akış.",
+    railVisible: false,
   },
-];
-
-const venueCustomerFocusCard = {
-  name: "Sude Yılmaz",
-  label: "Yüksek yaşam boyu değer",
-  stats: [
-    ["Son ziyaret", "06 Haz 2026"],
-    ["Son hizmet", "Saha 1 · 20:00"],
-    ["Ort. sepet", "₺688"],
-    ["Pazarlama izni", "WhatsApp + SMS açık"],
-  ],
-  timeline: [
-    "03 Haziran: Cuma akşamı slot aldı, kaporayı online ödedi ve checkout tamamlandı.",
-    "20 Mayıs: Arkadaş grubu ile geldi, müşteri kartına saha tercihi not edildi.",
-    "02 Mayıs: Sadakat kampanyasından dönüp tekrar rezervasyon yaptı.",
-  ],
+  customers: {
+    title: "Müşteriler",
+    subtitle: "Müşteri kartları, ziyaret geçmişi, notlar ve tekrar rezervasyon fırsatları.",
+    railVisible: false,
+  },
+  "sales-products": {
+    title: "Hizmet Menüsü",
+    subtitle: "Rezervasyona açılan hizmetlerin fiyat, süre, kapora ve görünürlük ayarları.",
+    railVisible: false,
+  },
+  campaigns: {
+    title: "Pazarlama",
+    subtitle: "Geri çağırma, hatırlatma ve müşteri tekrarını artıran kampanya akışları.",
+    railVisible: false,
+  },
+  subscriptions: {
+    title: "Paketler",
+    subtitle: "Aktif üyelikler, kullanım hakları ve tekrar eden gelir tarafı.",
+    railVisible: false,
+  },
+  finance: {
+    title: "Performans",
+    subtitle: "Ciro, gider, net görünüm ve işletmenin ekonomik fotoğrafı.",
+    railVisible: false,
+  },
+  reviews: {
+    title: "Değerlendirmeler",
+    subtitle: "Puanlar, yorumlar ve müşteri memnuniyetini etkileyen sinyaller.",
+    railVisible: false,
+  },
+  reports: {
+    title: "Raporlar",
+    subtitle: "İşletme sahibinin hızlıca okuyacağı yönetici görünümü ve dönemsel çıktılar.",
+    railVisible: false,
+  },
+  settings: {
+    title: "İşletme Ayarları",
+    subtitle: "Profil, çalışma saatleri, ödeme modeli ve temel işletme kurgusu.",
+    railVisible: false,
+  },
 };
 
 const venueCampaignKpis = [
@@ -180,6 +208,21 @@ const venuePnlRows = [
   ["Net kalan", "₺139.700"],
 ];
 
+const venueOperationalNotes = [
+  {
+    title: "Akşam prime-time doluluğu",
+    body: "18:00 sonrası slotların çoğu hızlı doluyor. Boş kalan saha veya personel saatleri için erken gün içi kampanya açılabilir.",
+  },
+  {
+    title: "Kapora ve kalan tahsilat dengesi",
+    body: "Kaporalı rezervasyonları checkout akışına bağlı tut. Açık hesap ve tesiste ödeme kalanlarını aynı panelden takip et.",
+  },
+  {
+    title: "Müşteri kartını rezervasyonun merkezine al",
+    body: "Tekrar gelen müşterilerde notlar, son hizmet ve harcama geçmişi görünür kalmalı. Operasyon bağımlılığı burada oluşur.",
+  },
+];
+
 const DEFAULT_LOCATION_CENTER = { lat: 41.0082, lng: 28.9784 };
 const WEEKDAY_SHORT = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cts"];
 const MONTH_SHORT = [
@@ -208,27 +251,494 @@ function getWeekStart(date = new Date()) {
 const BASE_WEEK_START = getWeekStart();
 const DEFAULT_SETTINGS_TABS = [
   "İşletme Bilgileri",
+  "Sektör Modülleri",
   "Ödeme & Sözleşme",
 ];
+
+const BUSINESS_CATEGORY_OPTIONS = [
+  "Restoran",
+  "Dövmeci",
+  "Pet Kuaför",
+  "Erkek Kuaför",
+  "Kadın Güzellik Merkezi",
+  "Güzellik Merkezi",
+  "Halı Saha",
+  "Tenis Kortu",
+  "Tenis Hocası",
+  "Yoga & Pilates",
+  "Padel Kort",
+  "Direksiyon Dersi",
+  "Özel Ders",
+  "Masaj & Spa",
+  "Diğer",
+];
+
+const OPERATION_MODULES = [
+  {
+    id: "marketplace-profile",
+    label: "Marketplace profili",
+    description: "Konum, görsel, yorum, kategori ve rezervasyon görünürlüğü.",
+  },
+  {
+    id: "service-menu",
+    label: "Hizmet menüsü",
+    description: "Hizmet, süre, fiyat, varyant, eklenti ve satışa açıklık.",
+  },
+  {
+    id: "availability-calendar",
+    label: "Takvim & müsaitlik",
+    description: "Slot, vardiya, blok saat, online rezervasyon ve operasyon takibi.",
+  },
+  {
+    id: "resource-booking",
+    label: "Kaynak rezervasyonu",
+    description: "Masa, kort, saha, koltuk, oda, cihaz veya stüdyo çakışmasını önleme.",
+  },
+  {
+    id: "team-scheduling",
+    label: "Ekip / uzman planı",
+    description: "Berber, sanatçı, eğitmen, terapist veya garson ekip uygunluğu.",
+  },
+  {
+    id: "client-crm",
+    label: "Müşteri CRM",
+    description: "Profil, ziyaret geçmişi, not, tercih, pet/sağlık/alışkanlık bilgisi.",
+  },
+  {
+    id: "forms-waivers",
+    label: "Form & onam",
+    description: "KVKK, sağlık beyanı, dövme onamı, patch test veya pet bakım notu.",
+  },
+  {
+    id: "deposit-cancellation",
+    label: "Kapora & iptal kuralı",
+    description: "No-show riskini azaltan depozito, iade ve son dakika iptal politikası.",
+  },
+  {
+    id: "checkout-payments",
+    label: "Checkout & ödeme",
+    description: "Online ödeme, tesiste ödeme, kalan tahsilat, indirim ve makbuz.",
+  },
+  {
+    id: "group-sessions",
+    label: "Grup seansı / sınıf",
+    description: "Yoga dersi, tenis grup dersi, takım rezervasyonu veya kontenjanlı etkinlik.",
+  },
+  {
+    id: "packages-memberships",
+    label: "Paket / üyelik",
+    description: "Seans paketi, aylık üyelik, abonelik, prepaid hak ve tekrar gelir.",
+  },
+  {
+    id: "inventory",
+    label: "Stok & ürün",
+    description: "Sarf malzeme, ürün satışı, düşük stok, tedarik ve tüketim takibi.",
+  },
+  {
+    id: "messaging",
+    label: "Mesaj & bildirim",
+    description: "Randevu hatırlatma, bekleme listesi, değişiklik ve geri çağırma mesajları.",
+  },
+  {
+    id: "reviews",
+    label: "Yorum & puan",
+    description: "Rezervasyon sonrası değerlendirme, kalite takibi ve marketplace güveni.",
+  },
+  {
+    id: "reports",
+    label: "Raporlar",
+    description: "Ciro, doluluk, personel, kanal, müşteri ve operasyon performansı.",
+  },
+  {
+    id: "portfolio-media",
+    label: "Portfolyo & medya",
+    description: "Dövme, güzellik, pet bakım ve mekan görselleriyle dönüşüm artırma.",
+  },
+  {
+    id: "waitlist",
+    label: "Bekleme listesi",
+    description: "Dolulukta alternatif saat, iptal yakalama ve boş slot doldurma.",
+  },
+];
+
+const INDUSTRY_PRESETS = [
+  {
+    id: "restoran",
+    label: "Restoran",
+    aliases: ["restoran", "restaurant", "lokanta", "cafe", "kafe"],
+    primaryObject: "Masa rezervasyonu",
+    resourceLabel: "Masa / salon",
+    teamLabel: "Servis ekibi",
+    capacityUnit: "Kişi",
+    bookingMode: "Masa, saat ve kişi sayısı",
+    depositRule: "Kalabalık masa veya yoğun saat için kapora opsiyonel",
+    requiredForms: "Alerji / özel not opsiyonel",
+    notes: "Restoran için temel fark masa çakışmasını önlemek ve no-show riskini yönetmek.",
+    requiredModules: [
+      "marketplace-profile",
+      "availability-calendar",
+      "resource-booking",
+      "client-crm",
+      "deposit-cancellation",
+      "checkout-payments",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["service-menu", "packages-memberships", "inventory", "waitlist"],
+  },
+  {
+    id: "dovmeci",
+    label: "Dövmeci",
+    aliases: ["dovmeci", "dövmeci", "tattoo", "tattoo studio"],
+    primaryObject: "Danışma / dövme randevusu",
+    resourceLabel: "Sanatçı koltuğu / steril oda",
+    teamLabel: "Sanatçı",
+    capacityUnit: "Kişi",
+    bookingMode: "Sanatçı, seans süresi ve danışma notu",
+    depositRule: "Randevu kesinleşmesi için kapora zorunlu önerilir",
+    requiredForms: "KVKK, yaş beyanı, sağlık/onam formu",
+    notes: "Dövme stüdyosunda portfolyo, onam ve kapora ana güvenlik hattıdır.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "resource-booking",
+      "team-scheduling",
+      "client-crm",
+      "forms-waivers",
+      "deposit-cancellation",
+      "checkout-payments",
+      "messaging",
+      "reviews",
+      "reports",
+      "portfolio-media",
+    ],
+    optionalModules: ["inventory", "waitlist"],
+  },
+  {
+    id: "pet-kuafor",
+    label: "Pet Kuaför",
+    aliases: ["pet kuafor", "pet kuaför", "pet", "kedi", "kopek", "köpek"],
+    primaryObject: "Pet bakım randevusu",
+    resourceLabel: "Bakım masası / yıkama alanı",
+    teamLabel: "Bakım uzmanı",
+    capacityUnit: "Pet",
+    bookingMode: "Pet türü, boyutu, hizmet ve süre",
+    depositRule: "Uzun bakım veya yoğun günlerde kapora önerilir",
+    requiredForms: "Pet davranış/sağlık notu, teslim alma notu",
+    notes: "Pet kuaförde müşteri kartı kadar pet profili ve özel bakım notu önemlidir.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "resource-booking",
+      "team-scheduling",
+      "client-crm",
+      "forms-waivers",
+      "deposit-cancellation",
+      "checkout-payments",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["inventory", "packages-memberships", "portfolio-media", "waitlist"],
+  },
+  {
+    id: "erkek-kuafor",
+    label: "Erkek Kuaför",
+    aliases: ["erkek kuafor", "erkek kuaför", "berber", "barber"],
+    primaryObject: "Koltuk / uzman randevusu",
+    resourceLabel: "Koltuk",
+    teamLabel: "Berber",
+    capacityUnit: "Kişi",
+    bookingMode: "Uzman, hizmet ve kısa slot",
+    depositRule: "No-show yoğun ise düşük kapora opsiyonel",
+    requiredForms: "Müşteri tercih notu opsiyonel",
+    notes: "Berber akışında hız, tekrar rezervasyon ve paket sadakati öne çıkar.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "resource-booking",
+      "team-scheduling",
+      "client-crm",
+      "checkout-payments",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["packages-memberships", "inventory", "waitlist"],
+  },
+  {
+    id: "kadin-guzellik",
+    label: "Kadın Güzellik Merkezi",
+    aliases: ["kadin guzellik", "kadın güzellik", "guzellik merkezi", "güzellik merkezi", "beauty", "nail", "tırnak"],
+    primaryObject: "Bakım / uygulama randevusu",
+    resourceLabel: "Oda / cihaz / koltuk",
+    teamLabel: "Uzman",
+    capacityUnit: "Kişi",
+    bookingMode: "Uzman, oda/cihaz, hizmet ve süre",
+    depositRule: "Uzun uygulama ve cihaz kullanımı için kapora önerilir",
+    requiredForms: "KVKK, sağlık beyanı, patch test/onam",
+    notes: "Güzellik merkezinde oda, cihaz, uzman ve onam formu birlikte yönetilmeli.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "resource-booking",
+      "team-scheduling",
+      "client-crm",
+      "forms-waivers",
+      "deposit-cancellation",
+      "checkout-payments",
+      "packages-memberships",
+      "messaging",
+      "reviews",
+      "reports",
+      "portfolio-media",
+    ],
+    optionalModules: ["inventory", "waitlist"],
+  },
+  {
+    id: "hali-saha",
+    label: "Halı Saha",
+    aliases: ["hali saha", "halı saha", "futbol", "saha"],
+    primaryObject: "Saha rezervasyonu",
+    resourceLabel: "Saha",
+    teamLabel: "Operasyon ekibi",
+    capacityUnit: "Takım / kişi",
+    bookingMode: "Saha, saat, süre ve takım bilgisi",
+    depositRule: "Prime-time saha için kapora zorunlu önerilir",
+    requiredForms: "Takım kaptanı ve telefon bilgisi",
+    notes: "Halı sahada kaynak çakışması, kapora ve bekleme listesi ana modüldür.",
+    requiredModules: [
+      "marketplace-profile",
+      "availability-calendar",
+      "resource-booking",
+      "client-crm",
+      "deposit-cancellation",
+      "checkout-payments",
+      "group-sessions",
+      "messaging",
+      "reviews",
+      "reports",
+      "waitlist",
+    ],
+    optionalModules: ["packages-memberships", "service-menu", "inventory"],
+  },
+  {
+    id: "tenis-kortu",
+    label: "Tenis Kortu",
+    aliases: ["tenis kortu", "tenis", "kort"],
+    primaryObject: "Kort rezervasyonu",
+    resourceLabel: "Kort",
+    teamLabel: "Kort görevlisi / antrenör",
+    capacityUnit: "Kişi",
+    bookingMode: "Kort, saat, süre ve ekipman notu",
+    depositRule: "Kort rezervasyonu için kapora opsiyonel",
+    requiredForms: "Ekipman/partner notu opsiyonel",
+    notes: "Kort işletmesinde kaynak rezervasyonu ve eğitmen opsiyonu birlikte düşünülür.",
+    requiredModules: [
+      "marketplace-profile",
+      "availability-calendar",
+      "resource-booking",
+      "client-crm",
+      "deposit-cancellation",
+      "checkout-payments",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["team-scheduling", "group-sessions", "packages-memberships", "waitlist"],
+  },
+  {
+    id: "tenis-hocasi",
+    label: "Tenis Hocası",
+    aliases: ["tenis hocasi", "tenis hocası", "tenis antrenor", "tenis antrenör"],
+    primaryObject: "Ders randevusu",
+    resourceLabel: "Kort / ders alanı",
+    teamLabel: "Hoca",
+    capacityUnit: "Kişi",
+    bookingMode: "Hoca, seviye, ders süresi ve kort",
+    depositRule: "Özel ders için kapora önerilir",
+    requiredForms: "Seviye, hedef ve sakatlık notu",
+    notes: "Hoca akışında kişi takvimi, seviye bilgisi ve paket ders satışı kritik.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "team-scheduling",
+      "client-crm",
+      "forms-waivers",
+      "deposit-cancellation",
+      "checkout-payments",
+      "packages-memberships",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["resource-booking", "group-sessions", "waitlist"],
+  },
+  {
+    id: "yoga-pilates",
+    label: "Yoga & Pilates",
+    aliases: ["yoga", "pilates", "yoga & pilates", "stüdyo", "studio"],
+    primaryObject: "Ders / sınıf rezervasyonu",
+    resourceLabel: "Stüdyo / mat kontenjanı",
+    teamLabel: "Eğitmen",
+    capacityUnit: "Kontenjan",
+    bookingMode: "Ders, eğitmen, sınıf kapasitesi ve üyelik",
+    depositRule: "Drop-in ders için ön ödeme, üyelikte hak düşümü önerilir",
+    requiredForms: "Sağlık/sakatlık beyanı",
+    notes: "Yoga ve pilates için grup dersleri, kapasite ve üyelik paketi olmazsa olmaz.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "resource-booking",
+      "team-scheduling",
+      "client-crm",
+      "forms-waivers",
+      "checkout-payments",
+      "group-sessions",
+      "packages-memberships",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["deposit-cancellation", "waitlist", "inventory"],
+  },
+  {
+    id: "padel-kort",
+    label: "Padel Kort",
+    aliases: ["padel", "padel kort"],
+    primaryObject: "Kort rezervasyonu",
+    resourceLabel: "Kort",
+    teamLabel: "Operasyon ekibi",
+    capacityUnit: "Kişi",
+    bookingMode: "Kort, saat, süre ve oyuncu sayısı",
+    depositRule: "Prime-time kort için kapora önerilir",
+    requiredForms: "Oyuncu sayısı ve ekipman notu",
+    notes: "Padel akışı tenis kortuna benzer; ekipman ve grup kontenjanı daha görünür olmalı.",
+    requiredModules: [
+      "marketplace-profile",
+      "availability-calendar",
+      "resource-booking",
+      "client-crm",
+      "deposit-cancellation",
+      "checkout-payments",
+      "group-sessions",
+      "messaging",
+      "reviews",
+      "reports",
+      "waitlist",
+    ],
+    optionalModules: ["packages-memberships", "team-scheduling", "inventory"],
+  },
+  {
+    id: "ozel-ders",
+    label: "Özel Ders",
+    aliases: ["ozel ders", "özel ders", "direksiyon dersi", "ders"],
+    primaryObject: "Ders randevusu",
+    resourceLabel: "Ders alanı / araç",
+    teamLabel: "Eğitmen",
+    capacityUnit: "Öğrenci",
+    bookingMode: "Eğitmen, ders tipi, seviye ve süre",
+    depositRule: "Paket ders veya özel slot için kapora önerilir",
+    requiredForms: "Seviye, hedef ve iletişim notu",
+    notes: "Eğitim akışında eğitmen takvimi, paket ders ve öğrenci notları önceliklidir.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "team-scheduling",
+      "client-crm",
+      "forms-waivers",
+      "deposit-cancellation",
+      "checkout-payments",
+      "packages-memberships",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["resource-booking", "group-sessions", "waitlist"],
+  },
+  {
+    id: "masaj-spa",
+    label: "Masaj & Spa",
+    aliases: ["masaj", "spa", "masaj & spa"],
+    primaryObject: "Terapi randevusu",
+    resourceLabel: "Oda",
+    teamLabel: "Terapist",
+    capacityUnit: "Kişi",
+    bookingMode: "Terapist, oda, hizmet ve süre",
+    depositRule: "Uzun seanslarda kapora önerilir",
+    requiredForms: "Sağlık beyanı ve onam",
+    notes: "Spa akışında oda, terapist, sağlık notu ve paket satışı aynı yerde olmalı.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "resource-booking",
+      "team-scheduling",
+      "client-crm",
+      "forms-waivers",
+      "deposit-cancellation",
+      "checkout-payments",
+      "packages-memberships",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["inventory", "portfolio-media", "waitlist"],
+  },
+  {
+    id: "diger",
+    label: "Diğer",
+    aliases: ["diger", "diğer"],
+    primaryObject: "Rezervasyon",
+    resourceLabel: "Alan / kaynak",
+    teamLabel: "Ekip üyesi",
+    capacityUnit: "Kişi",
+    bookingMode: "Hizmet, kaynak, saat ve müşteri",
+    depositRule: "No-show riskine göre kapora opsiyonel",
+    requiredForms: "KVKK ve hizmete özel not",
+    notes: "Genel hizmet işletmeleri için temel marketplace, takvim, CRM ve ödeme hattı yeterli başlangıçtır.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "client-crm",
+      "deposit-cancellation",
+      "checkout-payments",
+      "messaging",
+      "reviews",
+      "reports",
+    ],
+    optionalModules: ["resource-booking", "team-scheduling", "forms-waivers", "packages-memberships", "inventory", "waitlist"],
+  },
+];
+
 const FACILITY_FEATURES = [
   { id: "card", label: "Kredi kartı", icon: "💳", scopes: ["all"] },
   { id: "camera", label: "Kamera", icon: "🎥", scopes: ["all"] },
   { id: "parking", label: "Otopark", icon: "🅿️", scopes: ["all"] },
   { id: "wifi", label: "İnternet", icon: "📶", scopes: ["all"] },
   { id: "cafe", label: "Cafe", icon: "☕", scopes: ["all"] },
-  { id: "food", label: "Yemek", icon: "🍽️", scopes: ["restaurant", "hali-saha", "padel", "masaj & spa"] },
-  { id: "kids", label: "Çocuk oyun alanı", icon: "🧒", scopes: ["güzellik merkezi", "masaj & spa", "yoga & pilates", "özel ders"] },
-  { id: "prayer", label: "İbadet alanı", icon: "🌙", scopes: ["hali-saha", "padel"] },
-  { id: "shower", label: "Duş", icon: "🚿", scopes: ["hali-saha", "padel", "masaj & spa"] },
-  { id: "male-restroom", label: "Erkek tuvaleti", icon: "🚹", scopes: ["hali-saha", "padel", "restaurant"] },
-  { id: "female-restroom", label: "Kadın tuvaleti", icon: "🚺", scopes: ["hali-saha", "padel", "restaurant", "güzellik merkezi"] },
-  { id: "equipment", label: "Ekipman / ayakkabı", icon: "🎒", scopes: ["hali-saha", "padel", "özel ders"] },
+  { id: "food", label: "Yemek", icon: "🍽️", scopes: ["restoran", "hali-saha", "padel-kort", "masaj-spa"] },
+  { id: "kids", label: "Çocuk oyun alanı", icon: "🧒", scopes: ["kadin-guzellik", "masaj-spa", "yoga-pilates", "ozel-ders"] },
+  { id: "prayer", label: "İbadet alanı", icon: "🌙", scopes: ["hali-saha", "padel-kort"] },
+  { id: "shower", label: "Duş", icon: "🚿", scopes: ["hali-saha", "padel-kort", "masaj-spa"] },
+  { id: "male-restroom", label: "Erkek tuvaleti", icon: "🚹", scopes: ["hali-saha", "padel-kort", "restoran", "erkek-kuafor"] },
+  { id: "female-restroom", label: "Kadın tuvaleti", icon: "🚺", scopes: ["hali-saha", "padel-kort", "restoran", "kadin-guzellik"] },
+  { id: "equipment", label: "Ekipman / ayakkabı", icon: "🎒", scopes: ["hali-saha", "padel-kort", "tenis-kortu", "tenis-hocasi", "ozel-ders"] },
   { id: "goalkeeper", label: "Kaleci", icon: "🥅", scopes: ["hali-saha"] },
-  { id: "locker", label: "Soyunma odası", icon: "🔐", scopes: ["hali-saha", "padel", "masaj & spa"] },
-  { id: "pet-waiting", label: "Bekleme alanı", icon: "🐶", scopes: ["pet kuaför"] },
-  { id: "pet-safe-care", label: "Güvenli bakım alanı", icon: "🫧", scopes: ["pet kuaför"] },
-  { id: "sterile-tools", label: "Steril ekipman", icon: "🧼", scopes: ["güzellik merkezi", "tattoo", "pet kuaför"] },
-  { id: "private-room", label: "Özel bakım odası", icon: "🛏️", scopes: ["masaj & spa", "güzellik merkezi", "tattoo"] },
+  { id: "locker", label: "Soyunma odası", icon: "🔐", scopes: ["hali-saha", "padel-kort", "masaj-spa", "yoga-pilates"] },
+  { id: "pet-waiting", label: "Bekleme alanı", icon: "🐶", scopes: ["pet-kuafor"] },
+  { id: "pet-safe-care", label: "Güvenli bakım alanı", icon: "🫧", scopes: ["pet-kuafor"] },
+  { id: "sterile-tools", label: "Steril ekipman", icon: "🧼", scopes: ["kadin-guzellik", "dovmeci", "pet-kuafor", "erkek-kuafor"] },
+  { id: "private-room", label: "Özel bakım odası", icon: "🛏️", scopes: ["masaj-spa", "kadin-guzellik", "dovmeci"] },
 ];
 
 function normalizeCategoryKey(value = "") {
@@ -237,10 +747,94 @@ function normalizeCategoryKey(value = "") {
     .toLocaleLowerCase("tr-TR");
 }
 
+function foldSearchValue(value = "") {
+  return normalizeCategoryKey(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c");
+}
+
+function getIndustryPresetByKey(key = "") {
+  return INDUSTRY_PRESETS.find((preset) => preset.id === key) || INDUSTRY_PRESETS[INDUSTRY_PRESETS.length - 1];
+}
+
+function getIndustryPreset(value = "") {
+  const folded = foldSearchValue(value);
+  if (!folded) return getIndustryPresetByKey("diger");
+  const candidates = INDUSTRY_PRESETS.flatMap((preset) =>
+    (preset.aliases || []).map((alias) => ({
+      preset,
+      alias: foldSearchValue(alias),
+    })),
+  )
+    .filter(({ alias }) => alias && (folded === alias || folded.includes(alias) || alias.includes(folded)))
+    .sort((a, b) => {
+      const exactScore = Number(b.alias === folded) - Number(a.alias === folded);
+      return exactScore || b.alias.length - a.alias.length;
+    });
+
+  return candidates[0]?.preset || getIndustryPresetByKey("diger");
+}
+
+function extractOperationModuleIds(modules = []) {
+  return (Array.isArray(modules) ? modules : [])
+    .map((item) => (typeof item === "string" ? item : item?.id))
+    .filter(Boolean);
+}
+
+function normalizeOperations(settings = {}) {
+  const category =
+    settings?.details?.category || settings?.selects?.find((item) => item.label === "İşletme Tipi")?.value || "";
+  const preset = getIndustryPreset(category);
+  const saved = settings.operations && typeof settings.operations === "object" ? settings.operations : {};
+  const sameIndustry = saved.industryKey === preset.id;
+  const savedModuleIds = sameIndustry ? extractOperationModuleIds(saved.modules) : [];
+  const enabledModuleIds = new Set([...(preset.requiredModules || []), ...savedModuleIds]);
+
+  return {
+    industryKey: preset.id,
+    industryLabel: preset.label,
+    primaryObject: sameIndustry && saved.primaryObject ? saved.primaryObject : preset.primaryObject,
+    resourceLabel: sameIndustry && saved.resourceLabel ? saved.resourceLabel : preset.resourceLabel,
+    teamLabel: sameIndustry && saved.teamLabel ? saved.teamLabel : preset.teamLabel,
+    capacityUnit: sameIndustry && saved.capacityUnit ? saved.capacityUnit : preset.capacityUnit,
+    bookingMode: sameIndustry && saved.bookingMode ? saved.bookingMode : preset.bookingMode,
+    depositRule: sameIndustry && saved.depositRule ? saved.depositRule : preset.depositRule,
+    requiredForms: sameIndustry && saved.requiredForms ? saved.requiredForms : preset.requiredForms,
+    notes: sameIndustry && saved.notes ? saved.notes : preset.notes,
+    modules: OPERATION_MODULES.filter((module) => enabledModuleIds.has(module.id)).map((module) => module.id),
+  };
+}
+
+function getOperationsBlueprint(settings = {}) {
+  const operations = normalizeOperations(settings);
+  const preset = getIndustryPresetByKey(operations.industryKey);
+  const enabledSet = new Set(operations.modules || []);
+  const requiredSet = new Set(preset.requiredModules || []);
+  const optionalSet = new Set(preset.optionalModules || []);
+
+  return {
+    ...operations,
+    requiredCount: requiredSet.size,
+    enabledCount: enabledSet.size,
+    moduleCards: OPERATION_MODULES.map((module) => ({
+      ...module,
+      required: requiredSet.has(module.id),
+      recommended: optionalSet.has(module.id),
+      enabled: enabledSet.has(module.id),
+    })),
+  };
+}
+
 function getFacilityCategoryKey(settings = {}) {
-  return normalizeCategoryKey(
+  return getIndustryPreset(
     settings?.details?.category || settings?.selects?.find((item) => item.label === "İşletme Tipi")?.value || "",
-  );
+  ).id;
 }
 
 function getVisibleFacilityFeatures(settings = {}) {
@@ -415,8 +1009,15 @@ function normalizeSettings(settings = {}) {
   const businessType = settings.selects?.find((item) => item.label === "İşletme Tipi")?.value || "";
   const savedFacilities = Array.isArray(settings.facilities) ? settings.facilities : [];
   const savedFacilityMap = new Map(savedFacilities.map((item) => [item.id, item]));
-
-  return {
+  const normalizedDetails = {
+    category: businessType,
+    district: "",
+    description: "",
+    workingHours: "",
+    cancellationPolicy: "",
+    ...(settings.details || {}),
+  };
+  const normalizedSettings = {
     ...settings,
     tabs: DEFAULT_SETTINGS_TABS,
     businessName: settings.businessName || "",
@@ -431,14 +1032,7 @@ function normalizeSettings(settings = {}) {
       instagram: "",
       ...(settings.contact || {}),
     },
-    details: {
-      category: businessType,
-      district: "",
-      description: "",
-      workingHours: "",
-      cancellationPolicy: "",
-      ...(settings.details || {}),
-    },
+    details: normalizedDetails,
     media: {
       logoUrl: "",
       coverUrl: "",
@@ -458,7 +1052,7 @@ function normalizeSettings(settings = {}) {
       taxOffice: "",
       taxNumber: "",
       iban: "",
-      paymentMethod: "Ön ödeme",
+      paymentMethod: "Ön ödeme (kapora)",
       ...(settings.payment || {}),
     },
     contracts: {
@@ -468,6 +1062,9 @@ function normalizeSettings(settings = {}) {
       ...(settings.contracts || {}),
     },
   };
+
+  normalizedSettings.operations = normalizeOperations(normalizedSettings);
+  return normalizedSettings;
 }
 
 function getInitials(value = "") {
@@ -607,10 +1204,18 @@ function renderVenueIdentity() {
   if (!venueState.dashboard) return;
 
   const displayName = getVenueDisplayName();
-  venueTitle.textContent = `${displayName} business workspace`;
+  const settings = venueState.dashboard.settings || {};
+  const location = settings.location || {};
+  const hasLocation = Boolean(
+    settings.locationStatus === "Girilmiş" ||
+      location.address ||
+      (location.lat && location.lng),
+  );
   venueAvatar.textContent = getInitials(displayName);
   venueName.textContent = displayName;
-  venueBranch.textContent = venueState.dashboard.venue?.branch || "";
+  venueBranch.textContent = hasLocation
+    ? settings.details?.district || location.address || "Konum girildi"
+    : venueState.dashboard.venue?.branch || "Konum bilgisi bekleniyor";
 }
 
 function renderGlobalAccount(user = null) {
@@ -899,45 +1504,256 @@ function renderCalendarFieldPills() {
     .join("");
 }
 
+function getCalendarOpsPayload() {
+  const ops = venueState.dashboard?.calendarOps || {};
+  const waitlist = ops.waitlist || {};
+  return {
+    preferences: ops.preferences || {},
+    controls: Array.isArray(ops.controls) ? ops.controls : [],
+    filters: Array.isArray(ops.filters) ? ops.filters : [],
+    team: Array.isArray(ops.team) ? ops.team : [],
+    quickAdd: Array.isArray(ops.quickAdd) ? ops.quickAdd : [],
+    waitlist: {
+      items: Array.isArray(waitlist.items) ? waitlist.items : [],
+      summary: waitlist.summary || {},
+    },
+  };
+}
+
+function renderCalendarOpsStrip() {
+  if (!calendarOpsStrip) return;
+  const ops = getCalendarOpsPayload();
+  const activeFilter = venueState.calendarFilter || ops.preferences.activeFilter || "all";
+  const selectedTeam = venueState.calendarTeam || ops.preferences.selectedTeam || "all";
+  const waitCount = ops.waitlist.summary?.waiting || 0;
+
+  calendarOpsStrip.innerHTML = `
+    <div class="calendar-ops-group" aria-label="Takvim filtreleri">
+      ${(ops.filters.length ? ops.filters : [{ id: "all", label: "Tümü" }])
+        .map(
+          (filter) => `
+            <button class="calendar-ops-pill ${activeFilter === filter.id ? "is-active" : ""}" type="button" data-calendar-filter="${escapeHtml(filter.id)}">
+              ${escapeHtml(filter.label)}
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
+    <div class="calendar-ops-group" aria-label="Takvim aksiyonları">
+      <button class="calendar-ops-pill" type="button" data-calendar-action="team">Ekip: ${escapeHtml(
+        ops.team.find((item) => item.id === selectedTeam)?.name || "Tüm ekip",
+      )}</button>
+      <button class="calendar-ops-pill" type="button" data-calendar-action="waitlist">Waitlist ${waitCount ? `(${waitCount})` : ""}</button>
+      <button class="calendar-ops-pill" type="button" data-calendar-action="settings">Calendar Settings</button>
+      <button class="calendar-ops-pill" type="button" data-calendar-action="reset">Reset</button>
+      <button class="calendar-ops-pill is-primary" type="button" data-calendar-action="quick-add">Add</button>
+    </div>
+  `;
+}
+
+function renderWaitlistRail() {
+  if (!venueWaitlist) return;
+  const { waitlist } = getCalendarOpsPayload();
+  const items = waitlist.items || [];
+
+  venueWaitlist.innerHTML = items.length
+    ? items
+        .slice(0, 4)
+        .map(
+          (item) => `
+            <article class="rail-waitlist-card">
+              <div>
+                <strong>${escapeHtml(item.name)}</strong>
+                <small>${escapeHtml(item.service)} · ${escapeHtml(item.preferredWindow)}</small>
+              </div>
+              <span>${escapeHtml(item.statusLabel || "Bekliyor")}</span>
+              <div class="rail-waitlist-actions">
+                <button class="text-button" type="button" data-waitlist-open="${escapeHtml(item.id)}">Aç</button>
+                <button class="text-button" type="button" data-waitlist-match="${escapeHtml(item.id)}">Slot öner</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<article class="rail-waitlist-card is-empty"><strong>Bekleyen talep yok</strong><small>Talep geldiğinde uygun slota bağlayabilirsin.</small></article>`;
+}
+
+function renderCalendarOperations() {
+  renderCalendarOpsStrip();
+  renderWaitlistRail();
+}
+
+function getSlotFilterId(mode, slot = null, manualEntry = null) {
+  if (mode === "rezerv") return "open";
+  if (mode === "closed") return "closed";
+  if (mode === "manual") return manualEntry?.isSubscription ? "subscription" : "manual";
+  if (mode === "reserved") return "booked";
+  if (slot?.payment && String(slot.payment).toLocaleLowerCase("tr-TR").includes("online")) return "online";
+  return mode || "booked";
+}
+
+async function saveCalendarPreferences() {
+  const payload = await venueApiRequest("/api/venue/calendar-preferences", {
+    method: "PATCH",
+    body: JSON.stringify({
+      venueId: venueState.venueId,
+      preferences: {
+        ...(venueState.dashboard?.calendarOps?.preferences || {}),
+        activeFilter: venueState.calendarFilter,
+        selectedTeam: venueState.calendarTeam,
+      },
+    }),
+  });
+  venueState.dashboard.calendarOps = payload;
+  renderCalendarOperations();
+}
+
+async function refreshCalendarOps() {
+  const params = new URLSearchParams({ venueId: venueState.venueId });
+  const payload = await venueApiRequest(`/api/venue/calendar-ops?${params.toString()}`);
+  venueState.dashboard.calendarOps = payload;
+  venueState.calendarFilter = payload.preferences?.activeFilter || venueState.calendarFilter || "all";
+  venueState.calendarTeam = payload.preferences?.selectedTeam || venueState.calendarTeam || "all";
+  renderCalendarOperations();
+}
+
+async function addWaitlistItemFromCalendar() {
+  const service = getActiveServiceAreas()[0]?.name || "Ana hizmet";
+  const payload = await venueApiRequest("/api/venue/waitlist", {
+    method: "POST",
+    body: JSON.stringify({
+      venueId: venueState.venueId,
+      name: "Yeni bekleyen müşteri",
+      service,
+      preferredWindow: "İlk uygun slot",
+      priority: "normal",
+      note: "Takvimden hızlı eklenen bekleme listesi kaydı.",
+    }),
+  });
+  venueState.dashboard.calendarOps = payload;
+  renderCalendarOperations();
+}
+
+async function updateWaitlistStatus(id, status) {
+  const payload = await venueApiRequest(`/api/venue/waitlist/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ venueId: venueState.venueId, status }),
+  });
+  venueState.dashboard.calendarOps = payload;
+  renderCalendarOperations();
+}
+
+function openWaitlistDrawer(id = "") {
+  const item = getCalendarOpsPayload().waitlist.items.find((entry) => entry.id === id);
+  if (!item) return;
+  openAppointmentDrawer({
+    title: item.name,
+    service: item.service,
+    serviceType: "Bekleme listesi",
+    datetime: item.preferredWindow,
+    status: item.statusLabel || "Bekliyor",
+    paymentStatus: item.priority === "high" ? "Öncelikli" : "Normal",
+    total: "—",
+    commission: "—",
+    channel: "Waitlist",
+    notes: item.note || "Müşteriye uygun slot bulunduğunda rezervasyona çevrilebilir.",
+  });
+}
+
 function renderSalesProducts(settings) {
   if (!salesProductsLayout) return;
   const normalized = normalizeSettings(settings);
   const activeAreas = normalized.areas.filter((area) => area.isActive);
-  const summary = `${activeAreas.length} / ${normalized.areas.length} kalem satışta`;
+  const totalCount = normalized.areas.length;
+  const selectedIndex = Math.min(venueState.selectedServiceIndex, Math.max(totalCount - 1, 0));
+  venueState.selectedServiceIndex = selectedIndex;
+  const selectedArea = normalized.areas[selectedIndex] || normalized.areas[0];
+  const operations = getOperationsBlueprint(normalized);
+  const operationModuleChips = operations.moduleCards
+    .filter((module) => module.enabled)
+    .slice(0, 5)
+    .map((module) => `<span>${escapeHtml(module.label)}</span>`)
+    .join("");
+  const summary = `${activeAreas.length} / ${totalCount} kalem satışta`;
   const cardsMarkup = normalized.areas
     .map((area, index) => {
       const priceLabel = area.price ? `₺${String(area.price).replace(/^₺\s*/, "")}` : "";
-      const meta = [area.type, area.capacity, priceLabel].filter(Boolean).join(" · ") || "Konfigürasyon bekliyor";
+      const durationLabel = area.capacity || "60 dk";
+      const meta = [area.type || "Hizmet", durationLabel].filter(Boolean).join(" · ");
       return `
-        <article class="sales-product-card ${area.isActive ? "is-active" : ""}" data-product-card="${index}">
-          <div class="sales-product-card-head">
-            <div>
-              <span>${area.isActive ? "Satışta" : "Kapalı"}</span>
-              <strong>${escapeHtml(area.name || `Hizmet ${index + 1}`)}</strong>
-            </div>
-            <label class="settings-switch">
-              <input type="checkbox" data-area-active="${index}" ${area.isActive ? "checked" : ""} />
-              <span>Açık</span>
-            </label>
+        <article class="service-row-card ${area.isActive ? "is-active" : ""} ${index === selectedIndex ? "is-selected" : ""}" data-product-card="${index}">
+          <div class="service-row-accent"></div>
+          <div class="service-row-main">
+            <strong>${escapeHtml(area.name || `Hizmet ${index + 1}`)}</strong>
+            <span>${escapeHtml(meta)}</span>
           </div>
-          <p>${escapeHtml(meta)}</p>
+          <div class="service-row-price">${escapeHtml(priceLabel || "₺0")}</div>
+          <button class="service-row-more" type="button" aria-label="Hizmet seçenekleri">⋮</button>
         </article>
       `;
     })
     .join("");
 
+  const categoryName = activeAreas[0]?.type || normalized.details?.category || "Tüm kategoriler";
+  const selectedMeta = [selectedArea?.type || "Hizmet", selectedArea?.capacity || "60 dk"].filter(Boolean).join(" · ");
+
   salesProductsLayout.innerHTML = `
-    <div class="sales-products-list">
-      <div class="sales-products-summary">
-        <strong>${summary}</strong>
-        <span>Takvimde satışa açacağın slotlar bu hizmet kalemlerinden birine bağlanır.</span>
+    <aside class="service-catalog-sidebar">
+      <div class="service-catalog-card">
+        <strong>Kategoriler</strong>
+        <div class="service-category-list">
+          <button class="service-category-item is-active" type="button">
+            <span>Tüm kategoriler</span>
+            <em>${totalCount}</em>
+          </button>
+          <button class="service-category-item" type="button">
+            <span>${escapeHtml(categoryName)}</span>
+            <em>${activeAreas.length}</em>
+          </button>
+        </div>
+        <button class="service-link-button" type="button">Kategori ekle</button>
       </div>
-      <div class="sales-products-cards">${cardsMarkup}</div>
-    </div>
-    <div class="sales-products-editor">
-      <div class="settings-note">Her satır müşterinin rezervasyon ekranında seçeceği satılabilir hizmettir. Tür ve kontenjan/not alanı opsiyoneldir.</div>
-      <div class="sales-products-editor-grid">${areaSettingsFields(normalized)}</div>
-    </div>
+      <div class="service-blueprint-card">
+        <span>Sektör akışı</span>
+        <strong>${escapeHtml(operations.primaryObject)}</strong>
+        <small>${escapeHtml(operations.bookingMode)}</small>
+        <div>${operationModuleChips}</div>
+      </div>
+    </aside>
+    <section class="service-catalog-main">
+      <div class="service-catalog-toolbar">
+        <div class="service-search-shell">
+          <input class="service-search-input" type="text" placeholder="Hizmet ara" />
+          <button class="ghost-button" type="button">Filtreler</button>
+        </div>
+        <button class="ghost-button" type="button">Sırayı yönet</button>
+      </div>
+
+      <div class="service-catalog-summary">
+        <div>
+          <strong>${escapeHtml(categoryName)}</strong>
+          <span>${summary}</span>
+        </div>
+        <button class="ghost-button" type="button">Aksiyonlar</button>
+      </div>
+
+      <div class="service-catalog-rows">${cardsMarkup}</div>
+
+      <div class="service-editor-shell">
+        <div class="service-editor-head">
+          <div>
+            <strong>${escapeHtml(selectedArea?.name || "Hizmet")}</strong>
+            <span>${escapeHtml(selectedMeta)}</span>
+          </div>
+          <label class="settings-switch">
+            <input type="checkbox" data-area-active="${selectedIndex}" ${selectedArea?.isActive ? "checked" : ""} />
+            <span>Aktif</span>
+          </label>
+        </div>
+        <div class="settings-note">Seçilen hizmetin detaylarını güncelle. Liste görünümü solda, detay düzenleme sağda kalır.</div>
+        <div class="sales-products-editor-grid">${areaSettingsFields({ ...normalized, areas: [selectedArea] }, selectedIndex)}</div>
+      </div>
+    </section>
   `;
 }
 
@@ -1050,6 +1866,11 @@ function renderWeeklySchedule(board, days) {
             badgeMarkup = buildSlotBadge(reservedSource.label, reservedSource.className);
           }
 
+          const filterId = getSlotFilterId(mode, slot, manualEntry);
+          const filterDimmedClass =
+            venueState.calendarFilter && venueState.calendarFilter !== "all" && venueState.calendarFilter !== filterId
+              ? " is-filter-dimmed"
+              : "";
           const compactStatusClass = modeClass
             .split(" ")
             .map((className) => `slot-${className.replace(/^is-/, "")}`)
@@ -1082,7 +1903,7 @@ function renderWeeklySchedule(board, days) {
             .join("");
 
           return `
-            <td class="schedule-slot-cell ${compactStatusClass}${explicitRezervClass}${selectedClass}${todayClass}" data-slot-key="${slotKey}" data-day-index="${dayIndex}" data-time="${time}">
+            <td class="schedule-slot-cell ${compactStatusClass}${explicitRezervClass}${selectedClass}${todayClass}${filterDimmedClass}" data-slot-key="${slotKey}" data-day-index="${dayIndex}" data-time="${time}">
               <div class="schedule-choice ${modeClass}">
                 ${slotMainMarkup}
                 ${
@@ -1131,6 +1952,11 @@ function renderWeeklySchedule(board, days) {
                             `
                             : ""
                         }
+                        <button
+                          class="slot-open-appointment"
+                          type="button"
+                          data-open-slot-drawer="${slotKey}"
+                        >Rezervasyon detayını aç</button>
                       </div>
                     `
                     : ""
@@ -1192,69 +2018,199 @@ function renderQuickActions(items) {
     .join("");
 }
 
-function renderCrmSummary() {
-  if (!crmSummaryGrid) return;
-  crmSummaryGrid.innerHTML = venueCrmSummary
-    .map(
-      (item) => `
-        <article class="report-summary-card">
-          <small>${escapeHtml(item.label)}</small>
-          <strong>${escapeHtml(item.value)}</strong>
-          <span>${escapeHtml(item.meta)}</span>
-        </article>
-      `,
-    )
-    .join("");
+function normalizeClientQuery(value = "") {
+  return String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getVenueClientsPayload() {
+  const clients = venueState.dashboard?.clients || {};
+  return {
+    items: Array.isArray(clients.items) ? clients.items : [],
+    segments: Array.isArray(clients.segments) ? clients.segments : [],
+    loyalty: Array.isArray(clients.loyalty) ? clients.loyalty : [],
+  };
+}
+
+function getFilteredVenueClients() {
+  const { items } = getVenueClientsPayload();
+  const query = normalizeClientQuery(venueState.customerSearch);
+  if (!query) return items;
+  return items.filter((item) =>
+    [item.name, item.email, item.phone, item.segment, item.nextAction]
+      .map(normalizeClientQuery)
+      .some((value) => value.includes(query)),
+  );
+}
+
+function renderClientsEmptyState(title, copy) {
+  return `
+    <article class="clients-empty-state">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(copy)}</p>
+    </article>
+  `;
 }
 
 function renderCustomersView() {
-  if (crmCustomerList) {
-    crmCustomerList.innerHTML = venueCustomerCards
-      .map(
-        (item) => `
-          <article class="crm-customer-card">
-            <div class="crm-customer-card-head">
-              <strong>${escapeHtml(item.name)}</strong>
-              <span>${escapeHtml(item.segment)}</span>
-            </div>
-            <p>${escapeHtml(item.note)}</p>
-            <div class="crm-customer-card-meta">
-              <span>${escapeHtml(item.visits)}</span>
-              <span>${escapeHtml(item.spend)}</span>
-            </div>
-            <small>${escapeHtml(item.nextAction)}</small>
-          </article>
-        `,
-      )
-      .join("");
-  }
+  const clientsPayload = getVenueClientsPayload();
+  const filteredClients = getFilteredVenueClients();
 
-  if (crmCustomerFocus) {
-    crmCustomerFocus.innerHTML = `
-      <div class="crm-focus-header">
-        <span>${escapeHtml(venueCustomerFocusCard.label)}</span>
-        <h3>${escapeHtml(venueCustomerFocusCard.name)}</h3>
-      </div>
-      <div class="crm-focus-stats">
-        ${venueCustomerFocusCard.stats
-          .map(
-            ([label, value]) => `
-              <div class="detail-row">
-                <span>${escapeHtml(label)}</span>
-                <strong>${escapeHtml(value)}</strong>
-              </div>
-            `,
-          )
-          .join("")}
-      </div>
-      <div class="crm-focus-timeline">
-        <strong>Müşteri zaman çizelgesi</strong>
-        <ul>
-          ${venueCustomerFocusCard.timeline.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
-        </ul>
+  if (crmSummaryGrid) {
+    crmSummaryGrid.innerHTML = `
+      <div class="clients-nav-card">
+        <span class="clients-nav-label">Clients</span>
+        <button class="clients-nav-link ${venueState.customerSubview === "list" ? "is-active" : ""}" type="button" data-client-subview="list">Müşteri listesi</button>
+        <button class="clients-nav-link ${venueState.customerSubview === "segments" ? "is-active" : ""}" type="button" data-client-subview="segments">Müşteri segmentleri</button>
+        <button class="clients-nav-link ${venueState.customerSubview === "loyalty" ? "is-active" : ""}" type="button" data-client-subview="loyalty">Sadakat görünümü</button>
       </div>
     `;
   }
+
+  if (!crmCustomerList) return;
+
+  if (venueState.customerSubview === "segments") {
+    crmCustomerList.innerHTML = `
+      <div class="clients-page-head">
+        <div>
+          <h2>Müşteri segmentleri</h2>
+          <p>Yeniden rezervasyon, geri çağırma ve kampanya hedeflemesi için segmentleri kullan.</p>
+        </div>
+        <div class="clients-page-actions">
+          <button class="ghost-button" type="button">Export</button>
+          <button class="solid-button" type="button">Yeni segment</button>
+        </div>
+      </div>
+      <div class="clients-segment-grid">
+        ${
+          clientsPayload.segments.length
+            ? clientsPayload.segments
+          .map(
+            (item) => `
+              <article class="clients-segment-card">
+                <strong>${escapeHtml(item.title)}</strong>
+                <span>${escapeHtml(item.count)}</span>
+                <p>${escapeHtml(item.detail)}</p>
+              </article>
+            `,
+          )
+          .join("")
+            : renderClientsEmptyState("Henüz segment yok", "İlk rezervasyonlardan sonra segmentler otomatik oluşacak.")
+        }
+      </div>
+    `;
+    return;
+  }
+
+  if (venueState.customerSubview === "loyalty") {
+    crmCustomerList.innerHTML = `
+      <div class="clients-page-head">
+        <div>
+          <h2>Sadakat görünümü</h2>
+          <p>Tekrar gelen müşterileri ve ödül haklarını tek listede takip et.</p>
+        </div>
+        <div class="clients-page-actions">
+          <button class="ghost-button" type="button">Kurallar</button>
+          <button class="solid-button" type="button">Kampanya başlat</button>
+        </div>
+      </div>
+      <div class="clients-loyalty-grid">
+        ${
+          clientsPayload.loyalty.length
+            ? clientsPayload.loyalty
+          .map(
+            (item) => `
+              <article class="clients-loyalty-card">
+                <div class="clients-loyalty-head">
+                  <strong>${escapeHtml(item.name)}</strong>
+                  <span>${escapeHtml(item.tier)}</span>
+                </div>
+                <p>${escapeHtml(item.progress)}</p>
+                <small>${escapeHtml(item.reward)}</small>
+              </article>
+            `,
+          )
+          .join("")
+            : renderClientsEmptyState("Sadakat kaydı bekleniyor", "Müşteri ziyaretleri arttıkça sadakat görünümü dolacak.")
+        }
+      </div>
+    `;
+    return;
+  }
+
+  crmCustomerList.innerHTML = `
+    <div class="clients-page-head">
+      <div>
+        <div class="clients-title-row">
+          <h2>Müşteri listesi</h2>
+          <span class="clients-count-badge">${clientsPayload.items.length}</span>
+        </div>
+        <p>Müşteri detaylarını görüntüle, düzenle ve operasyon içinde kullan.</p>
+      </div>
+      <div class="clients-page-actions">
+        <button class="ghost-button" type="button" data-customer-options>Seçenekler</button>
+        <button class="solid-button" type="button" data-customer-add>Müşteri ekle</button>
+      </div>
+    </div>
+    <article class="clients-import-banner">
+      <div>
+        <strong>Müşteri listesini içe aktar</strong>
+        <p>Eski kayıtlarını birkaç dakikada ekle, tekrar gelen müşterileri doğrudan Tyee CRM’e taşı.</p>
+      </div>
+      <div class="clients-import-actions">
+        <button class="ghost-button" type="button" data-customer-import>İçe aktar</button>
+        <button class="text-button" type="button">Daha fazla bilgi</button>
+      </div>
+    </article>
+    <div class="clients-toolbar">
+      <label class="clients-search-field">
+        <span>Arama</span>
+        <input type="text" placeholder="Ad, e-posta veya telefon" data-customer-search value="${escapeHtml(venueState.customerSearch)}" />
+      </label>
+      <button class="ghost-button" type="button">Filtreler</button>
+      <button class="ghost-button" type="button">Oluşturulma tarihi (en yeni)</button>
+    </div>
+    <div class="clients-table-shell">
+      <table class="clients-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Müşteri adı</th>
+            <th>Telefon</th>
+            <th>Yorumlar</th>
+            <th>Toplam satış</th>
+            <th>Oluşturulma</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            filteredClients.length
+              ? filteredClients
+            .map(
+              (item, index) => `
+                <tr class="clients-row" data-customer-open="${escapeHtml(item.id || String(index))}">
+                  <td><span class="clients-avatar-cell">${escapeHtml(item.initials)}</span></td>
+                  <td>
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <small>${escapeHtml(item.email)}</small>
+                  </td>
+                  <td>${escapeHtml(item.phone)}</td>
+                  <td>${escapeHtml(item.reviews)}</td>
+                  <td>${escapeHtml(item.spend)}</td>
+                  <td>${escapeHtml(item.createdAt)}</td>
+                </tr>
+              `,
+            )
+            .join("")
+              : `<tr><td colspan="6">${renderClientsEmptyState("Sonuç bulunamadı", "Arama kriterini değiştir veya ilk müşteri kaydını rezervasyonla oluştur.")}</td></tr>`
+          }
+        </tbody>
+      </table>
+      <div class="clients-table-foot">${filteredClients.length ? `1 - ${filteredClients.length}` : "0"} / ${clientsPayload.items.length} müşteri gösteriliyor</div>
+    </div>
+  `;
 }
 
 function renderCampaignsView() {
@@ -1407,6 +2363,231 @@ function renderSidebarSummary(payload) {
   sidebarSummaryMeta.textContent = "18 açık slot şu an rezervasyona uygun";
 }
 
+function getGuideSteps(payload) {
+  const settings = normalizeSettings(payload?.settings || {});
+  const activeAreas = Array.isArray(settings.areas) ? settings.areas.filter((area) => area?.isActive) : [];
+  const transactions = payload?.transactions || [];
+  const completedSales = transactions.filter((item) => item.status === "Tamamlandı");
+  const firstBooking = transactions.length > 0;
+
+  return [
+    {
+      title: "İşletme profilini tamamla",
+      detail: "Açıklama, kategori, iletişim ve konum bilgileri dolu olmalı.",
+      done: Boolean(settings.businessName && settings.details?.description && settings.contact?.phone),
+      view: "settings",
+    },
+    {
+      title: "İlk hizmetini oluştur",
+      detail: "Rezervasyona açık en az bir hizmet veya saha tanımla.",
+      done: activeAreas.length > 0,
+      view: "sales-products",
+    },
+    {
+      title: "Çalışma saatlerini belirle",
+      detail: "Müşterinin göreceği çalışma saatleri ve iptal politikası açık olsun.",
+      done: Boolean(settings.details?.workingHours && settings.details?.cancellationPolicy),
+      view: "settings",
+    },
+    {
+      title: "İlk rezervasyonu oluştur",
+      detail: "Takvime ilk randevuyu düşür ve slot düzenini doğrula.",
+      done: firstBooking,
+      view: "calendar",
+    },
+    {
+      title: "İlk tahsilatı tamamla",
+      detail: "Checkout akışını canlı test et ve ilk satışı kapat.",
+      done: completedSales.length > 0,
+      view: "transactions",
+    },
+  ];
+}
+
+function renderGuidanceRail(payload) {
+  if (venueGuidesChecklist) {
+    const steps = getGuideSteps(payload);
+    venueGuidesChecklist.innerHTML = steps
+      .map(
+        (step, index) => `
+          <article class="guide-step ${step.done ? "is-complete" : ""}">
+            <div class="guide-step-head">
+              <span class="guide-step-index">${step.done ? "✓" : index + 1}</span>
+              <div>
+                <div class="guide-step-title">${escapeHtml(step.title)}</div>
+                <small>${escapeHtml(step.detail)}</small>
+              </div>
+            </div>
+            <button class="guide-step-action" type="button" data-guide-view="${escapeHtml(step.view)}">${step.done ? "Gözden geçir" : "Bu adıma git"}</button>
+          </article>
+        `,
+      )
+      .join("");
+  }
+
+  if (venueNextAppointments) {
+    const upcoming = (payload?.transactions || [])
+      .filter((item) => item.status !== "Tamamlandı" && item.status !== "İptal")
+      .slice(0, 4);
+
+    venueNextAppointments.innerHTML = upcoming.length
+      ? upcoming
+          .map(
+            (item) => `
+              <article class="rail-appointment-card">
+                <strong>${escapeHtml(item.customer || "Yeni rezervasyon")}</strong>
+                <small>${escapeHtml(item.field || "Ana hizmet")} · ${escapeHtml(item.businessType || "Rezervasyon")}</small>
+                <div class="rail-appointment-meta">
+                  <span>${escapeHtml(item.date || "-")} · ${escapeHtml(item.time || "-")}</span>
+                  <span>${escapeHtml(item.amount || "₺0")}</span>
+                </div>
+                <button class="guide-step-action" type="button" data-open-transaction="${escapeHtml(String(item.id || ""))}">Detayı aç</button>
+              </article>
+            `,
+          )
+          .join("")
+      : `<article class="rail-appointment-card"><strong>Bugün sırada rezervasyon yok</strong><small>İlk rezervasyonu takvimden oluşturabilirsin.</small></article>`;
+  }
+
+  if (venueOpsNotes) {
+    venueOpsNotes.innerHTML = venueOperationalNotes
+      .map(
+        (item) => `
+          <article class="rail-note-card">
+            <strong>${escapeHtml(item.title)}</strong>
+            <small>${escapeHtml(item.body)}</small>
+          </article>
+        `,
+      )
+      .join("");
+  }
+}
+
+function buildAppointmentFromTransaction(transaction = {}) {
+  return {
+    title: transaction.customer || "Rezervasyon",
+    service: transaction.field || "Ana hizmet",
+    serviceType: transaction.businessType || "Rezervasyon",
+    datetime: `${transaction.date || "-"} · ${transaction.time || "-"}`,
+    status: transaction.status || "Bekliyor",
+    paymentStatus: transaction.deposit || "₺0",
+    total: transaction.amount || "₺0",
+    commission: transaction.commission || "₺0",
+    channel: transaction.channel || "Platform",
+    notes:
+      transaction.monthlyPackageActive
+        ? "Müşteri aktif paket kullanıyor. Kalan hakları checkout sonrası kontrol et."
+        : "Rezervasyon sonrası müşteri notu, tekrar ziyaret ve ödeme kapanışı aynı akıştan yönetilebilir.",
+  };
+}
+
+function buildAppointmentFromSlot(slotKey = "") {
+  if (!venueState.dashboard) return null;
+  const match = String(slotKey).match(/^(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2})$/);
+  const dateKey = match?.[1] || "";
+  const time = match?.[2] || "";
+  const displayDays = buildDisplayWeek(venueState.dashboard.weekDays || []);
+  const dayIndex = displayDays.findIndex((item) => formatDateKey(item.dateObj) === dateKey);
+  const rawDay = venueState.dashboard.weekDays?.[dayIndex];
+  const manualEntry = venueState.manualEntries[slotKey];
+  const transaction = (venueState.dashboard.transactions || []).find(
+    (item) => String(item.time || "") === time && String(item.date || "").includes(dateKey.split("-").reverse().join(".")),
+  );
+  if (transaction) return buildAppointmentFromTransaction(transaction);
+
+  const serviceInfo = getSlotServiceInfo(slotKey, rawDay?.slots?.find((item) => item.time === time), manualEntry);
+  return {
+    title: manualEntry?.name || "Yeni rezervasyon",
+    service: serviceInfo.name,
+    serviceType: serviceInfo.type,
+    datetime: `${dateKey || "-"} · ${time || "-"}`,
+    status: manualEntry ? "Manuel giriş" : "Rezervasyona açık",
+    paymentStatus: manualEntry?.deposit ? `Kapora ${manualEntry.deposit} TL` : "Kapora yok",
+    total: manualEntry?.total ? `${manualEntry.total} TL` : "₺0",
+    commission: "Yüzde 7",
+    channel: manualEntry?.isSubscription ? "Paket / abonelik" : manualEntry ? "Manuel" : "Marketplace",
+    notes: manualEntry?.notes || "Bu slotu drawer içinden müşteri, hizmet ve tahsilat detaylarıyla yönetebilirsin.",
+  };
+}
+
+function renderAppointmentDrawer(appointment) {
+  if (!appointmentDrawerBody || !appointmentDrawerTitle) return;
+  appointmentDrawerTitle.textContent = appointment.title || "Rezervasyon detayı";
+  appointmentDrawerBody.innerHTML = `
+    <section class="drawer-card">
+      <div class="drawer-card-head">
+        <div>
+          <strong>${escapeHtml(appointment.title)}</strong>
+          <span>${escapeHtml(appointment.service)} · ${escapeHtml(appointment.serviceType)}</span>
+        </div>
+        ${statusPill(escapeHtml(appointment.status))}
+      </div>
+      <div class="drawer-metrics">
+        <article class="drawer-metric">
+          <span>Tarih / saat</span>
+          <strong>${escapeHtml(appointment.datetime)}</strong>
+        </article>
+        <article class="drawer-metric">
+          <span>Kanal</span>
+          <strong>${escapeHtml(appointment.channel)}</strong>
+        </article>
+        <article class="drawer-metric">
+          <span>Toplam</span>
+          <strong>${escapeHtml(appointment.total)}</strong>
+        </article>
+        <article class="drawer-metric">
+          <span>Kapora / ödeme</span>
+          <strong>${escapeHtml(appointment.paymentStatus)}</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="drawer-card">
+      <div class="drawer-card-head">
+        <div>
+          <strong>Operasyon akışı</strong>
+          <span>Fresha mantığına yakın sade rezervasyon drawer’ı</span>
+        </div>
+      </div>
+      <div class="drawer-list">
+        <div class="drawer-line"><span>Hizmet / kaynak</span><strong>${escapeHtml(appointment.service)}</strong></div>
+        <div class="drawer-line"><span>Checkout hedefi</span><strong>${escapeHtml(appointment.total)}</strong></div>
+        <div class="drawer-line"><span>Tyee payı</span><strong>${escapeHtml(appointment.commission)}</strong></div>
+        <div class="drawer-line"><span>Sonraki adım</span><strong>Checkout veya müşteri kartı</strong></div>
+      </div>
+    </section>
+
+    <section class="drawer-card">
+      <div class="drawer-card-head">
+        <div>
+          <strong>Müşteri ve notlar</strong>
+          <span>Rezervasyonun çevresindeki CRM katmanı</span>
+        </div>
+      </div>
+      <div class="drawer-list">
+        <div class="drawer-line"><span>Müşteri kartı</span><strong>${escapeHtml(appointment.title)}</strong></div>
+        <div class="drawer-line"><span>Not</span><strong>${escapeHtml(appointment.notes)}</strong></div>
+      </div>
+      <div class="drawer-cta-row">
+        <button class="ghost-button" type="button" data-drawer-view="customers">Müşteri kartına git</button>
+        <button class="solid-button" type="button" data-drawer-view="transactions">Checkout aç</button>
+      </div>
+    </section>
+  `;
+}
+
+function openAppointmentDrawer(appointment) {
+  if (!appointmentDrawer || !appointment) return;
+  venueState.activeAppointment = appointment;
+  renderAppointmentDrawer(appointment);
+  appointmentDrawer.classList.remove("hidden");
+}
+
+function closeAppointmentDrawer() {
+  venueState.activeAppointment = null;
+  appointmentDrawer?.classList.add("hidden");
+}
+
 function statusPill(status) {
   const isActive = status === "Aktif" || status === "Tamamlandı";
   return `<span class="status-pill ${isActive ? "is-active" : "is-passive"}">${status}</span>`;
@@ -1473,9 +2654,14 @@ function renderTransactions(items) {
           <td>${item.packageName || "-"}</td>
           <td>${item.withdrawalCount ?? 0}</td>
           <td>
-            ${item.reservationId && item.status !== "Tamamlandı" && item.status !== "Pasif"
-              ? `<button class="table-action-button" type="button" data-complete-reservation="${item.reservationId}">Tamamla</button>`
-              : `<span class="muted-table-text">${item.reviewStatus === "received" ? "Yorum alındı" : "-"}</span>`}
+            <div class="table-action-stack">
+              <button class="table-action-button is-secondary" type="button" data-open-transaction="${item.id}">Detay</button>
+              ${
+                item.reservationId && item.status !== "Tamamlandı" && item.status !== "Pasif"
+                  ? `<button class="table-action-button" type="button" data-complete-reservation="${item.reservationId}">Tamamla</button>`
+                  : `<span class="muted-table-text">${item.reviewStatus === "received" ? "Yorum alındı" : "-"}</span>`
+              }
+            </div>
           </td>
         </tr>
       `,
@@ -1616,6 +2802,7 @@ function renderSettingsOnboarding(settings) {
   const activeTab = venueState.activeSettingsTab;
   const renderers = {
     "İşletme Bilgileri": renderBusinessInfoSettings,
+    "Sektör Modülleri": renderOperationsSettings,
     "Ödeme & Sözleşme": renderPaymentContractSettings,
   };
   settingsOnboardingForm.innerHTML = (renderers[activeTab] || renderBusinessInfoSettings)(normalized);
@@ -1668,23 +2855,21 @@ function mediaSettingsFields(settings) {
     <label class="settings-upload-box">
       <span>Resim ekle</span>
       <input type="file" accept="image/*" multiple data-media-upload />
-      <small>Görseller önizleme için küçültülerek kaydedilir.</small>
+      <small>Görseller 1600px'e kadar kaliteli ölçeklenir; ilk görsel kapak boşsa marketplace kartında kullanılır.</small>
     </label>
     <div class="settings-media-grid">${galleryMarkup}</div>
   `;
 }
 
-function areaSettingsFields(settings) {
+function areaSettingsFields(settings, startIndex = 0) {
   const areasMarkup = settings.areas
     .map(
-      (area, index) => `
+      (area, localIndex) => {
+        const index = startIndex + localIndex;
+        return `
         <article class="settings-area-card" data-area-card="${index}">
           <div class="settings-area-head">
             <strong>Satış kalemi ${index + 1}</strong>
-            <label class="settings-switch">
-              <input type="checkbox" data-area-active="${index}" ${area.isActive ? "checked" : ""} />
-              <span>Aktif</span>
-            </label>
           </div>
           <div class="settings-form-grid">
             <label class="settings-input-field">
@@ -1705,7 +2890,8 @@ function areaSettingsFields(settings) {
             </label>
           </div>
         </article>
-      `,
+      `;
+      },
     )
     .join("");
 
@@ -1739,6 +2925,94 @@ function facilitySettingsFields(settings) {
   `;
 }
 
+function operationModuleFields(settings) {
+  const blueprint = getOperationsBlueprint(settings);
+  const moduleCards = blueprint.moduleCards
+    .map(
+      (module) => `
+        <label class="settings-module-card ${module.required ? "is-required" : ""} ${module.enabled ? "is-enabled" : ""}">
+          <input
+            type="checkbox"
+            data-operation-module="${escapeHtml(module.id)}"
+            ${module.enabled ? "checked" : ""}
+            ${module.required ? "disabled" : ""}
+          />
+          <span class="settings-module-badge">${module.required ? "Olmazsa olmaz" : module.recommended ? "Önerilen" : "Opsiyonel"}</span>
+          <strong>${escapeHtml(module.label)}</strong>
+          <small>${escapeHtml(module.description)}</small>
+        </label>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="settings-ops-hero">
+      <div>
+        <span>Sektör şeması</span>
+        <h3>${escapeHtml(blueprint.industryLabel)}</h3>
+        <p>${escapeHtml(blueprint.notes)}</p>
+      </div>
+      <div class="settings-ops-score">
+        <strong>${blueprint.requiredCount}</strong>
+        <span>zorunlu modül</span>
+      </div>
+    </div>
+
+    <div class="settings-ops-meta-grid">
+      <label class="settings-input-field">
+        <span>Rezervasyon nesnesi</span>
+        <input id="settings-operation-primary-object" type="text" value="${escapeHtml(blueprint.primaryObject)}" />
+      </label>
+      <label class="settings-input-field">
+        <span>Kaynak adı</span>
+        <input id="settings-operation-resource-label" type="text" value="${escapeHtml(blueprint.resourceLabel)}" />
+      </label>
+      <label class="settings-input-field">
+        <span>Ekip / uzman adı</span>
+        <input id="settings-operation-team-label" type="text" value="${escapeHtml(blueprint.teamLabel)}" />
+      </label>
+      <label class="settings-input-field">
+        <span>Kontenjan birimi</span>
+        <input id="settings-operation-capacity-unit" type="text" value="${escapeHtml(blueprint.capacityUnit)}" />
+      </label>
+    </div>
+
+    <label class="settings-input-field">
+      <span>Rezervasyon akışı</span>
+      <input id="settings-operation-booking-mode" type="text" value="${escapeHtml(blueprint.bookingMode)}" />
+    </label>
+    <label class="settings-input-field">
+      <span>Kapora / iptal kuralı</span>
+      <input id="settings-operation-deposit-rule" type="text" value="${escapeHtml(blueprint.depositRule)}" />
+    </label>
+    <label class="settings-input-field">
+      <span>Gerekli form / not</span>
+      <textarea id="settings-operation-required-forms" rows="3">${escapeHtml(blueprint.requiredForms)}</textarea>
+    </label>
+    <label class="settings-input-field">
+      <span>Operasyon notu</span>
+      <textarea id="settings-operation-notes" rows="3">${escapeHtml(blueprint.notes)}</textarea>
+    </label>
+
+    <div class="settings-module-summary">
+      <strong>${blueprint.enabledCount} modül aktif</strong>
+      <span>Zorunlu modüller kilitli gelir; önerilenleri işletme modeline göre açıp kapatabilirsin.</span>
+    </div>
+    <div class="settings-module-grid">${moduleCards}</div>
+  `;
+}
+
+function renderOperationsSettings(settings) {
+  return `
+    ${settingsSection(
+      "Türkiye sektör modülleri",
+      "Restoran, dövmeci, pet kuaför, berber, güzellik merkezi, saha, kort, hoca ve stüdyo akışlarını aynı çekirdeğe bağlayan kurgu.",
+      operationModuleFields(settings),
+    )}
+    ${settingsSaveMarkup()}
+  `;
+}
+
 function renderBusinessInfoSettings(settings) {
   const contact = settings.contact;
   const location = settings.location || {};
@@ -1757,7 +3031,7 @@ function renderBusinessInfoSettings(settings) {
           <label class="settings-select-field">
             <span>Kategori</span>
             <select id="settings-detail-category">
-              ${["Pet Kuaför", "Güzellik Merkezi", "Halı Saha", "Padel Kort", "Direksiyon Dersi", "Özel Ders", "Masaj & Spa", "Yoga & Pilates", "Diğer"]
+              ${BUSINESS_CATEGORY_OPTIONS
                 .map((option) => `<option ${option === details.category ? "selected" : ""}>${option}</option>`)
                 .join("")}
             </select>
@@ -1964,7 +3238,7 @@ function renderDetailSettings(settings) {
       <label class="settings-select-field">
         <span>Kategori</span>
         <select id="settings-detail-category">
-          ${["Pet Kuaför", "Güzellik Merkezi", "Halı Saha", "Padel Kort", "Direksiyon Dersi", "Özel Ders", "Masaj & Spa", "Yoga & Pilates", "Diğer"]
+          ${BUSINESS_CATEGORY_OPTIONS
             .map((option) => `<option ${option === details.category ? "selected" : ""}>${option}</option>`)
             .join("")}
         </select>
@@ -2024,7 +3298,7 @@ function renderMediaSettings(settings) {
     <label class="settings-upload-box">
       <span>Resim ekle</span>
       <input type="file" accept="image/*" multiple data-media-upload />
-      <small>Görseller önizleme için küçültülerek kaydedilir.</small>
+      <small>Görseller 1600px'e kadar kaliteli ölçeklenir; ilk görsel kapak boşsa marketplace kartında kullanılır.</small>
     </label>
     <div class="settings-media-grid">${galleryMarkup}</div>
     ${settingsSaveMarkup()}
@@ -2102,9 +3376,9 @@ function renderPaymentSettings(settings, includeSave = true) {
       <span>Ödeme yöntemi</span>
       <select id="settings-payment-method">
         ${[
-            "Ön ödeme",
-            "Tam online ödeme (%7 tyee + hakediş)",
-            "Sadece rezervasyon (ay sonu FAST)",
+            "Sadece randevu",
+            "Ön ödeme (kapora)",
+            "Ödemenin tamamını al",
           ]
           .map((option) => `<option ${option === payment.paymentMethod ? "selected" : ""}>${option}</option>`)
           .join("")}
@@ -2358,6 +3632,7 @@ function collectSettingsPayload() {
       workingHours: valueOf("#settings-detail-working-hours"),
       cancellationPolicy: valueOf("#settings-detail-cancellation"),
     };
+    next.operations = normalizeOperations(next);
     next.media = {
       ...current.media,
       logoUrl: valueOf("#settings-media-logo-url"),
@@ -2374,10 +3649,32 @@ function collectSettingsPayload() {
     }));
   }
 
+  if (venueState.activeSettingsTab === "Sektör Modülleri") {
+    const currentOperations = normalizeOperations(current);
+    const enabledModuleIds = Array.from(document.querySelectorAll("[data-operation-module]"))
+      .filter((input) => input.checked)
+      .map((input) => input.dataset.operationModule)
+      .filter(Boolean);
+
+    next.operations = {
+      ...currentOperations,
+      primaryObject: valueOf("#settings-operation-primary-object") || currentOperations.primaryObject,
+      resourceLabel: valueOf("#settings-operation-resource-label") || currentOperations.resourceLabel,
+      teamLabel: valueOf("#settings-operation-team-label") || currentOperations.teamLabel,
+      capacityUnit: valueOf("#settings-operation-capacity-unit") || currentOperations.capacityUnit,
+      bookingMode: valueOf("#settings-operation-booking-mode") || currentOperations.bookingMode,
+      depositRule: valueOf("#settings-operation-deposit-rule") || currentOperations.depositRule,
+      requiredForms: valueOf("#settings-operation-required-forms") || currentOperations.requiredForms,
+      notes: valueOf("#settings-operation-notes") || currentOperations.notes,
+      modules: enabledModuleIds,
+    };
+  }
+
   if (document.querySelector("[data-area-card]")) {
-    next.areas = Array.from(document.querySelectorAll("[data-area-card]")).map((card) => {
+    const mergedAreas = Array.isArray(current.areas) ? [...current.areas] : [];
+    Array.from(document.querySelectorAll("[data-area-card]")).forEach((card) => {
       const index = card.dataset.areaCard;
-      return {
+      mergedAreas[index] = {
         name: valueOf(`[data-area-name="${index}"]`),
         type: valueOf(`[data-area-type="${index}"]`),
         capacity: valueOf(`[data-area-capacity="${index}"]`),
@@ -2385,6 +3682,7 @@ function collectSettingsPayload() {
         isActive: checked(`[data-area-active="${index}"]`),
       };
     });
+    next.areas = mergedAreas;
   }
 
   if (venueState.activeSettingsTab === "Ödeme & Sözleşme") {
@@ -2423,6 +3721,7 @@ function addSalesProductDraft() {
     price: "",
     isActive: true,
   });
+  venueState.selectedServiceIndex = settings.areas.length - 1;
   venueState.dashboard.settings = settings;
   renderSalesProducts(settings);
   renderCalendarFieldPills();
@@ -2443,6 +3742,7 @@ async function saveVenueSettings() {
   renderCalendarFieldPills();
   renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
   renderTransactions(venueState.dashboard.transactions || []);
+  refreshCalendarOps().catch(() => renderCalendarOperations());
   setSaveStatus("[data-settings-status]", "Kaydedildi");
 }
 
@@ -2453,14 +3753,29 @@ function setSaveStatus(selector, message, isError = false) {
   node.classList.toggle("is-error", isError);
 }
 
+function openNavGroupForView(viewId) {
+  const activeItem = [...navItems].find((item) => item.dataset.view === viewId);
+  const parentGroup = activeItem?.closest(".venue-nav-group");
+  if (!parentGroup) return;
+  navGroups.forEach((group) => {
+    const shouldOpen = group === parentGroup;
+    group.classList.toggle("is-open", shouldOpen);
+    group.querySelector(".venue-nav-heading")?.setAttribute("aria-expanded", String(shouldOpen));
+  });
+}
+
 function setView(viewId) {
+  const meta = VIEW_META[viewId] || VIEW_META.calendar;
   navItems.forEach((item) => {
     item.classList.toggle("is-active", item.dataset.view === viewId && !item.dataset.action);
   });
   sections.forEach((section) => section.classList.toggle("hidden", section.id !== `${viewId}-view`));
-  if (viewId === "calendar") {
-    document.querySelector(".venue-main")?.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  if (venueTitle) venueTitle.textContent = meta.title;
+  if (venueTopbarSubtitle) venueTopbarSubtitle.textContent = meta.subtitle;
+  venueSideRail?.classList.toggle("is-hidden", !meta.railVisible);
+  workspaceFlow?.classList.toggle("is-hidden", viewId !== "calendar");
+  document.querySelector(".venue-main")?.scrollTo({ top: 0, behavior: "smooth" });
+  openNavGroupForView(viewId);
 }
 
 function setNavGroupOpen(activeGroup) {
@@ -2477,16 +3792,27 @@ function imageFileToGalleryItem(file) {
     reader.onload = () => {
       const image = new Image();
       image.onload = () => {
-        const maxSize = 900;
+        const maxSize = 1600;
         const ratio = Math.min(1, maxSize / Math.max(image.width, image.height));
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(image.width * ratio);
         canvas.height = Math.round(image.height * ratio);
         const context = canvas.getContext("2d");
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const src = canvas.toDataURL("image/jpeg", 0.86);
         resolve({
           name: file.name,
-          src: canvas.toDataURL("image/jpeg", 0.76),
+          src,
+          width: canvas.width,
+          height: canvas.height,
+          originalWidth: image.width,
+          originalHeight: image.height,
+          sizeKb: Math.round((src.length * 0.75) / 1024),
+          preparedAt: new Date().toISOString(),
         });
       };
       image.onerror = reject;
@@ -2516,13 +3842,16 @@ async function loadVenueDashboard() {
 
   renderVenueIdentity();
   renderSidebarSummary(payload);
+  renderGuidanceRail(payload);
 
   renderStats(payload.stats);
   renderOverview(payload);
   renderQuickActions(payload.quickActions);
   renderCalendarFieldPills();
+  venueState.calendarFilter = payload.calendarOps?.preferences?.activeFilter || "all";
+  venueState.calendarTeam = payload.calendarOps?.preferences?.selectedTeam || "all";
+  renderCalendarOperations();
   renderSalesProducts(payload.settings);
-  renderCrmSummary();
   renderCustomersView();
   renderCampaignsView();
   renderFinanceView();
@@ -2549,6 +3878,8 @@ async function loadVenueDashboard() {
 }
 
 function bindVenueInteractions() {
+  setView("calendar");
+
   navGroupTriggers.forEach((trigger) => {
     trigger.addEventListener("click", () => {
       const group = trigger.closest(".venue-nav-group");
@@ -2569,6 +3900,25 @@ function bindVenueInteractions() {
     });
   });
 
+  venueGuidesChecklist?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-guide-view]");
+    if (!button) return;
+    setView(button.dataset.guideView);
+  });
+
+  workspaceFlow?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-guide-view]");
+    if (!button) return;
+    setView(button.dataset.guideView);
+  });
+
+  venueNextAppointments?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-open-transaction]");
+    if (!button || !venueState.dashboard) return;
+    const transaction = (venueState.dashboard.transactions || []).find((item) => String(item.id) === String(button.dataset.openTransaction));
+    if (transaction) openAppointmentDrawer(buildAppointmentFromTransaction(transaction));
+  });
+
   goCalendarButton?.addEventListener("click", () => {
     setView("calendar");
     const operationGroup = [...navGroupTriggers]
@@ -2580,6 +3930,112 @@ function bindVenueInteractions() {
         group.classList.toggle("is-open", isOperation);
         group.querySelector(".venue-nav-heading")?.setAttribute("aria-expanded", String(isOperation));
       });
+    }
+  });
+
+  calendarOpsStrip?.addEventListener("click", (event) => {
+    if (!venueState.dashboard) return;
+
+    const filterButton = event.target.closest("[data-calendar-filter]");
+    if (filterButton) {
+      venueState.calendarFilter = filterButton.dataset.calendarFilter || "all";
+      venueState.dashboard.calendarOps = {
+        ...(venueState.dashboard.calendarOps || {}),
+        preferences: {
+          ...(venueState.dashboard.calendarOps?.preferences || {}),
+          activeFilter: venueState.calendarFilter,
+        },
+      };
+      renderCalendarOperations();
+      renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+      saveCalendarPreferences().catch((error) => console.error(error));
+      return;
+    }
+
+    const actionButton = event.target.closest("[data-calendar-action]");
+    if (!actionButton) return;
+    const action = actionButton.dataset.calendarAction;
+
+    if (action === "quick-add") {
+      openSalesModal(null, "19:00", "");
+      return;
+    }
+
+    if (action === "waitlist") {
+      const firstItem = getCalendarOpsPayload().waitlist.items[0];
+      if (firstItem) openWaitlistDrawer(firstItem.id);
+      return;
+    }
+
+    if (action === "settings") {
+      setView("settings");
+      return;
+    }
+
+    if (action === "reset") {
+      venueState.currentWeekOffset = 0;
+      venueState.selectedSlotKey = "";
+      venueState.calendarFilter = "all";
+      renderCalendarOperations();
+      renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+      saveCalendarPreferences().catch((error) => console.error(error));
+      return;
+    }
+
+    if (action === "team") {
+      const teams = getCalendarOpsPayload().team;
+      const currentIndex = Math.max(teams.findIndex((item) => item.id === venueState.calendarTeam), 0);
+      const nextTeam = teams[(currentIndex + 1) % Math.max(teams.length, 1)];
+      venueState.calendarTeam = nextTeam?.id || "all";
+      renderCalendarOperations();
+      saveCalendarPreferences().catch((error) => console.error(error));
+    }
+  });
+
+  venueWaitlist?.addEventListener("click", async (event) => {
+    if (!venueState.dashboard) return;
+
+    const addButton = event.target.closest("[data-waitlist-add]");
+    if (addButton) {
+      addButton.disabled = true;
+      try {
+        await addWaitlistItemFromCalendar();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        addButton.disabled = false;
+      }
+      return;
+    }
+
+    const openButton = event.target.closest("[data-waitlist-open]");
+    if (openButton) {
+      openWaitlistDrawer(openButton.dataset.waitlistOpen);
+      return;
+    }
+
+    const matchButton = event.target.closest("[data-waitlist-match]");
+    if (matchButton) {
+      matchButton.disabled = true;
+      try {
+        await updateWaitlistStatus(matchButton.dataset.waitlistMatch, "matched");
+      } catch (error) {
+        console.error(error);
+      } finally {
+        matchButton.disabled = false;
+      }
+    }
+  });
+
+  document.querySelector("[data-waitlist-add]")?.addEventListener("click", async (event) => {
+    if (!venueState.dashboard) return;
+    event.currentTarget.disabled = true;
+    try {
+      await addWaitlistItemFromCalendar();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      event.currentTarget.disabled = false;
     }
   });
 
@@ -2608,6 +4064,14 @@ function bindVenueInteractions() {
       event.stopPropagation();
       const day = buildDisplayWeek(venueState.dashboard.weekDays)[Number(bubbleAction.dataset.dayIndex)];
       openSalesModal(day, bubbleAction.dataset.time, bubbleAction.dataset.slotKey);
+      return;
+    }
+
+    const openDrawerButton = event.target.closest("[data-open-slot-drawer]");
+    if (openDrawerButton) {
+      event.stopPropagation();
+      const appointment = buildAppointmentFromSlot(openDrawerButton.dataset.openSlotDrawer);
+      if (appointment) openAppointmentDrawer(appointment);
       return;
     }
 
@@ -2703,6 +4167,13 @@ function bindVenueInteractions() {
   });
 
   transactionsBody?.addEventListener("click", async (event) => {
+    const openButton = event.target.closest("[data-open-transaction]");
+    if (openButton && venueState.dashboard) {
+      const transaction = (venueState.dashboard.transactions || []).find((item) => String(item.id) === String(openButton.dataset.openTransaction));
+      if (transaction) openAppointmentDrawer(buildAppointmentFromTransaction(transaction));
+      return;
+    }
+
     const completeButton = event.target.closest("[data-complete-reservation]");
     if (!completeButton || !venueState.dashboard) return;
 
@@ -2729,6 +4200,89 @@ function bindVenueInteractions() {
       completeButton.disabled = false;
       completeButton.textContent = error.message || "Hata";
     }
+  });
+
+  crmCustomerList?.addEventListener("click", (event) => {
+    const subviewButton = event.target.closest("[data-client-subview]");
+    if (subviewButton) {
+      venueState.customerSubview = subviewButton.dataset.clientSubview || "list";
+      renderCustomersView();
+      return;
+    }
+
+    const actionButton = event.target.closest("[data-customer-add], [data-customer-import], [data-customer-options]");
+    if (actionButton) {
+      const copy = actionButton.hasAttribute("data-customer-add")
+        ? {
+            title: "Yeni müşteri ekle",
+            notes: "Ad, telefon, e-posta ve pazarlama izni ile yeni müşteri kartı oluşturulur.",
+          }
+        : actionButton.hasAttribute("data-customer-import")
+          ? {
+              title: "Müşteri içe aktar",
+              notes: "CSV veya eski CRM listesini içe aktararak tekrar gelen müşterileri Tyee içine taşı.",
+            }
+          : {
+              title: "Müşteri seçenekleri",
+              notes: "Sıralama, export, toplu etiketleme ve kampanya izni aksiyonları burada toplanır.",
+            };
+      openAppointmentDrawer({
+        title: copy.title,
+        service: "Müşteri operasyonu",
+        serviceType: "Clients workspace",
+        datetime: "Bugün",
+        status: "Hazır",
+        paymentStatus: "—",
+        total: "—",
+        commission: "—",
+        channel: "Tyee Business",
+        notes: copy.notes,
+      });
+      return;
+    }
+
+    const button = event.target.closest("[data-customer-open]");
+    if (!button) return;
+    const customer = getVenueClientsPayload().items.find((item) => String(item.id) === String(button.dataset.customerOpen));
+    if (!customer) return;
+    openAppointmentDrawer({
+      title: customer.name,
+      service: "Müşteri kartı",
+      serviceType: customer.segment,
+      datetime: customer.visits,
+      status: "CRM görünümü",
+      paymentStatus: customer.spend,
+      total: customer.spend,
+      commission: "Takip modu",
+      channel: "Tyee CRM",
+      notes: customer.note,
+    });
+  });
+
+  crmCustomerList?.addEventListener("input", (event) => {
+    const searchInput = event.target.closest("[data-customer-search]");
+    if (!searchInput) return;
+    venueState.customerSearch = searchInput.value.trim();
+    renderCustomersView();
+    document.querySelector("[data-customer-search]")?.focus();
+  });
+
+  crmSummaryGrid?.addEventListener("click", (event) => {
+    const subviewButton = event.target.closest("[data-client-subview]");
+    if (!subviewButton) return;
+    venueState.customerSubview = subviewButton.dataset.clientSubview || "list";
+    renderCustomersView();
+  });
+
+  [appointmentDrawerClose, appointmentDrawerDismiss].forEach((node) =>
+    node?.addEventListener("click", closeAppointmentDrawer),
+  );
+
+  appointmentDrawerBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-drawer-view]");
+    if (!button) return;
+    setView(button.dataset.drawerView);
+    closeAppointmentDrawer();
   });
 
   salesSave?.addEventListener("click", () => {
@@ -2801,6 +4355,14 @@ function bindVenueInteractions() {
   });
 
   document.querySelector("#sales-products-view")?.addEventListener("click", async (event) => {
+    const productCard = event.target.closest("[data-product-card]");
+    if (productCard && venueState.dashboard) {
+      venueState.selectedServiceIndex = Number(productCard.dataset.productCard) || 0;
+      venueState.dashboard.settings = collectSettingsPayload();
+      renderSalesProducts(venueState.dashboard.settings);
+      return;
+    }
+
     const addAreaButton = event.target.closest("[data-area-add]");
     if (addAreaButton && venueState.dashboard) {
       addSalesProductDraft();

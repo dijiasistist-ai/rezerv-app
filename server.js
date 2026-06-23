@@ -51,7 +51,7 @@ const port = Number(process.env.PORT || 8091);
 const sessions = new Map();
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
-const HIDE_PUBLIC_VENUES = process.env.NODE_ENV === "production" || process.env.HIDE_PUBLIC_VENUES === "1";
+const HIDE_PUBLIC_VENUES = process.env.HIDE_PUBLIC_VENUES === "1";
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
 const CALENDAR_SLOT_TIMES = [
   "08:00",
@@ -281,6 +281,399 @@ async function sendPhoneVerification(user) {
   });
 }
 
+const DEMO_MARKETPLACE_SEED_VERSION = "2026-06-23-marketplace-v2";
+
+function createDemoSlots(primaryServiceName = "Rezervasyon") {
+  const slotModes = {};
+  const slotServices = {};
+  const times = ["10:00", "11:00", "14:00", "15:00", "17:00", "19:00", "20:00"];
+  const serviceName = primaryServiceName ? "Hizmet" : "Hizmet";
+
+  Array.from({ length: 7 }).forEach((_, dayIndex) => {
+    times.forEach((time) => {
+      const key = `${dayIndex}-${time}`;
+      slotModes[key] = "rezerv";
+      slotServices[key] = {
+        name: serviceName,
+        capacity: "1",
+        price: "",
+      };
+    });
+  });
+
+  return { slotModes, slotServices };
+}
+
+function createDemoFacilities(items = []) {
+  return items.map((item) => ({
+    id: String(item.id || item.label || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-"),
+    label: item.label,
+    icon: item.icon || "✓",
+    enabled: true,
+  }));
+}
+
+function ensureDemoVenueUser(email, demo) {
+  const normalizedEmail = normalizeEmail(email);
+  const existing = findUserByEmail(normalizedEmail);
+  const user = upsertUser({
+    ...(existing || {}),
+    id: existing?.id || crypto.randomUUID(),
+    name: demo.name,
+    email: normalizedEmail,
+    phone: demo.phone || existing?.phone || "",
+    passwordHash: existing?.passwordHash || hashPassword("123456"),
+    canManageVenue: true,
+    isAdmin: false,
+    venueId: demo.venueId,
+    emailVerified: true,
+    phoneVerified: true,
+    emailVerificationToken: existing?.emailVerificationToken || "",
+    phoneVerificationCode: existing?.phoneVerificationCode || "",
+    passwordResetToken: existing?.passwordResetToken || "",
+  });
+
+  const existingOverlay = getVenueOverlay(demo.venueId);
+  if (existingOverlay._demoSeedVersion === DEMO_MARKETPLACE_SEED_VERSION) return user;
+
+  const { slotModes, slotServices } = createDemoSlots(demo.areas?.[0]?.name || "Rezervasyon");
+  saveVenueOverlay(demo.venueId, {
+    _demoSeedVersion: DEMO_MARKETPLACE_SEED_VERSION,
+    settings: {
+      businessName: demo.name,
+      contact: {
+        authorizedName: demo.owner || demo.name,
+        phone: demo.phone || "",
+        whatsapp: demo.phone || "",
+        email: normalizedEmail,
+        website: demo.website || "",
+        instagram: demo.instagram || "",
+      },
+      details: {
+        category: demo.category,
+        district: demo.district,
+        description: demo.description,
+        workingHours: demo.workingHours || "Her gün 10:00 - 20:00",
+        cancellationPolicy: demo.cancellationPolicy || "Randevudan 12 saat öncesine kadar ücretsiz değişiklik yapılabilir.",
+      },
+      locationStatus: "Girilmiş",
+      location: {
+        address: demo.address,
+        lat: String(demo.lat),
+        lng: String(demo.lng),
+        mapUrl: "",
+      },
+      media: {
+        logoUrl: "",
+        coverUrl: demo.coverUrl || "",
+        gallery: [],
+      },
+      areas: (demo.areas || []).map((area) => ({
+        name: area.name,
+        type: area.type || demo.category,
+        capacity: area.capacity || "1",
+        price: area.price,
+        isActive: area.isActive !== false,
+      })),
+      facilities: createDemoFacilities(demo.facilities || []),
+      payment: {
+        invoiceTitle: demo.name,
+        taxOffice: "Kadıköy",
+        taxNumber: demo.taxNumber || "1111111111",
+        iban: "TR00 0000 0000 0000 0000 0000 00",
+        paymentMethod: demo.paymentMethod,
+      },
+      contracts: {
+        termsAccepted: true,
+        kvkkAccepted: true,
+        notes: "Demo işletme sözleşmesi onaylıdır.",
+      },
+      operations: demo.operations || {},
+    },
+    slotModes,
+    slotServices,
+    manualEntries: {},
+    calendarPreferences: {
+      slotStepMinutes: 60,
+      openDays: [0, 1, 2, 3, 4, 5, 6],
+      publicBookingEnabled: true,
+    },
+  });
+
+  return user;
+}
+
+function seedDemoVenues() {
+  const demos = [
+    {
+      email: "mira@tyee.app",
+      venueId: "mira-makeup-studio",
+      name: "Mira Makeup & Beauty Studio",
+      owner: "Mira Studio",
+      phone: "+90 532 000 34 01",
+      instagram: "@mirabeautystudio",
+      category: "Kadın güzellik merkezi",
+      district: "Nişantaşı",
+      address: "Teşvikiye Mah. Vali Konağı Cad. No: 18, Şişli / İstanbul",
+      lat: 41.0504,
+      lng: 28.9921,
+      paymentMethod: "Ön ödeme (kapora)",
+      coverUrl: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1400&q=82",
+      description: "Makyaj, tırnak, saç ve kirpik hizmetlerini tek profilde yöneten premium güzellik stüdyosu.",
+      facilities: [
+        { id: "private-room", label: "Özel oda", icon: "✦" },
+        { id: "women-only", label: "Kadın ekibi", icon: "✓" },
+        { id: "card", label: "Kartla ödeme", icon: "₺" },
+      ],
+      areas: [
+        { name: "Kalıcı Oje + Manikür", type: "Tırnak bakımı", price: "850" },
+        { name: "Protez Tırnak", type: "Tırnak bakımı", price: "1600" },
+        { name: "Nail Art Tasarım", type: "Tırnak tasarım", price: "450" },
+        { name: "İpek Kirpik", type: "Kirpik", price: "1900" },
+        { name: "Lash Lifting", type: "Kirpik", price: "1100" },
+        { name: "Kaş Laminasyon", type: "Kaş", price: "900" },
+        { name: "Profesyonel Makyaj", type: "Makyaj", price: "2500" },
+        { name: "Gelin Makyajı Prova Dahil", type: "Gelin makyajı", price: "6500" },
+        { name: "Saç Boyama", type: "Saç", price: "3200" },
+        { name: "Fön & Saç Şekillendirme", type: "Saç", price: "950" },
+      ],
+    },
+    {
+      email: "masa34@tyee.app",
+      venueId: "masa-34-restaurant",
+      name: "Masa 34 Restaurant",
+      owner: "Masa 34",
+      phone: "+90 532 000 34 03",
+      category: "Restaurant",
+      district: "Karaköy",
+      address: "Kemankeş Cad. No: 12, Beyoğlu / İstanbul",
+      lat: 41.0245,
+      lng: 28.9776,
+      paymentMethod: "Sadece randevu",
+      coverUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1400&q=82",
+      description: "Akşam yemeği, brunch ve grup masaları için rezervasyon alan modern restaurant.",
+      facilities: [
+        { id: "terrace", label: "Teras", icon: "✦" },
+        { id: "group", label: "Grup masası", icon: "✓" },
+        { id: "valet", label: "Vale", icon: "⌖" },
+      ],
+      areas: [
+        { name: "2 Kişilik Akşam Masası", type: "Masa", capacity: "2", price: "1200" },
+        { name: "4 Kişilik Akşam Masası", type: "Masa", capacity: "4", price: "2400" },
+        { name: "6-8 Kişilik Grup Masası", type: "Grup", capacity: "8", price: "4800" },
+        { name: "Hafta Sonu Brunch", type: "Brunch", capacity: "2", price: "1600" },
+      ],
+    },
+    {
+      email: "inkline@tyee.app",
+      venueId: "inkline-tattoo",
+      name: "Inkline Tattoo Studio",
+      owner: "Inkline",
+      phone: "+90 532 000 34 04",
+      category: "Dövmeci",
+      district: "Beşiktaş",
+      address: "Sinanpaşa Mah. Şair Nedim Cad. No: 21, Beşiktaş / İstanbul",
+      lat: 41.0431,
+      lng: 29.0056,
+      paymentMethod: "Ön ödeme (kapora)",
+      coverUrl: "https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1400&q=82",
+      description: "Fine line, minimal dövme ve kapama danışmanlığı için randevulu çalışan stüdyo.",
+      facilities: [
+        { id: "sterile", label: "Steril ekipman", icon: "✓" },
+        { id: "consult", label: "Ön görüşme", icon: "✦" },
+        { id: "aftercare", label: "Bakım notu", icon: "⌖" },
+      ],
+      areas: [
+        { name: "Ön Görüşme", type: "Danışmanlık", price: "300" },
+        { name: "Minimal Tattoo", type: "Dövme", price: "1500" },
+        { name: "Fine Line Seans", type: "Dövme", price: "2800" },
+        { name: "Kapama Danışmanlığı", type: "Kapama", price: "500" },
+        { name: "Büyük Parça Seans", type: "Dövme", price: "6000" },
+      ],
+    },
+    {
+      email: "barber@tyee.app",
+      venueId: "barber-republic",
+      name: "Barber Republic",
+      owner: "Barber Republic",
+      phone: "+90 532 000 34 05",
+      category: "Erkek kuaför",
+      district: "Ataşehir",
+      address: "Barbaros Mah. Mor Sümbül Sok. No: 7, Ataşehir / İstanbul",
+      lat: 40.9928,
+      lng: 29.1244,
+      paymentMethod: "Sadece randevu",
+      coverUrl: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1400&q=82",
+      description: "Saç kesim, sakal tasarım, cilt bakım ve damat hazırlığı için randevulu erkek kuaförü.",
+      facilities: [
+        { id: "coffee", label: "İkram", icon: "✦" },
+        { id: "card", label: "Kartla ödeme", icon: "₺" },
+      ],
+      areas: [
+        { name: "Saç Kesim", type: "Kuaför", price: "550" },
+        { name: "Sakal Tasarım", type: "Barber", price: "350" },
+        { name: "Saç + Sakal Paket", type: "Paket", price: "800" },
+        { name: "Cilt Bakım", type: "Bakım", price: "700" },
+        { name: "Damat Hazırlık Paketi", type: "Paket", price: "2200" },
+      ],
+    },
+    {
+      email: "primefield@tyee.app",
+      venueId: "kadikoy-prime-hali-saha",
+      name: "Kadıköy Prime Halı Saha",
+      owner: "Prime Field",
+      phone: "+90 532 000 34 06",
+      category: "Halı saha",
+      district: "Fikirtepe",
+      address: "Fikirtepe Mah. Spor Sok. No: 10, Kadıköy / İstanbul",
+      lat: 40.9962,
+      lng: 29.0536,
+      paymentMethod: "Ön ödeme (kapora)",
+      coverUrl: "https://images.unsplash.com/photo-1526232761682-d26e03ac148e?auto=format&fit=crop&w=1400&q=82",
+      description: "Gece aydınlatmalı saha, soyunma odası ve prime saat rezervasyonu.",
+      facilities: [
+        { id: "locker", label: "Soyunma odası", icon: "✓" },
+        { id: "parking", label: "Otopark", icon: "⌖" },
+      ],
+      areas: [
+        { name: "Saha 1 Prime Saat", type: "Halı saha", capacity: "14", price: "3000" },
+        { name: "Saha 2 Standart", type: "Halı saha", capacity: "14", price: "2400" },
+        { name: "Kaleci + Ekipman", type: "Ek hizmet", capacity: "1", price: "600" },
+      ],
+    },
+    {
+      email: "tenislab@tyee.app",
+      venueId: "tenislab-kort-hoca",
+      name: "TennisLab Kort & Hoca",
+      owner: "TennisLab",
+      phone: "+90 532 000 34 07",
+      category: "Tenis hoca ve kort",
+      district: "Etiler",
+      address: "Nispetiye Mah. Sporcular Cad. No: 5, Beşiktaş / İstanbul",
+      lat: 41.0853,
+      lng: 29.0351,
+      paymentMethod: "Ödemenin tamamını al",
+      coverUrl: "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&w=1400&q=82",
+      description: "Kort kiralama, özel ders ve ekipman seçeneklerini tek takvimde yöneten tenis merkezi.",
+      facilities: [
+        { id: "equipment", label: "Raket kiralama", icon: "✓" },
+        { id: "coach", label: "Antrenör", icon: "✦" },
+      ],
+      areas: [
+        { name: "Açık Kort Kiralama", type: "Kort", capacity: "2", price: "900" },
+        { name: "Özel Ders", type: "Hoca", capacity: "1", price: "1600" },
+        { name: "Çift Kişilik Ders", type: "Hoca", capacity: "2", price: "2200" },
+        { name: "Raket + Top Seti", type: "Ekipman", capacity: "1", price: "250" },
+      ],
+    },
+    {
+      email: "flow@tyee.app",
+      venueId: "flow-yoga-pilates",
+      name: "Flow Yoga & Pilates",
+      owner: "Flow Studio",
+      phone: "+90 532 000 34 08",
+      category: "Yoga ve pilates",
+      district: "Caddebostan",
+      address: "Bağdat Cad. No: 320, Kadıköy / İstanbul",
+      lat: 40.9632,
+      lng: 29.0637,
+      paymentMethod: "Ödemenin tamamını al",
+      coverUrl: "https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?auto=format&fit=crop&w=1400&q=82",
+      description: "Yoga, mat pilates, reformer ve özel ders akışlarını sınıf kapasitesiyle yöneten stüdyo.",
+      facilities: [
+        { id: "studio", label: "Sessiz stüdyo", icon: "✦" },
+        { id: "shower", label: "Duş", icon: "✓" },
+      ],
+      areas: [
+        { name: "Drop-in Yoga", type: "Grup ders", capacity: "12", price: "450" },
+        { name: "Mat Pilates", type: "Grup ders", capacity: "10", price: "500" },
+        { name: "Reformer Pilates", type: "Ekipmanlı ders", capacity: "4", price: "950" },
+        { name: "Özel Ders", type: "Bire bir", capacity: "1", price: "1800" },
+        { name: "Aylık Üyelik", type: "Üyelik", capacity: "1", price: "4200" },
+      ],
+    },
+  ];
+
+  demos.forEach((demo) => ensureDemoVenueUser(demo.email, demo));
+}
+
+function seedExistingNemoVenue() {
+  const venueId = "venue-d7aa7820-733b-4b72-8779-0b53604c0cf1";
+  const existingOverlay = getVenueOverlay(venueId);
+  const existingName = String(existingOverlay.settings?.businessName || "").toLocaleLowerCase("tr-TR");
+  if (existingOverlay._nemoDetailVersion === DEMO_MARKETPLACE_SEED_VERSION) return;
+  if (existingName && !existingName.includes("nemo")) return;
+
+  const { slotModes, slotServices } = createDemoSlots("Hizmet");
+  saveVenueOverlay(venueId, {
+    _nemoDetailVersion: DEMO_MARKETPLACE_SEED_VERSION,
+    settings: {
+      ...(existingOverlay.settings || {}),
+      businessName: "nemo",
+      contact: {
+        authorizedName: "Nemo Pet",
+        phone: "+90 532 000 34 02",
+        whatsapp: "+90 532 000 34 02",
+        email: "hysnyildiz@gmail.com",
+        website: "",
+        instagram: "@nemopetkuafor",
+      },
+      details: {
+        category: "Pet kuaför",
+        district: "Balmumcu",
+        description: "Kedi ve köpekler için sakin bakım alanı, banyo, tıraş, tarama ve tırnak hizmetleri.",
+        workingHours: "Her gün 10:00 - 20:00",
+        cancellationPolicy: "Randevudan 12 saat öncesine kadar ücretsiz değişiklik yapılabilir.",
+      },
+      locationStatus: "Girilmiş",
+      location: {
+        address: "Balmumcu Mah. Barbaros Bulvarı No: 42, Beşiktaş / İstanbul",
+        lat: "41.075764",
+        lng: "29.019785",
+        mapUrl: "",
+      },
+      media: {
+        logoUrl: "",
+        coverUrl: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=1400&q=82",
+        gallery: [],
+      },
+      areas: [
+        { name: "Küçük Irk Banyo & Tıraş", type: "Köpek bakımı", capacity: "1", price: "900", isActive: true },
+        { name: "Büyük Irk Bakım Paketi", type: "Köpek bakımı", capacity: "1", price: "1600", isActive: true },
+        { name: "Kedi Tüy Bakımı", type: "Kedi bakımı", capacity: "1", price: "1300", isActive: true },
+        { name: "Tırnak Kesimi", type: "Hızlı bakım", capacity: "1", price: "250", isActive: true },
+        { name: "Kulak ve Göz Temizliği", type: "Hızlı bakım", capacity: "1", price: "300", isActive: true },
+      ],
+      facilities: createDemoFacilities([
+        { id: "pet-safe", label: "Pet güvenli ekipman", icon: "✓" },
+        { id: "waiting", label: "Bekleme alanı", icon: "⌖" },
+        { id: "camera", label: "Süreç fotoğrafı", icon: "✦" },
+      ]),
+      payment: {
+        invoiceTitle: "nemo",
+        taxOffice: "Beşiktaş",
+        taxNumber: "1111111111",
+        iban: "TR00 0000 0000 0000 0000 0000 00",
+        paymentMethod: "Ödemenin tamamını al",
+      },
+      contracts: {
+        termsAccepted: true,
+        kvkkAccepted: true,
+        notes: "Demo işletme sözleşmesi onaylıdır.",
+      },
+      operations: existingOverlay.settings?.operations || {},
+    },
+    slotModes,
+    slotServices,
+    manualEntries: {},
+    calendarPreferences: {
+      slotStepMinutes: 60,
+      openDays: [0, 1, 2, 3, 4, 5, 6],
+      publicBookingEnabled: true,
+    },
+  });
+}
+
 function seedUsers() {
   migrateLegacyUsers();
   ensureSeedUser("demo@tyee.app", { name: "Demo Kullanıcı", password: "123456" });
@@ -306,11 +699,14 @@ function seedUsers() {
       emailVerified: true,
     });
   }
+
+  seedDemoVenues();
+  seedExistingNemoVenue();
 }
 
 seedUsers();
 
-app.use(express.json({ limit: "8mb" }));
+app.use(express.json({ limit: "16mb" }));
 
 const publicStaticFiles = new Set([
   "admin.css",
@@ -587,6 +983,17 @@ function mergeVenuePayload(venueId, user = null) {
     manualEntries: overlay.manualEntries || {},
     slotServices: overlay.slotServices || {},
   };
+  payload.clients = buildVenueClientsPayload({
+    transactions: payload.transactions || [],
+    reservations: venueReservations,
+    reviews: payload.reviews || [],
+    weekDays: payload.weekDays || [],
+  });
+  payload.calendarOps = buildVenueCalendarOpsPayload({
+    payload,
+    overlay,
+    reservations: venueReservations,
+  });
 
   return payload;
 }
@@ -632,9 +1039,9 @@ function resolveVenuePaymentPolicy(venueId) {
 }
 
 function getPaymentModeChannel(paymentMode) {
-  if (paymentMode === PAYMENT_MODES.FULL_ONLINE) return "Tam Online";
-  if (paymentMode === PAYMENT_MODES.VENUE_PAYMENT) return "Sadece Rezervasyon";
-  return "Ön ödeme";
+  if (paymentMode === PAYMENT_MODES.FULL_ONLINE) return "Ödemenin tamamını al";
+  if (paymentMode === PAYMENT_MODES.VENUE_PAYMENT) return "Sadece randevu";
+  return "Ön ödeme (kapora)";
 }
 
 function formatDateTr(value) {
@@ -684,6 +1091,373 @@ function formatReservationTransaction(reservation) {
     packageName: reservation.paymentMode === PAYMENT_MODES.VENUE_PAYMENT ? "Ay sonu FAST" : "-",
     withdrawalCount: 0,
     reviewStatus: reservation.reviewStatus || "pending",
+  };
+}
+
+function parseDisplayDate(value = "") {
+  const match = String(value || "").match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!match) return null;
+  const date = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]), 12, 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatClientCreatedAt(value = "") {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+function createClientKey({ name = "", email = "", phone = "" } = {}) {
+  const safeEmail = normalizeEmail(email);
+  if (safeEmail) return `email:${safeEmail}`;
+  const safePhone = String(phone || "").replace(/\D/g, "");
+  if (safePhone) return `phone:${safePhone}`;
+  return `name:${normalizeTextKey(name || "misafir")}`;
+}
+
+function normalizeTextKey(value = "") {
+  return String(value || "")
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9ğüşöçıİ-]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "misafir";
+}
+
+function getClientInitials(name = "") {
+  return getInitials(name || "Müşteri").slice(0, 2);
+}
+
+function createEmptyClient(partial = {}) {
+  const name = partial.name || "Misafir";
+  return {
+    key: createClientKey(partial),
+    name,
+    initials: getClientInitials(name),
+    email: partial.email || "",
+    phone: partial.phone || "",
+    visitCount: 0,
+    spendAmount: 0,
+    reviewScores: [],
+    firstSeenAt: partial.createdAt || "",
+    lastVisitAt: "",
+    lastService: "",
+    channels: new Set(),
+    paymentModes: new Set(),
+    notes: [],
+  };
+}
+
+function upsertVenueClient(clientsByKey, partial = {}) {
+  const key = createClientKey(partial);
+  const current = clientsByKey.get(key) || createEmptyClient({ ...partial, key });
+  current.name = partial.name || current.name;
+  current.initials = getClientInitials(current.name);
+  current.email = partial.email || current.email;
+  current.phone = partial.phone || current.phone;
+  if (partial.createdAt && (!current.firstSeenAt || new Date(partial.createdAt) < new Date(current.firstSeenAt))) {
+    current.firstSeenAt = partial.createdAt;
+  }
+  clientsByKey.set(key, current);
+  return current;
+}
+
+function attachClientVisit(client, visit = {}) {
+  client.visitCount += 1;
+  client.spendAmount += parseMoney(visit.amount);
+  if (visit.channel) client.channels.add(visit.channel);
+  if (visit.paymentMode) client.paymentModes.add(visit.paymentMode);
+  if (visit.note) client.notes.push(visit.note);
+  if (visit.service) client.lastService = visit.service;
+
+  const date = visit.dateObj || parseDisplayDate(visit.date);
+  if (date && (!client.lastVisitAt || date > new Date(client.lastVisitAt))) {
+    client.lastVisitAt = date.toISOString();
+  }
+}
+
+function resolveClientSegment(client) {
+  if (client.spendAmount >= 12000 || client.visitCount >= 6) return "VIP müşteri";
+  if (client.visitCount >= 2) return "Sadık müşteri";
+  if (client.visitCount === 1) return "Yeni müşteri";
+  return "Takip edilecek";
+}
+
+function resolveClientNextAction(client) {
+  const segment = resolveClientSegment(client);
+  if (segment === "VIP müşteri") return "Ayrıcalıklı paket veya öncelikli slot öner";
+  if (segment === "Sadık müşteri") return "Sadakat akışına dahil et";
+  if (segment === "Yeni müşteri") return "İlk ziyaret sonrası follow-up gönder";
+  return "Müşteri kartını tamamla";
+}
+
+function buildVenueClientsPayload({ transactions = [], reservations = [], reviews = [], weekDays = [] } = {}) {
+  const clientsByKey = new Map();
+  const phonesByName = new Map();
+
+  weekDays.forEach((day) => {
+    (day.slots || []).forEach((slot) => {
+      if (slot.title && slot.phone) phonesByName.set(normalizeTextKey(slot.title), slot.phone);
+    });
+  });
+
+  reservations.forEach((reservation) => {
+    const billing = reservation.billing || calculateReservationBilling(reservation);
+    const client = upsertVenueClient(clientsByKey, {
+      name: reservation.customerName || reservation.customerEmail || "Misafir",
+      email: reservation.customerEmail || "",
+      phone: reservation.customerPhone || "",
+      createdAt: reservation.createdAt || "",
+    });
+    attachClientVisit(client, {
+      amount: billing.totalAmount,
+      channel: getPaymentModeChannel(reservation.paymentMode),
+      paymentMode: billing.paymentModeLabel,
+      service: reservation.serviceLabel || reservation.categoryLabel || "Rezervasyon",
+      dateObj: reservation.serviceDate ? new Date(`${reservation.serviceDate}T12:00:00`) : null,
+      note: reservation.note || "",
+    });
+  });
+
+  transactions
+    .filter((transaction) => !transaction.reservationId)
+    .forEach((transaction) => {
+      const phone = phonesByName.get(normalizeTextKey(transaction.customer || ""));
+      const client = upsertVenueClient(clientsByKey, {
+        name: transaction.customer || "Misafir",
+        phone,
+        createdAt: transaction.createdAt ? parseDisplayDate(String(transaction.createdAt).slice(0, 10))?.toISOString() : "",
+      });
+      attachClientVisit(client, {
+        amount: transaction.amount,
+        channel: transaction.channel,
+        paymentMode: transaction.businessType,
+        service: transaction.field,
+        date: transaction.date,
+        note: transaction.packageName && transaction.packageName !== "-" ? transaction.packageName : "",
+      });
+    });
+
+  reviews.forEach((review) => {
+    const client = upsertVenueClient(clientsByKey, {
+      name: review.author || review.customerName || "Müşteri",
+    });
+    if (Number(review.rating) > 0) client.reviewScores.push(Number(review.rating));
+  });
+
+  const items = [...clientsByKey.values()]
+    .map((client) => {
+      const averageReview = client.reviewScores.length
+        ? (client.reviewScores.reduce((total, rating) => total + rating, 0) / client.reviewScores.length).toFixed(1)
+        : "-";
+      const segment = resolveClientSegment(client);
+      const lastVisitLabel = client.lastVisitAt ? formatClientCreatedAt(client.lastVisitAt) : "-";
+      const daysSinceLastVisit = client.lastVisitAt
+        ? Math.max(0, Math.round((Date.now() - new Date(client.lastVisitAt).getTime()) / 86400000))
+        : null;
+      const noteBase = client.notes.find(Boolean) || `${client.lastService || "Rezervasyon"} için müşteri geçmişi oluşturuldu.`;
+
+      return {
+        id: client.key,
+        name: client.name,
+        initials: client.initials,
+        email: client.email || "E-posta yok",
+        phone: client.phone || "Telefon yok",
+        segment,
+        visits: `${client.visitCount} ziyaret`,
+        visitCount: client.visitCount,
+        spend: formatCurrency(client.spendAmount),
+        spendAmount: client.spendAmount,
+        reviews: averageReview,
+        createdAt: formatClientCreatedAt(client.firstSeenAt || client.lastVisitAt),
+        lastVisit: lastVisitLabel,
+        daysSinceLastVisit,
+        nextAction: resolveClientNextAction(client),
+        note: noteBase,
+      };
+    })
+    .sort((a, b) => b.spendAmount - a.spendAmount || b.visitCount - a.visitCount || a.name.localeCompare(b.name, "tr"));
+
+  const countBy = (predicate) => items.filter(predicate).length;
+  const segments = [
+    { title: "Sadık müşteriler", count: String(countBy((item) => item.visitCount >= 2)), detail: "Son işlemlerden 2+ ziyaret yapanlar" },
+    { title: "Riskli kayıp", count: String(countBy((item) => item.daysSinceLastVisit !== null && item.daysSinceLastVisit > 30)), detail: "30+ gündür geri dönmeyen müşteriler" },
+    { title: "Yeni müşteriler", count: String(countBy((item) => item.daysSinceLastVisit !== null && item.daysSinceLastVisit <= 14)), detail: "İlk rezervasyon sonrası follow-up bekleyenler" },
+    { title: "VIP müşteriler", count: String(countBy((item) => item.spendAmount >= 12000 || item.visitCount >= 6)), detail: "Yüksek harcama veya sık ziyaret yapanlar" },
+  ];
+
+  const loyalty = items.slice(0, 6).map((client) => {
+    const tier = client.spendAmount >= 12000 || client.visitCount >= 6 ? "Black" : client.visitCount >= 2 ? "Gold" : "Starter";
+    const target = tier === "Black" ? 12 : tier === "Gold" ? 10 : 4;
+    return {
+      name: client.name,
+      tier,
+      progress: `${Math.min(client.visitCount, target)} / ${target} ziyaret`,
+      reward: tier === "Black" ? "Premium paket ve öncelikli slot" : tier === "Gold" ? "Bir sonraki rezervasyonda sadakat avantajı" : "İkinci ziyarette hoş geldin indirimi",
+    };
+  });
+
+  return {
+    items,
+    segments,
+    loyalty,
+    summary: {
+      total: items.length,
+      repeat: countBy((item) => item.visitCount >= 2),
+      vip: countBy((item) => item.spendAmount >= 12000 || item.visitCount >= 6),
+    },
+  };
+}
+
+function getVenueServiceOptions(payload = {}) {
+  const areas = payload.settings?.areas;
+  const activeAreas = Array.isArray(areas)
+    ? areas
+        .filter((area) => area && area.isActive !== false)
+        .map((area) => ({
+          id: normalizeTextKey(area.name || "ana-hizmet"),
+          name: String(area.name || "Ana hizmet").trim(),
+          type: String(area.type || "Hizmet").trim(),
+          duration: String(area.capacity || "60 dk").trim(),
+        }))
+    : [];
+
+  return activeAreas.length
+    ? activeAreas
+    : [{ id: "ana-hizmet", name: "Ana hizmet", type: "Hizmet", duration: "60 dk" }];
+}
+
+function normalizeCalendarPreferences(value = {}) {
+  const visibleStatuses = Array.isArray(value.visibleStatuses) && value.visibleStatuses.length
+    ? value.visibleStatuses.map((item) => String(item || "").trim()).filter(Boolean)
+    : ["open", "online", "manual", "subscription", "closed"];
+
+  return {
+    viewMode: ["day", "week"].includes(value.viewMode) ? value.viewMode : "day",
+    selectedTeam: String(value.selectedTeam || "all").trim() || "all",
+    activeFilter: String(value.activeFilter || "all").trim() || "all",
+    visibleStatuses,
+  };
+}
+
+function createDefaultWaitlistItems(payload = {}) {
+  if (payload.isFreshVenue) return [];
+  const services = getVenueServiceOptions(payload);
+  const firstService = services[0]?.name || "Ana hizmet";
+  const secondService = services[1]?.name || firstService;
+
+  return [
+    {
+      id: "demo-waitlist-evening",
+      name: "Akşam slotu isteyen müşteri",
+      service: firstService,
+      preferredWindow: "Bugün 18:00 sonrası",
+      status: "waiting",
+      priority: "high",
+      note: "İlk boşalan uygun slota alınabilir.",
+      createdAt: "2026-06-23T09:30:00.000Z",
+    },
+    {
+      id: "demo-waitlist-weekend",
+      name: "Hafta sonu talebi",
+      service: secondService,
+      preferredWindow: "Bu hafta sonu",
+      status: "matched",
+      priority: "normal",
+      note: "Uygun hizmet ve saat eşleşmesi bekliyor.",
+      createdAt: "2026-06-22T13:10:00.000Z",
+    },
+  ];
+}
+
+function normalizeWaitlistItem(item = {}, index = 0, payload = {}) {
+  const services = getVenueServiceOptions(payload);
+  const serviceNames = new Set(services.map((service) => service.name));
+  const status = ["waiting", "matched", "booked", "cancelled"].includes(item.status) ? item.status : "waiting";
+  const priority = ["high", "normal", "low"].includes(item.priority) ? item.priority : "normal";
+
+  return {
+    id: String(item.id || crypto.randomUUID()),
+    name: String(item.name || `Bekleyen müşteri ${index + 1}`).trim(),
+    phone: String(item.phone || "").trim(),
+    service: serviceNames.has(item.service) ? item.service : services[0]?.name || "Ana hizmet",
+    preferredWindow: String(item.preferredWindow || "İlk uygun slot").trim(),
+    status,
+    priority,
+    note: String(item.note || "").trim(),
+    createdAt: item.createdAt || new Date().toISOString(),
+    updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
+  };
+}
+
+function formatWaitlistStatus(status = "waiting") {
+  if (status === "matched") return "Slot önerildi";
+  if (status === "booked") return "Rezervasyona döndü";
+  if (status === "cancelled") return "İptal";
+  return "Bekliyor";
+}
+
+function buildVenueCalendarOpsPayload({ payload = {}, overlay = {}, reservations = [] } = {}) {
+  const preferences = normalizeCalendarPreferences(overlay.calendarPreferences || {});
+  const services = getVenueServiceOptions(payload);
+  const rawWaitlist = Array.isArray(overlay.waitlist)
+    ? overlay.waitlist
+    : createDefaultWaitlistItems(payload);
+  const waitlistItems = rawWaitlist.map((item, index) => {
+    const normalized = normalizeWaitlistItem(item, index, payload);
+    return {
+      ...normalized,
+      statusLabel: formatWaitlistStatus(normalized.status),
+    };
+  });
+  const pendingCount = waitlistItems.filter((item) => item.status === "waiting").length;
+  const matchedCount = waitlistItems.filter((item) => item.status === "matched").length;
+  const bookedToday = reservations.filter((reservation) => {
+    const created = reservation.createdAt ? new Date(reservation.createdAt) : null;
+    return created && !Number.isNaN(created.getTime()) && Date.now() - created.getTime() < 86400000;
+  }).length;
+
+  return {
+    preferences,
+    controls: [
+      { id: "today", label: "Today", action: "today" },
+      { id: "team", label: "Scheduled team", action: "team" },
+      { id: "visibility", label: "Visibility", action: "visibility" },
+      { id: "filters", label: "Filters", action: "filters" },
+      { id: "settings", label: "Calendar Settings", action: "settings" },
+      { id: "waitlist", label: "Waitlist", action: "waitlist", count: pendingCount },
+      { id: "reset", label: "Reset view", action: "reset" },
+      { id: "add", label: "Add", action: "quick-add" },
+    ],
+    filters: [
+      { id: "all", label: "Tümü" },
+      { id: "open", label: "Müsait" },
+      { id: "booked", label: "Dolu" },
+      { id: "manual", label: "Manuel" },
+      { id: "closed", label: "Kapalı" },
+    ],
+    team: [
+      { id: "all", name: "Tüm ekip", role: "Takvim görünümü", selected: preferences.selectedTeam === "all" },
+      ...services.map((service) => ({
+        id: service.id,
+        name: service.name,
+        role: service.type,
+        selected: preferences.selectedTeam === service.id,
+      })),
+    ],
+    quickAdd: [
+      { id: "appointment", label: "Rezervasyon", detail: "Müşteri, hizmet ve ödeme notu ile manuel kayıt" },
+      { id: "blocked-time", label: "Bloklu zaman", detail: "Slotu satışa kapat" },
+      { id: "waitlist", label: "Bekleme listesi", detail: "Talebi uygun slota bağla" },
+    ],
+    waitlist: {
+      items: waitlistItems,
+      summary: {
+        waiting: pendingCount,
+        matched: matchedCount,
+        bookedToday,
+      },
+    },
   };
 }
 
@@ -1001,9 +1775,10 @@ function createAdminReport({ venueId = "all", period = "Bu ay" } = {}) {
 
 app.get("/api/bootstrap", (_req, res) => {
   const payload = getBootstrapPayload();
+  const runtimeFeaturedListings = getRuntimeVenueListingsForSearch({ city: "istanbul" }).slice(0, 8);
   res.json({
     ...payload,
-    featuredListings: HIDE_PUBLIC_VENUES ? [] : payload.featuredListings,
+    featuredListings: HIDE_PUBLIC_VENUES ? [] : mergeListingItems(runtimeFeaturedListings, payload.featuredListings),
     hotSlots: HIDE_PUBLIC_VENUES ? [] : payload.hotSlots,
     categories: withActiveVenueCategoryCounts(payload.categories || []),
     brand: {
@@ -1029,7 +1804,13 @@ app.get("/api/listings", (req, res) => {
     query: String(req.query.query || ""),
     time: String(req.query.time || ""),
   });
-  res.json({ total: items.length, items });
+  const runtimeItems = getRuntimeVenueListingsForSearch({
+    category: String(req.query.category || "all"),
+    city: String(req.query.city || "all"),
+    query: String(req.query.query || ""),
+  });
+  const mergedItems = mergeListingItems(runtimeItems, items);
+  res.json({ total: mergedItems.length, items: mergedItems });
 });
 
 app.get("/api/listings/:id", (req, res) => {
@@ -1089,8 +1870,21 @@ function getDistanceKm(origin, target) {
 
 function normalizeVenueCategory(value = "") {
   const normalized = String(value || "").toLocaleLowerCase("tr-TR");
+  if (normalized.includes("restaurant") || normalized.includes("restoran") || normalized.includes("cafe")) {
+    return { id: "restaurant", label: "Restaurant", icon: "🍽️" };
+  }
+  if (normalized.includes("dövme") || normalized.includes("dovme") || normalized.includes("tattoo")) {
+    return { id: "tattoo", label: "Dövmeci", icon: "✒️" };
+  }
+  if (normalized.includes("erkek kuaf") || normalized.includes("berber") || normalized.includes("barber")) {
+    return { id: "sac-kuafor", label: "Erkek Kuaför", icon: "✂️" };
+  }
+  if (normalized.includes("kadın") || normalized.includes("kadin") || normalized.includes("makeup") || normalized.includes("makyaj") || normalized.includes("tırnak") || normalized.includes("tirnak")) {
+    return { id: "guzellik", label: "Güzellik Merkezi", icon: "💄" };
+  }
   if (normalized.includes("pet")) return { id: "pet-kuafor", label: "Pet Kuaför", icon: "🐾" };
   if (normalized.includes("güzellik") || normalized.includes("guzellik")) return { id: "guzellik", label: "Güzellik Merkezi", icon: "💄" };
+  if (normalized.includes("tenis") || normalized.includes("tennis")) return { id: "tenis", label: "Tenis", icon: "🎾" };
   if (normalized.includes("halı") || normalized.includes("hali") || normalized.includes("futbol")) return { id: "hali-saha", label: "Halı Saha", icon: "⚽" };
   if (normalized.includes("padel")) return { id: "padel", label: "Padel Kort", icon: "🎾" };
   if (normalized.includes("direksiyon")) return { id: "direksiyon", label: "Direksiyon Dersi", icon: "🚘" };
@@ -1105,7 +1899,11 @@ function getVenueCategoryMediaClass(categoryId = "") {
   const mediaByCategory = {
     "pet-kuafor": "media-pet",
     guzellik: "media-beauty",
+    restaurant: "media-restaurant",
+    tattoo: "media-tattoo",
+    "sac-kuafor": "media-beauty",
     "hali-saha": "media-field",
+    tenis: "media-padel",
     padel: "media-padel",
     direksiyon: "media-driving",
     "ozel-ders": "media-lesson",
@@ -1115,6 +1913,57 @@ function getVenueCategoryMediaClass(categoryId = "") {
   };
 
   return mediaByCategory[categoryId] || "media-field";
+}
+
+function formatPriceLabel(value = 0) {
+  return new Intl.NumberFormat("tr-TR").format(Math.round(Number(value || 0)));
+}
+
+function getSafeMediaUrl(value = "") {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (/^data:image\/(png|jpe?g|webp);base64,/i.test(url)) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/assets/")) return url;
+  return "";
+}
+
+function getVenueMediaUrl(settings = {}) {
+  const media = settings.media || {};
+  const gallery = Array.isArray(media.gallery) ? media.gallery : [];
+  return getSafeMediaUrl(media.coverUrl) || getSafeMediaUrl(gallery.find((item) => item?.src)?.src);
+}
+
+function getActiveVenueAreas(settings = {}) {
+  const areas = Array.isArray(settings.areas) ? settings.areas : [];
+  return areas
+    .filter((area) => area && area.isActive !== false)
+    .map((area) => ({
+      ...area,
+      name: String(area.name || "").trim(),
+      type: String(area.type || "").trim(),
+      capacity: String(area.capacity || "").trim(),
+      numericPrice: parseMoney(area.price),
+    }))
+    .filter((area) => area.name);
+}
+
+function getVenuePriceInfo(settings = {}) {
+  const pricedAreas = getActiveVenueAreas(settings).filter((area) => area.numericPrice > 0);
+  const representativePrice = pricedAreas[0]?.numericPrice || 0;
+  return {
+    price: representativePrice,
+    priceLabel: representativePrice ? formatPriceLabel(representativePrice) : "0",
+    priceUnit: "hizmet",
+  };
+}
+
+function getVenueNextSlot(venueId) {
+  const slotModes = getVenueOverlay(venueId)?.slotModes || {};
+  const openKey = Object.keys(slotModes)
+    .sort()
+    .find((key) => slotModes[key] === "rezerv");
+  return openKey ? openKey.split("-").slice(1).join("-") : "Yakında";
 }
 
 function getEnabledSettingsFacilities(settings = {}) {
@@ -1148,6 +1997,10 @@ function getRuntimeVenueMapItems(origin) {
 
       const details = settings.details || {};
       const category = normalizeVenueCategory(details.category || settings.venue?.sport || "");
+      const activeAreas = getActiveVenueAreas(settings);
+      const priceInfo = getVenuePriceInfo(settings);
+      const serviceTypes = [...new Set(activeAreas.map((area) => area.type || category.label).filter(Boolean))].slice(0, 6);
+      const serviceOptions = activeAreas.map((area) => area.name).slice(0, 16);
       const distanceKm = getDistanceKm(origin, { lat, lng });
       return {
         id: venueId,
@@ -1160,11 +2013,17 @@ function getRuntimeVenueMapItems(origin) {
         lng,
         distanceKm: Number(distanceKm.toFixed(2)),
         distanceLabel: `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`,
-        nextSlot: "Yakında",
-        priceLabel: "0",
+        nextSlot: getVenueNextSlot(venueId),
+        price: priceInfo.price,
+        priceLabel: priceInfo.priceLabel,
+        priceUnit: priceInfo.priceUnit,
         paymentMode: resolveVenuePaymentPolicy(venueId).paymentMode,
         mediaClass: getVenueCategoryMediaClass(category.id),
+        mediaUrl: getVenueMediaUrl(settings),
         facilities: getEnabledSettingsFacilities(settings),
+        summary: details.description || `${category.label} hizmetleri ve müsaitlik bilgileri işletme panelinden yönetiliyor.`,
+        serviceTypes: serviceTypes.length ? serviceTypes : [category.label],
+        serviceOptions: serviceOptions.length ? serviceOptions : [category.label],
         source: "venue-settings",
       };
     })
@@ -1186,12 +2045,13 @@ function getRuntimeVenueListingById(id) {
     rating: 4.8,
     reviews: 0,
     distance: item.distanceLabel || "",
-    price: Number(String(item.priceLabel || "0").replace(/[^\d]/g, "")) || 1000,
-    priceUnit: "hizmet",
-    summary: `${item.categoryLabel || "Hizmet"} · Canlı işletme profili`,
+    price: item.price || Number(String(item.priceLabel || "0").replace(/[^\d]/g, "")) || 1000,
+    priceUnit: item.priceUnit || "hizmet",
+    summary: item.summary || `${item.categoryLabel || "Hizmet"} · Canlı işletme profili`,
     tags: ["Yakında müsait", "Tyee işletmesi", "Güvenli rezervasyon"],
     cta: "Rezervasyon Yap",
     mediaClass: item.mediaClass || "media-field",
+    mediaUrl: item.mediaUrl || "",
     featured: true,
     eveningTime: item.nextSlot || "19:30",
     availability: { today: true, nextSlot: item.nextSlot || "19:30", openSlots: 4 },
@@ -1199,11 +2059,46 @@ function getRuntimeVenueListingById(id) {
     conversionScore: 80,
     responseMinutes: 12,
     boost: false,
-    serviceTypes: [item.categoryLabel || "hizmet"],
-    priceLabel: item.priceLabel || formatCurrency(1000),
+    serviceTypes: item.serviceTypes || [item.categoryLabel || "hizmet"],
+    priceLabel: item.priceLabel || formatPriceLabel(1000),
     facilities: item.facilities || [],
-    serviceOptions: getRuntimeVenueServiceOptions(item.id),
+    serviceOptions: item.serviceOptions?.length ? item.serviceOptions : getRuntimeVenueServiceOptions(item.id),
   };
+}
+
+function getRuntimeVenueListingsForSearch({ category = "all", city = "all", query = "" } = {}) {
+  const normalizedCategory = String(category || "all");
+  const normalizedCity = String(city || "all");
+  const queryTerms = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+
+  return getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 })
+    .map((item) => getRuntimeVenueListingById(item.id))
+    .filter(Boolean)
+    .filter((listing) => {
+      const matchesCategory = normalizedCategory === "all" || listing.category === normalizedCategory;
+      const matchesCity = normalizedCity === "all" || normalizedCity === "istanbul";
+      const searchable = normalizeSearchText(
+        [
+          listing.name,
+          listing.categoryLabel,
+          listing.cityLabel,
+          listing.summary,
+          ...(listing.tags || []),
+          ...(listing.serviceTypes || []),
+          ...(listing.serviceOptions || []),
+        ].join(" "),
+      );
+      const matchesQuery = !queryTerms.length || queryTerms.every((term) => searchable.includes(term));
+      return matchesCategory && matchesCity && matchesQuery;
+    });
+}
+
+function mergeListingItems(...groups) {
+  const byId = new Map();
+  groups.flat().filter(Boolean).forEach((item) => {
+    if (!byId.has(item.id)) byId.set(item.id, item);
+  });
+  return [...byId.values()];
 }
 
 function getRuntimeVenueServiceOptions(venueId) {
@@ -1750,6 +2645,77 @@ app.post("/api/auth/password-reset/confirm", (req, res) => {
 app.get("/api/venue/bootstrap", requireVenueAccess, (req, res) => {
   const venueId = resolveVenueIdForRequest(req, req.query.venue);
   res.json(mergeVenuePayload(venueId, req.user));
+});
+
+app.get("/api/venue/clients", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.query.venueId);
+  const payload = mergeVenuePayload(venueId, req.user);
+  res.json(payload.clients || { items: [], segments: [], loyalty: [] });
+});
+
+app.get("/api/venue/calendar-ops", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.query.venueId);
+  const payload = mergeVenuePayload(venueId, req.user);
+  res.json(payload.calendarOps || buildVenueCalendarOpsPayload({ payload }));
+});
+
+app.patch("/api/venue/calendar-preferences", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId);
+  const overlay = saveVenueOverlay(venueId, {
+    calendarPreferences: normalizeCalendarPreferences(req.body?.preferences || {}),
+  });
+  const payload = mergeVenuePayload(venueId, req.user);
+  res.json(payload.calendarOps || buildVenueCalendarOpsPayload({ payload, overlay }));
+});
+
+app.post("/api/venue/waitlist", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId);
+  const payload = mergeVenuePayload(venueId, req.user);
+  const overlay = getVenueOverlay(venueId);
+  const currentItems = Array.isArray(overlay.waitlist)
+    ? overlay.waitlist.map((item, index) => normalizeWaitlistItem(item, index, payload))
+    : payload.calendarOps?.waitlist?.items || [];
+  const item = normalizeWaitlistItem({
+    id: crypto.randomUUID(),
+    name: req.body?.name,
+    phone: req.body?.phone,
+    service: req.body?.service,
+    preferredWindow: req.body?.preferredWindow,
+    status: req.body?.status || "waiting",
+    priority: req.body?.priority || "normal",
+    note: req.body?.note,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }, 0, payload);
+  const savedOverlay = saveVenueOverlay(venueId, {
+    waitlist: [item, ...currentItems].slice(0, 50),
+  });
+  const nextPayload = mergeVenuePayload(venueId, req.user);
+  res.status(201).json(nextPayload.calendarOps || buildVenueCalendarOpsPayload({ payload: nextPayload, overlay: savedOverlay }));
+});
+
+app.patch("/api/venue/waitlist/:id", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId);
+  const payload = mergeVenuePayload(venueId, req.user);
+  const overlay = getVenueOverlay(venueId);
+  const currentItems = Array.isArray(overlay.waitlist)
+    ? overlay.waitlist.map((item, index) => normalizeWaitlistItem(item, index, payload))
+    : payload.calendarOps?.waitlist?.items || [];
+  const index = currentItems.findIndex((item) => item.id === req.params.id);
+  if (index < 0) {
+    res.status(404).json({ error: "Bekleme listesi kaydı bulunamadı." });
+    return;
+  }
+  currentItems[index] = normalizeWaitlistItem({
+    ...currentItems[index],
+    status: req.body?.status || currentItems[index].status,
+    priority: req.body?.priority || currentItems[index].priority,
+    note: req.body?.note ?? currentItems[index].note,
+    updatedAt: new Date().toISOString(),
+  }, index, payload);
+  const savedOverlay = saveVenueOverlay(venueId, { waitlist: currentItems });
+  const nextPayload = mergeVenuePayload(venueId, req.user);
+  res.json(nextPayload.calendarOps || buildVenueCalendarOpsPayload({ payload: nextPayload, overlay: savedOverlay }));
 });
 
 app.get("/api/venue/reports", requireVenueAccess, (req, res) => {

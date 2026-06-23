@@ -130,8 +130,13 @@ const state = {
 const fallbackCategories = [
   { id: "pet-kuafor", label: "Pet Kuaför", icon: "🐾", count: "0" },
   { id: "sac-kuafor", label: "Saç Kuaför", icon: "✂️", count: "0" },
+  { id: "guzellik", label: "Güzellik", icon: "💄", count: "0" },
   { id: "masaj", label: "Masaj", icon: "🪷", count: "0" },
   { id: "hali-saha", label: "Halı Saha", icon: "⚽", count: "0" },
+  { id: "tenis", label: "Tenis", icon: "🎾", count: "0" },
+  { id: "padel", label: "Padel", icon: "🎾", count: "0" },
+  { id: "yoga", label: "Yoga", icon: "🧘", count: "0" },
+  { id: "ozel-ders", label: "Özel Ders", icon: "🎓", count: "0" },
   { id: "restaurant", label: "Restaurant", icon: "🍽️", count: "0" },
   { id: "tattoo", label: "Tattoo", icon: "🖋️", count: "0" },
 ];
@@ -139,8 +144,13 @@ const fallbackCategories = [
 const categoryShowcaseMeta = {
   "pet-kuafor": { mediaClass: "showcase-pet" },
   "sac-kuafor": { mediaClass: "showcase-hair" },
+  guzellik: { mediaClass: "showcase-beauty" },
   masaj: { mediaClass: "showcase-spa" },
   "hali-saha": { mediaClass: "showcase-field" },
+  tenis: { mediaClass: "showcase-padel" },
+  padel: { mediaClass: "showcase-padel" },
+  yoga: { mediaClass: "showcase-spa" },
+  "ozel-ders": { mediaClass: "showcase-field" },
   restaurant: { mediaClass: "showcase-restaurant" },
   tattoo: { mediaClass: "showcase-tattoo" },
 };
@@ -266,6 +276,22 @@ function parseMoney(value = 0) {
 
 function formatCurrency(value = 0) {
   return `₺${formatPrice(Math.round(Number(value || 0)))}`;
+}
+
+function safeMediaUrl(value = "") {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (/^data:image\/(png|jpe?g|webp);base64,/i.test(url)) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/assets/")) return url;
+  return "";
+}
+
+function mediaStyleAttribute(value = "") {
+  const url = safeMediaUrl(value);
+  if (!url) return "";
+  const cssUrl = url.replace(/["\\]/g, "");
+  return ` style="background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.24)), url('${escapeHtml(cssUrl)}')"`;
 }
 
 function getInitials(name = "Dilek Yıldız") {
@@ -603,7 +629,7 @@ async function loadInlineNearbyMap(origin = state.nearbyOrigin) {
   state.nearbyItems = items;
   renderNearbyMapCanvas(inlineNearbyMap, origin, items, "inline");
   renderNearbyResults(inlineNearbyResults, items, 4);
-  renderNearbyListings(items);
+  if (shouldRenderNearbyListings()) renderNearbyListings(items);
   setInlineNearbyStatus(items.length ? `${items.length} yakın seçenek` : "Yakın işletme bulunamadı");
 }
 
@@ -695,7 +721,7 @@ function renderCities(items = []) {
 function renderCategories(items = []) {
   const safeItems = items.length ? items : fallbackCategories;
   state.categories = safeItems;
-  const filterItems = [{ id: "all", label: "Hepsi" }, ...safeItems.slice(0, 8)];
+  const filterItems = [{ id: "all", label: "Hepsi" }, ...safeItems];
   const featuredByCategory = new Map();
 
   (state.featuredListings || []).forEach((listing) => {
@@ -750,6 +776,10 @@ function renderResultsSummary(total) {
   resultsSummary.textContent = `${queryText}${total} işletme gösteriliyor`;
 }
 
+function shouldRenderNearbyListings() {
+  return state.category === "all" && !state.query && (state.city === "all" || state.city === "istanbul");
+}
+
 function getFilteredNearbyItems(items = state.nearbyItems) {
   const normalizedQuery = normalizeSearchQuery(state.query);
   const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
@@ -784,7 +814,7 @@ function renderNearbyListings(items = state.nearbyItems) {
       .map(
         (item) => `
           <article class="nearby-facility-card" data-marker-id="${item.id}">
-            <div class="nearby-facility-media ${item.mediaClass || "media-field"}">
+            <div class="nearby-facility-media ${item.mediaClass || "media-field"}"${mediaStyleAttribute(item.mediaUrl)}>
               <span>Yakında</span>
             </div>
             <div class="nearby-facility-body">
@@ -842,7 +872,7 @@ function renderListings(items = []) {
 
         return `
         <article class="listing-card" data-id="${item.id}">
-          <div class="listing-media ${item.mediaClass || "media-pet"}">
+          <div class="listing-media ${item.mediaClass || "media-pet"}"${mediaStyleAttribute(item.mediaUrl)}>
             <span>${availabilityLabel}</span>
             <button type="button" aria-label="Kaydet">♡</button>
           </div>

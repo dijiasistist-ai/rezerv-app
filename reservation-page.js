@@ -55,6 +55,15 @@ function formatCurrency(value = 0) {
   return `₺${new Intl.NumberFormat("tr-TR").format(Math.round(Number(value || 0)))}`;
 }
 
+function safeMediaUrl(value = "") {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (/^data:image\/(png|jpe?g|webp);base64,/i.test(url)) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/assets/")) return url;
+  return "";
+}
+
 function getInitials(name = "") {
   return String(name || "")
     .trim()
@@ -337,6 +346,10 @@ function renderListing(listing) {
   state.selectedSlot = "";
   state.slots = [];
   heroMedia.className = `booking-hero-media ${listing.mediaClass || "media-field"}`;
+  const mediaUrl = safeMediaUrl(listing.mediaUrl);
+  heroMedia.style.backgroundImage = mediaUrl
+    ? `linear-gradient(180deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.22)), url('${mediaUrl.replace(/["\\]/g, "")}')`
+    : "";
   rating.textContent = listing.rating || "-";
   category.textContent = listing.categoryLabel || "Rezervasyon";
   title.textContent = listing.name;
