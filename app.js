@@ -465,6 +465,27 @@ function openReservationPage(itemOrId = {}) {
   window.location.href = getReservationUrl(itemOrId);
 }
 
+function buildMapPreviewPopup(item = {}) {
+  const reservationUrl = getReservationUrl(item);
+  return `
+    <article class="map-preview-card">
+      <div class="map-preview-head">
+        <span class="map-preview-icon">${escapeHtml(item.icon || "✦")}</span>
+        <div>
+          <strong>${escapeHtml(item.name || "İşletme")}</strong>
+          <small>${escapeHtml(item.categoryLabel || "Hizmet")} · ${escapeHtml(item.cityLabel || "Konum seçildi")}</small>
+        </div>
+      </div>
+      <div class="map-preview-meta">
+        <span>${escapeHtml(item.distanceLabel || "Yakında")}</span>
+        <span>${escapeHtml(item.nextSlot || "Yakında")} müsait</span>
+        <span>₺${escapeHtml(item.priceLabel || "0")}</span>
+      </div>
+      <a class="map-preview-link" href="${escapeHtml(reservationUrl)}">Detaya git</a>
+    </article>
+  `;
+}
+
 function refreshMapSlot(slot) {
   if (!slot?.map) return;
 
@@ -556,11 +577,13 @@ function renderNearbyMapCanvas(map, origin, items = [], markerGroup = "modal") {
       title: item.name,
     })
       .addTo(slot.map)
-      .bindPopup(
-        `<strong>${item.name}</strong><br /><span>${item.categoryLabel} · ${item.cityLabel}</span><br /><small>${item.distanceLabel}</small>`,
-      );
+      .bindPopup(buildMapPreviewPopup(item), {
+        autoPan: true,
+        autoPanPaddingTopLeft: [24, 124],
+        autoPanPaddingBottomRight: [24, 24],
+        maxWidth: 260,
+      });
     marker.tyeeId = item.id;
-    marker.on("click", () => openReservationPage(item));
     slot.markers.push(marker);
   });
 
