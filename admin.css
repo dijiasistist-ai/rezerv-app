@@ -196,6 +196,190 @@ button {
   color: var(--muted);
 }
 
+.owner-dashboard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.owner-section {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 18px;
+  box-shadow: 0 14px 34px rgba(16, 24, 40, 0.06);
+}
+
+.owner-section-wide {
+  grid-column: 1 / -1;
+}
+
+.owner-section-note {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #eef6ff;
+  color: var(--brand-strong);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.owner-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.owner-metric-grid-six {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.owner-stack,
+.owner-risk-list,
+.owner-compact-list,
+.owner-row-list {
+  display: grid;
+  gap: 10px;
+}
+
+.owner-metric {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.owner-metric span,
+.owner-metric strong,
+.owner-metric small {
+  display: block;
+}
+
+.owner-metric span,
+.owner-row small,
+.owner-compact-row small,
+.owner-risk small {
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.owner-metric strong {
+  margin: 7px 0;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.owner-metric small,
+.owner-compact-row small,
+.owner-risk span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.owner-metric.is-good {
+  border-color: #b7ead5;
+  background: #f0fbf6;
+}
+
+.owner-metric.is-warning,
+.owner-risk.is-warning {
+  border-color: #fedf89;
+  background: #fffbeb;
+}
+
+.owner-metric.is-danger,
+.owner-risk.is-danger {
+  border-color: #fecdca;
+  background: #fff7f5;
+}
+
+.owner-risk {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--brand);
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 13px 14px;
+  text-align: left;
+}
+
+.owner-risk:hover,
+.owner-row.is-clickable:hover {
+  border-color: var(--brand);
+  background: #f2f9ff;
+}
+
+.owner-risk.is-warning {
+  border-left-color: #f79009;
+}
+
+.owner-risk.is-danger {
+  border-left-color: #d92d20;
+}
+
+.owner-risk strong,
+.owner-compact-row strong,
+.owner-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.owner-risk small {
+  color: var(--brand-strong);
+}
+
+.owner-compact-row,
+.owner-row {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.owner-compact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.owner-compact-row span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.owner-compact-row b {
+  flex: 0 0 auto;
+  color: var(--ink);
+}
+
+.owner-row {
+  display: grid;
+  grid-template-columns: 1.1fr 0.8fr 0.5fr 0.55fr 0.65fr 1.3fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.owner-row.is-clickable {
+  cursor: pointer;
+}
+
+.owner-row span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .summary-card {
   min-height: 126px;
   padding: 18px;
@@ -859,7 +1043,9 @@ button {
   .admin-priority-strip,
   .admin-workspace,
   .action-grid,
-  .report-metric-grid {
+  .report-metric-grid,
+  .owner-metric-grid,
+  .owner-metric-grid-six {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -872,6 +1058,10 @@ button {
   }
 
   .access-item {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .owner-row {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -888,12 +1078,16 @@ button {
 
   .summary-grid,
   .admin-priority-strip,
+  .owner-dashboard,
   .admin-workspace,
   .action-grid,
+  .owner-metric-grid,
+  .owner-metric-grid-six,
   .role-editor,
   .search-row,
   .report-controls,
   .report-metric-grid,
+  .owner-row,
   .access-item,
   .report-table-head,
   .report-table-row {
@@ -917,6 +1111,7 @@ button {
   .admin-header,
   .admin-hero,
   .summary-grid,
+  .owner-dashboard,
   .directory-panel,
   .detail-panel,
   .action-panel,

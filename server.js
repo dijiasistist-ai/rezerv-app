@@ -25,6 +25,7 @@ const {
   getReservations,
   getReviews,
   getUsers,
+  getVenues,
   getDevOutbox,
   getVenueOverlay,
   hashPassword,
@@ -1102,6 +1103,10 @@ function formatCurrency(value) {
   return `₺${new Intl.NumberFormat("tr-TR").format(Number(value || 0))}`;
 }
 
+function formatCount(value) {
+  return new Intl.NumberFormat("tr-TR").format(Number(value || 0));
+}
+
 function parseMoney(value = 0) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   const normalized = String(value || "")
@@ -1727,33 +1732,419 @@ function formatAdminUser(user) {
 
 function getAdminBusinessDirectory() {
   const deletedVenueIds = new Set(getDeletedVenueIds());
-  return getAdminDashboardPayload().venues
-    .filter((venue) => !deletedVenueIds.has(venue.id))
-    .map((venue) => {
-      const dashboard = getVenueDashboardPayload(venue.id);
-      return {
-        ...venue,
-        contactName: dashboard.profile?.fullName || venue.manager || "",
-        contactEmail: dashboard.profile?.email || "",
-        contactPhone: dashboard.profile?.phone || "",
-        sport: dashboard.venue?.sport || venue.category,
-        settingsStatus: dashboard.settings?.locationStatus || "Kontrol bekliyor",
-        reportUrl: `/api/admin/reports?venueId=${encodeURIComponent(venue.id)}`,
-      };
+  const staticVenues = getAdminDashboardPayload().venues || [];
+  const staticVenueById = new Map(staticVenues.map((venue) => [venue.id, venue]));
+  const venueIds = new Set(staticVenues.map((venue) => venue.id));
+  const users = getUsers();
+  const overlays = getVenues();
+
+  users
+    .filter((user) => user.canManageVenue)
+    .forEach((user) => {
+      const venueId = getUserVenueId(user);
+      if (venueId) venueIds.add(venueId);
     });
+
+  Object.keys(overlays || {}).forEach((venueId) => venueIds.add(venueId));
+
+  return [...venueIds]
+    .filter((venueId) => venueId && !deletedVenueIds.has(venueId))
+    .map((venueId) => formatAdminBusiness(venueId, staticVenueById.get(venueId)))
+    .sort((a, b) => {
+      if (b.reservationCount !== a.reservationCount) return b.reservationCount - a.reservationCount;
+      if (b.readinessScore !== a.readinessScore) return b.readinessScore - a.readinessScore;
+      return a.name.localeCompare(b.name, "tr");
+    });
+}
+
+function getAdminVenueOwner(venueId) {
+  const users = getUsers().filter((user) => user.canManageVenue && getUserVenueId(user) === venueId);
+  return users.find((user) => !user.isAdmin) || users[0] || null;
+}
+
+function getBusinessCategory(settings = {}, payload = {}, fallback = "") {
+  const selectedType = (settings.selects || []).find((item) => item.label === "İşletme Tipi")?.value;
+  const rawCategory = settings.details?.category || selectedType || payload.venue?.sport || fallback || "Kategori seçilmedi";
+  return normalizeVenueCategory(rawCategory).label || rawCategory;
+}
+
+function getBusinessBranch(settings = {}, payload = {}, fallback = "") {
+  const details = settings.details || {};
+  const location = settings.location || {};
+  return details.district || location.address || payload.venue?.branch || fallback || "Konum bilgisi bekleniyor";
+}
+
+function countSlotState(overlay = {}, expectedState = "") {
+  return Object.values(overlay.slotModes || {}).filter((state) => state === expectedState).length;
+}
+
+function getAdminBusinessReadiness({ settings = {}, overlay = {}, owner = null, payload = {} } = {}) {
+  const contact = settings.contact || {};
+  const details = settings.details || {};
+  const location = settings.location || {};
+  const payment = settings.payment || {};
+  const contracts = settings.contracts || {};
+  const activeAreas = getActiveVenueAreas(settings);
+  const galleryCount = getVenueGallery(settings).length;
+  const openSlots = countSlotState(overlay, "rezerv");
+  const category = getBusinessCategory(settings, payload, "");
+  const hasPayment = Boolean(payment.paymentMethod && (payment.iban || payment.invoiceTitle || payment.paymentMethod === "Sadece randevu"));
+
+  const checklist = [
+    { id: "profile", label: "Profil adı ve kategori", done: Boolean(settings.businessName && category && category !== "Kategori seçilmedi") },
+    { id: "contact", label: "Yetkili telefon/e-posta", done: Boolean((contact.phone || contact.whatsapp || owner?.phone) && (contact.email || owner?.email)) },
+    { id: "location", label: "Konum", done: Boolean(settings.locationStatus === "Girilmiş" || location.address || (location.lat && location.lng) || details.district) },
+    { id: "services", label: "Hizmet ve fiyat", done: activeAreas.some((area) => area.numericPrice > 0) },
+    { id: "calendar", label: "Satışa açık takvim", done: openSlots > 0 },
+    { id: "media", label: "Görsel galeri", done: galleryCount > 0 },
+    { id: "payment", label: "Ödeme modeli", done: hasPayment },
+    { id: "contracts", label: "Sözleşme onayı", done: Boolean(contracts.termsAccepted && contracts.kvkkAccepted) },
+  ];
+  const completed = checklist.filter((item) => item.done).length;
+  const score = Math.round((completed / checklist.length) * 100);
+  const missing = checklist.filter((item) => !item.done).map((item) => item.label);
+
+  return {
+    score,
+    completed,
+    total: checklist.length,
+    label: score >= 88 ? "Yayına hazır" : score >= 63 ? "Hazırlıkta" : "Eksik",
+    missing,
+    checklist,
+  };
+}
+
+function getReservationFinancials(reservations = []) {
+  return reservations.reduce(
+    (totals, reservation) => {
+      const billing = reservation.billing || calculateReservationBilling(reservation);
+      totals.volume += billing.totalAmount || 0;
+      totals.commission += billing.commissionAmount || 0;
+      totals.online += billing.customerOnlinePayment || 0;
+      totals.venuePayment += billing.customerVenuePayment || 0;
+      totals.venueDebt += billing.venueCommissionDebt || 0;
+      totals.venuePayout += billing.venuePayoutAmount || 0;
+      return totals;
+    },
+    { volume: 0, commission: 0, online: 0, venuePayment: 0, venueDebt: 0, venuePayout: 0 },
+  );
+}
+
+function formatAdminBusiness(venueId, staticVenue = {}) {
+  const owner = getAdminVenueOwner(venueId);
+  const payload = mergeVenuePayload(venueId, owner);
+  const overlay = getVenueOverlay(venueId);
+  const settings = payload.settings || {};
+  const contact = settings.contact || {};
+  const activeAreas = getActiveVenueAreas(settings);
+  const reservations = getReservationsForVenue(venueId);
+  const financials = getReservationFinancials(reservations);
+  const readiness = getAdminBusinessReadiness({ settings, overlay, owner, payload });
+  const category = getBusinessCategory(settings, payload, staticVenue.category);
+  const branch = getBusinessBranch(settings, payload, staticVenue.branch);
+  const openSlots = countSlotState(overlay, "rezerv");
+  const manualSlots = countSlotState(overlay, "manual");
+  const closedSlots = countSlotState(overlay, "closed");
+  const capacityBase = reservations.length + openSlots + manualSlots;
+  const occupancyRate = capacityBase ? Math.round((reservations.length / capacityBase) * 100) : 0;
+  const paymentMode = resolveVenuePaymentPolicy(venueId).paymentMode;
+  const nextSlot = getVenueNextSlotInfo(venueId);
+
+  return {
+    ...staticVenue,
+    id: venueId,
+    name: settings.businessName || payload.venue?.name || staticVenue.name || owner?.name || "İşletme",
+    branch,
+    category,
+    status: readiness.label,
+    occupancy: `%${occupancyRate}`,
+    occupancyRate,
+    weeklyRevenue: formatCurrency(financials.volume),
+    revenueAmount: financials.volume,
+    commissionAmount: financials.commission,
+    onlineAmount: financials.online,
+    venueDebtAmount: financials.venueDebt,
+    venuePayoutAmount: financials.venuePayout,
+    openIssues: readiness.missing.length,
+    manager: contact.authorizedName || owner?.name || staticVenue.manager || "",
+    contactName: contact.authorizedName || owner?.name || staticVenue.manager || "",
+    contactEmail: contact.email || owner?.email || "",
+    contactPhone: contact.whatsapp || contact.phone || owner?.phone || "",
+    ownerEmail: owner?.email || "",
+    ownerPhone: owner?.phone || "",
+    sport: category,
+    settingsStatus: settings.locationStatus || "Kontrol bekliyor",
+    health: readiness.score >= 88 ? "İyi" : readiness.score >= 63 ? "Takip gerekli" : "Eksik",
+    readinessScore: readiness.score,
+    readinessLabel: readiness.label,
+    readinessCompleted: readiness.completed,
+    readinessTotal: readiness.total,
+    missingActions: readiness.missing,
+    reservationCount: reservations.length,
+    completedReservationCount: reservations.filter((reservation) => reservation.status === "completed").length,
+    cancelledReservationCount: reservations.filter((reservation) => reservation.status === "cancelled").length,
+    openSlots,
+    manualSlots,
+    closedSlots,
+    serviceCount: activeAreas.length,
+    galleryCount: getVenueGallery(settings).length,
+    paymentMode,
+    paymentModeLabel: getPaymentModeChannel(paymentMode),
+    nextSlot: nextSlot.time || "",
+    nextDate: nextSlot.date || "",
+    createdAt: owner?.createdAt || "",
+    updatedAt: owner?.updatedAt || payload.updatedAt || "",
+    reportUrl: `/api/admin/reports?venueId=${encodeURIComponent(venueId)}`,
+  };
+}
+
+function toAdminTimestamp(value = "") {
+  const timestamp = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function isWithinDays(value = "", days = 7) {
+  const timestamp = toAdminTimestamp(value);
+  return Boolean(timestamp && Date.now() - timestamp <= days * 86400000);
+}
+
+function buildCategoryPerformance(businesses = [], reservations = []) {
+  const byCategory = new Map();
+  businesses.forEach((business) => {
+    const key = business.category || "Kategori seçilmedi";
+    const item = byCategory.get(key) || { label: key, businesses: 0, reservations: 0, revenue: 0 };
+    item.businesses += 1;
+    byCategory.set(key, item);
+  });
+  reservations.forEach((reservation) => {
+    const label = reservation.categoryLabel || reservation.category || "Kategori seçilmedi";
+    const item = byCategory.get(label) || { label, businesses: 0, reservations: 0, revenue: 0 };
+    const billing = reservation.billing || calculateReservationBilling(reservation);
+    item.reservations += 1;
+    item.revenue += billing.totalAmount || 0;
+    byCategory.set(label, item);
+  });
+  return [...byCategory.values()]
+    .sort((a, b) => b.reservations - a.reservations || b.businesses - a.businesses || b.revenue - a.revenue)
+    .slice(0, 8)
+    .map((item) => ({
+      ...item,
+      revenueLabel: formatCurrency(item.revenue),
+      meta: `${item.businesses} işletme · ${item.reservations} rezervasyon`,
+    }));
+}
+
+function buildPaymentBreakdown(reservations = []) {
+  const byMode = new Map();
+  reservations.forEach((reservation) => {
+    const billing = reservation.billing || calculateReservationBilling(reservation);
+    const label = billing.paymentModeLabel || getPaymentModeChannel(reservation.paymentMode);
+    const item = byMode.get(label) || { label, count: 0, volume: 0, online: 0, commission: 0 };
+    item.count += 1;
+    item.volume += billing.totalAmount || 0;
+    item.online += billing.customerOnlinePayment || 0;
+    item.commission += billing.commissionAmount || 0;
+    byMode.set(label, item);
+  });
+  return [...byMode.values()]
+    .sort((a, b) => b.volume - a.volume)
+    .map((item) => ({
+      ...item,
+      volumeLabel: formatCurrency(item.volume),
+      onlineLabel: formatCurrency(item.online),
+      commissionLabel: formatCurrency(item.commission),
+      meta: `${item.count} işlem`,
+    }));
+}
+
+function buildOutboxHealth() {
+  const outbox = getDevOutbox();
+  const messages = [
+    ...(outbox.emails || []).map((item) => ({ ...item, channel: "email" })),
+    ...(outbox.sms || []).map((item) => ({ ...item, channel: item.channel || "sms" })),
+  ];
+  const countBy = (predicate) => messages.filter(predicate).length;
+  return {
+    total: messages.length,
+    sent: countBy((item) => item.status === "sent"),
+    queued: countBy((item) => String(item.status || "").includes("queued")),
+    failed: countBy((item) => item.status === "failed"),
+    skipped: countBy((item) => item.status === "skipped"),
+    recent: messages
+      .sort((a, b) => toAdminTimestamp(b.createdAt) - toAdminTimestamp(a.createdAt))
+      .slice(0, 8)
+      .map((item) => ({
+        channel: item.channel || "email",
+        template: item.template || "-",
+        to: item.to || "-",
+        status: item.status || "-",
+        createdAt: formatDateTimeTr(item.createdAt),
+      })),
+  };
+}
+
+function buildAdminOwnerDashboard({ users = [], businesses = [], reservations = [], reviews = [] } = {}) {
+  const customers = users.filter((user) => user.role === "customer");
+  const venueUsers = users.filter((user) => user.role === "venue");
+  const admins = users.filter((user) => user.role === "admin");
+  const liveBusinesses = businesses.filter((business) => business.readinessScore >= 88);
+  const riskyBusinesses = businesses.filter((business) => business.readinessScore < 63 || business.openIssues > 2);
+  const last7Reservations = reservations.filter((reservation) => isWithinDays(reservation.createdAt, 7));
+  const allFinancials = getReservationFinancials(reservations);
+  const weekFinancials = getReservationFinancials(last7Reservations);
+  const outbox = buildOutboxHealth();
+  const emailStatus = getEmailStatus();
+  const messagingStatus = getMessagingStatus();
+  const accessRules = getAllAdminAccessRules();
+  const completedReservations = reservations.filter((reservation) => reservation.status === "completed").length;
+  const cancelledReservations = reservations.filter((reservation) => reservation.status === "cancelled").length;
+  const averageReadiness = businesses.length
+    ? Math.round(businesses.reduce((total, business) => total + business.readinessScore, 0) / businesses.length)
+    : 0;
+  const categoryPerformance = buildCategoryPerformance(businesses, reservations);
+  const paymentBreakdown = buildPaymentBreakdown(reservations);
+
+  const riskQueue = [
+    ...riskyBusinesses.slice(0, 6).map((business) => ({
+      title: business.name,
+      detail: `${business.readinessScore}/100 hazırlık · Eksik: ${business.missingActions.slice(0, 3).join(", ") || "kontrol gerekli"}`,
+      action: "İşletme detayını aç",
+      tone: business.readinessScore < 40 ? "danger" : "warning",
+      targetId: business.id,
+    })),
+    ...(!emailStatus.configured
+      ? [{
+          title: "E-posta canlı sağlayıcıda değil",
+          detail: `Şu an ${emailStatus.provider} kullanılıyor. Render env'de SMTP/Resend/SendGrid tanımı kontrol edilmeli.`,
+          action: "Mail ayarını kontrol et",
+          tone: "warning",
+        }]
+      : []),
+    ...(messagingStatus.sms !== "twilio"
+      ? [{
+          title: "SMS canlı sağlayıcıda değil",
+          detail: "Twilio env değişkenleri yoksa SMS dev kuyruğa düşer; gerçek telefonlara gitmez.",
+          action: "Twilio ayarını ekle",
+          tone: "warning",
+        }]
+      : []),
+    ...(outbox.failed
+      ? [{
+          title: "Başarısız bildirim var",
+          detail: `${outbox.failed} bildirim sağlayıcı hatasıyla kaydedilmiş.`,
+          action: "Bildirim kuyruğunu incele",
+          tone: "danger",
+        }]
+      : []),
+  ].slice(0, 8);
+
+  return {
+    summary: [
+      { label: "Toplam işletme", value: formatCount(businesses.length), meta: `${liveBusinesses.length} yayına hazır, ${businesses.length - liveBusinesses.length} hazırlıkta` },
+      { label: "Rezervasyon", value: formatCount(reservations.length), meta: `${last7Reservations.length} son 7 gün` },
+      { label: "İşlem hacmi", value: formatCurrency(allFinancials.volume), meta: `${formatCurrency(allFinancials.commission)} platform payı` },
+      { label: "Riskli alan", value: formatCount(riskQueue.length), meta: `${riskyBusinesses.length} işletme, ${outbox.failed} bildirim hatası` },
+    ],
+    overview: [
+      { label: "Kullanıcı", value: formatCount(users.length), note: `${customers.length} müşteri · ${venueUsers.length} işletme · ${admins.length} admin` },
+      { label: "Canlı işletme", value: formatCount(liveBusinesses.length), note: `Ortalama hazırlık skoru %${averageReadiness}` },
+      { label: "Son 7 gün hacim", value: formatCurrency(weekFinancials.volume), note: `${last7Reservations.length} rezervasyon` },
+      { label: "Yorum", value: formatCount(reviews.length), note: `${completedReservations} tamamlanan işlem · ${cancelledReservations} iptal` },
+    ],
+    finance: [
+      { label: "Toplam GMV", value: formatCurrency(allFinancials.volume), note: "Tüm rezervasyon bedeli" },
+      { label: "Tyee komisyonu", value: formatCurrency(allFinancials.commission), note: "Platform payı" },
+      { label: "Online tahsilat", value: formatCurrency(allFinancials.online), note: "Müşteriden online alınan" },
+      { label: "İşletmede tahsil", value: formatCurrency(allFinancials.venuePayment), note: "Kapora sonrası veya sadece randevu" },
+      { label: "FAST alacak", value: formatCurrency(allFinancials.venueDebt), note: "Ay sonu işletmeden tahsil edilecek" },
+      { label: "İşletmeye ödeme", value: formatCurrency(allFinancials.venuePayout), note: "Tam ödeme modelinde net aktarım" },
+    ],
+    activationFunnel: [
+      { label: "İşletme hesabı", value: formatCount(venueUsers.length), note: "Rolü işletme olan kullanıcı" },
+      { label: "Profil tamam", value: formatCount(businesses.filter((business) => business.readinessScore >= 63).length), note: "Temel bilgiler dolu" },
+      { label: "Takvim açık", value: formatCount(businesses.filter((business) => business.openSlots > 0).length), note: "Satışa açık slot var" },
+      { label: "Hizmet/fiyat", value: formatCount(businesses.filter((business) => business.serviceCount > 0).length), note: "En az bir aktif hizmet" },
+      { label: "Görsel", value: formatCount(businesses.filter((business) => business.galleryCount > 0).length), note: "Galeri veya kapak var" },
+    ],
+    notificationHealth: [
+      { label: "E-posta", value: emailStatus.configured ? "Canlı" : "Dev-log", note: `${emailStatus.provider} · ${emailStatus.from}`, tone: emailStatus.configured ? "good" : "warn" },
+      { label: "SMS", value: messagingStatus.sms === "twilio" ? "Canlı" : "Dev-log", note: messagingStatus.sms, tone: messagingStatus.sms === "twilio" ? "good" : "warn" },
+      { label: "WhatsApp", value: messagingStatus.whatsapp === "twilio" ? "Canlı" : "Dev-log", note: messagingStatus.whatsapp, tone: messagingStatus.whatsapp === "twilio" ? "good" : "warn" },
+      { label: "Kuyruk", value: formatCount(outbox.total), note: `${outbox.queued} kuyruk · ${outbox.failed} hata`, tone: outbox.failed ? "danger" : "good" },
+      { label: "Admin erişimi", value: formatCount(accessRules.filter((rule) => rule.isActive !== false).length), note: `${accessRules.length} toplam kural`, tone: accessRules.length ? "good" : "warn" },
+    ],
+    categoryPerformance,
+    paymentBreakdown,
+    riskQueue,
+    recentReservations: reservations
+      .slice()
+      .sort((a, b) => toAdminTimestamp(b.createdAt) - toAdminTimestamp(a.createdAt))
+      .slice(0, 8)
+      .map((reservation) => {
+        const billing = reservation.billing || calculateReservationBilling(reservation);
+        return {
+          id: reservation.id,
+          venueName: reservation.venueName || "İşletme",
+          customerName: reservation.customerName || reservation.customerEmail || "Müşteri",
+          serviceLabel: reservation.serviceLabel || reservation.categoryLabel || "Rezervasyon",
+          date: `${formatDateTr(reservation.serviceDate)} ${reservation.serviceTime || ""}`.trim(),
+          amount: formatCurrency(billing.totalAmount),
+          paymentMode: billing.paymentModeLabel,
+          status: reservation.status || "confirmed",
+          createdAt: formatDateTimeTr(reservation.createdAt),
+        };
+      }),
+    recentUsers: users
+      .slice()
+      .sort((a, b) => toAdminTimestamp(b.createdAt) - toAdminTimestamp(a.createdAt))
+      .slice(0, 8)
+      .map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        type: user.type,
+        phone: user.phone || "-",
+        verified: `${user.emailVerified ? "E-posta tamam" : "E-posta bekliyor"} · ${user.phoneVerified ? "SMS tamam" : "SMS bekliyor"}`,
+        createdAt: formatDateTimeTr(user.createdAt),
+      })),
+    businessHealth: businesses.slice(0, 12).map((business) => ({
+      id: business.id,
+      name: business.name,
+      category: business.category,
+      branch: business.branch,
+      readinessScore: `%${business.readinessScore}`,
+      status: business.readinessLabel,
+      reservations: business.reservationCount,
+      revenue: formatCurrency(business.revenueAmount),
+      missing: business.missingActions.slice(0, 3).join(", ") || "Kritik eksik yok",
+    })),
+    outbox,
+  };
 }
 
 function buildAdminBootstrap(req = null) {
   const users = getUsers().map(formatAdminUser);
   const businesses = getAdminBusinessDirectory();
   const customers = users.filter((user) => !user.isAdmin && !user.canManageVenue);
+  const reservations = getReservations();
+  const reviews = getReviews();
   const dashboard = getAdminDashboardPayload();
+  const ownerDashboard = buildAdminOwnerDashboard({ users, businesses, reservations, reviews });
 
   return {
     ...dashboard,
+    summary: ownerDashboard.summary,
+    alerts: ownerDashboard.riskQueue.map((item) => ({
+      title: item.title,
+      detail: item.detail,
+      action: item.action,
+    })),
+    venues: businesses,
     users,
     customers,
     businesses,
+    reservations: ownerDashboard.recentReservations,
+    ownerDashboard,
     access: {
       currentIp: req ? getClientIp(req) : "",
       isLocal: req ? Boolean(req.adminAccess?.local) : false,
@@ -1825,6 +2216,20 @@ function createAdminReport({ venueId = "all", period = "Bu ay" } = {}) {
   const businesses = getAdminBusinessDirectory();
   const selectedBusinesses =
     venueId === "all" ? businesses : businesses.filter((business) => business.id === venueId);
+  const selectedIds = new Set(selectedBusinesses.map((business) => business.id));
+  const reservations = getReservations().filter(
+    (reservation) => venueId === "all" || selectedIds.has(reservation.venueId),
+  );
+  const financials = getReservationFinancials(reservations);
+  const onlineReservations = reservations.filter((reservation) => reservation.paymentMode !== PAYMENT_MODES.VENUE_PAYMENT).length;
+  const openSlots = selectedBusinesses.reduce((total, business) => total + business.openSlots, 0);
+  const manualSlots = selectedBusinesses.reduce((total, business) => total + business.manualSlots, 0);
+  const readinessAverage = selectedBusinesses.length
+    ? Math.round(selectedBusinesses.reduce((total, business) => total + business.readinessScore, 0) / selectedBusinesses.length)
+    : 0;
+  const riskCount = selectedBusinesses.filter((business) => business.readinessScore < 63 || business.openIssues > 2).length;
+  const paymentBreakdown = buildPaymentBreakdown(reservations);
+  const categoryPerformance = buildCategoryPerformance(selectedBusinesses, reservations);
 
   return {
     title: venueId === "all" ? "Kurum Bazlı Platform Raporu" : `${selectedBusinesses[0]?.name || "Kurum"} Raporu`,
@@ -1832,28 +2237,30 @@ function createAdminReport({ venueId = "all", period = "Bu ay" } = {}) {
     generatedAt: new Date().toISOString(),
     scope: selectedBusinesses.map((item) => item.name).join(", ") || "Kurum bulunamadı",
     executiveSummary: [
-      "Rapor finansal hacim, ödeme kanalı, kapasite kullanımı ve operasyon sağlığını birlikte okur.",
-      "Henüz canlı rezervasyon ve ödeme verisi bağlanmadığı için finansal ve operasyonel metrikler 0 gösterilir.",
-      "Canlı veri bağlandığında bu alanlar otomatik olarak kurum, dönem ve kanal bazında hesaplanacak.",
-      "Aksiyon önerileri yalnızca tablo vermek yerine yönetim kararını hızlandıracak şekilde sunulur.",
+      `${selectedBusinesses.length} işletme ve ${reservations.length} rezervasyon üzerinden platform hacmi, ödeme kanalı ve onboarding sağlığı birlikte okunuyor.`,
+      `Toplam işlem hacmi ${formatCurrency(financials.volume)}, platform komisyonu ${formatCurrency(financials.commission)} seviyesinde.`,
+      `Ortalama işletme hazırlık skoru %${readinessAverage}; takip gerektiren işletme sayısı ${riskCount}.`,
+      paymentBreakdown.length
+        ? `En baskın ödeme modeli: ${paymentBreakdown[0].label} (${paymentBreakdown[0].meta}).`
+        : "Henüz ödeme modeli kırılımı oluşturacak rezervasyon kaydı yok.",
     ],
     financial: [
-      { label: "Toplam işlem hacmi", value: formatCurrency(0), note: "0 işlem" },
-      { label: "Platform komisyonu", value: formatCurrency(0), note: "Tahsil edilen komisyon" },
-      { label: "Online tahsilat", value: formatCurrency(0), note: "Müşteriden alınan" },
-      { label: "Online kanal payı", value: "%0", note: "0 online işlem" },
+      { label: "Toplam işlem hacmi", value: formatCurrency(financials.volume), note: `${reservations.length} işlem` },
+      { label: "Platform komisyonu", value: formatCurrency(financials.commission), note: "Tyee payı" },
+      { label: "Online tahsilat", value: formatCurrency(financials.online), note: "Müşteriden online alınan" },
+      { label: "Online kanal payı", value: `%${reservations.length ? Math.round((onlineReservations / reservations.length) * 100) : 0}`, note: `${onlineReservations} online işlem` },
     ],
     operational: [
-      { label: "Kapasite kullanımı", value: "%0", note: "0/0 dolu slot" },
-      { label: "tyee satışına açık slot", value: "0", note: "Marketplace'e açılmış kapasite" },
-      { label: "Manuel işlem", value: "0", note: "İşletme veya nakit/EFT kanalı" },
-      { label: "Aktif abonelik", value: "0", note: "0 toplam abonelik" },
+      { label: "Ortalama hazırlık", value: `%${readinessAverage}`, note: "Profil, hizmet, medya ve ödeme kontrolü" },
+      { label: "tyee satışına açık slot", value: formatCount(openSlots), note: "Marketplace'e açılmış kapasite" },
+      { label: "Manuel slot", value: formatCount(manualSlots), note: "İşletme panelinden manuel yönetilen" },
+      { label: "Riskli işletme", value: formatCount(riskCount), note: "Eksik onboarding veya düşük hazırlık" },
     ],
     recommendations: [
-      "Online ödeme payı düşük kurumlarda resepsiyon akışını tyee rezervasyona taşı.",
-      "Boş prime-time slotları için son dakika kampanya ve bildirim kuralı tanımla.",
-      "Abonelik müşterilerini kurum bazlı yenileme raporuna bağla.",
-      "Eksik profil, lokasyon ve medya alanlarını yayına almadan önce kalite kontrol listesine ekle.",
+      categoryPerformance.length ? `${categoryPerformance[0].label} kategorisinde arz/talep sinyalini öne al; ${categoryPerformance[0].meta}.` : "Kategori kırılımı oluşması için işletme ve rezervasyon verisini artır.",
+      openSlots ? "Satışa açık slotu olan işletmelerde dolmayan saatler için kampanya ve bildirim kuralı tanımla." : "İşletmelerden en az bir satışa açık takvim slotu açmalarını iste.",
+      riskCount ? "Riskli işletmeleri onboarding kontrol listesine al; eksik medya, hizmet/fiyat ve ödeme alanlarını tamamlat." : "Yayına hazır işletmelerde değerlendirme ve tekrar rezervasyon akışını büyüt.",
+      "Mail/SMS sağlayıcı durumunu admin üst ekranında düzenli kontrol et; dev-log kalan kanal canlı müşteriye ulaşmaz.",
     ],
     rows: selectedBusinesses.map((business) => ({
       kurum: business.name,

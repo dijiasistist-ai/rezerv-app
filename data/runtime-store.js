@@ -400,6 +400,7 @@ module.exports = {
   getReservations,
   getReviews,
   getUsers,
+  getVenues,
   getDevOutbox,
   getVenueOverlay,
   hashPassword,

@@ -4,6 +4,7 @@ const adminLoginEmail = document.querySelector("#admin-login-email");
 const adminLoginPassword = document.querySelector("#admin-login-password");
 const adminLoginFeedback = document.querySelector("#admin-login-feedback");
 const summaryGrid = document.querySelector("#summary-grid");
+const ownerDashboard = document.querySelector("#owner-dashboard");
 const directoryCount = document.querySelector("#directory-count");
 const directoryResults = document.querySelector("#directory-results");
 const detailBody = document.querySelector("#detail-body");
@@ -115,6 +116,216 @@ function renderSummary(items = []) {
       `,
     )
     .join("");
+}
+
+function toneClass(tone = "") {
+  if (tone === "danger") return "is-danger";
+  if (tone === "warn" || tone === "warning") return "is-warning";
+  if (tone === "good") return "is-good";
+  return "";
+}
+
+function renderOwnerMetricCards(items = []) {
+  return items.length
+    ? items
+        .map(
+          (item) => `
+            <article class="owner-metric ${toneClass(item.tone)}">
+              <span>${escapeHtml(item.label)}</span>
+              <strong>${escapeHtml(item.value)}</strong>
+              <small>${escapeHtml(item.note || item.meta || "")}</small>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty-copy">Henüz veri yok.</div>`;
+}
+
+function renderRiskQueue(items = []) {
+  return items.length
+    ? items
+        .map(
+          (item) => `
+            <button class="owner-risk ${toneClass(item.tone)}" type="button" ${item.targetId ? `data-owner-business-id="${escapeHtml(item.targetId)}"` : ""}>
+              <strong>${escapeHtml(item.title)}</strong>
+              <span>${escapeHtml(item.detail)}</span>
+              <small>${escapeHtml(item.action)}</small>
+            </button>
+          `,
+        )
+        .join("")
+    : `<div class="empty-copy">Kritik takip maddesi yok.</div>`;
+}
+
+function renderSimpleRows(items = [], fields = [], options = {}) {
+  return items.length
+    ? items
+        .map(
+          (item) => `
+            <div class="owner-row${options.businessLink ? " is-clickable" : ""}" ${options.businessLink && item.id ? `data-owner-business-id="${escapeHtml(item.id)}"` : ""}>
+              ${fields
+                .map(
+                  (field) => `
+                    <span>
+                      <small>${escapeHtml(field.label)}</small>
+                      <strong>${escapeHtml(item[field.key] || "-")}</strong>
+                    </span>
+                  `,
+                )
+                .join("")}
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="empty-copy">Henüz kayıt yok.</div>`;
+}
+
+function renderCompactList(items = [], valueKey = "value") {
+  return items.length
+    ? items
+        .map(
+          (item) => `
+            <div class="owner-compact-row">
+              <span>
+                <strong>${escapeHtml(item.label || item.name || item.title)}</strong>
+                <small>${escapeHtml(item.meta || item.note || "")}</small>
+              </span>
+              <b>${escapeHtml(item[valueKey] || item.revenueLabel || item.volumeLabel || "")}</b>
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="empty-copy">Henüz kırılım yok.</div>`;
+}
+
+function renderOwnerDashboard(dashboard = {}) {
+  if (!ownerDashboard) return;
+  ownerDashboard.innerHTML = `
+    <section class="owner-section owner-section-wide">
+      <div class="panel-heading">
+        <div>
+          <p>Genel durum</p>
+          <h2>Ürün sahibi kontrol merkezi</h2>
+        </div>
+        <span class="owner-section-note">Canlı kullanıcı, işletme, rezervasyon ve bildirim verisi</span>
+      </div>
+      <div class="owner-metric-grid">${renderOwnerMetricCards(dashboard.overview || [])}</div>
+    </section>
+
+    <section class="owner-section owner-section-wide">
+      <div class="panel-heading">
+        <div>
+          <p>Finans</p>
+          <h2>Gelir ve tahsilat görünümü</h2>
+        </div>
+      </div>
+      <div class="owner-metric-grid owner-metric-grid-six">${renderOwnerMetricCards(dashboard.finance || [])}</div>
+    </section>
+
+    <section class="owner-section">
+      <div class="panel-heading">
+        <div>
+          <p>Yayına hazırlık</p>
+          <h2>İşletme aktivasyon hunisi</h2>
+        </div>
+      </div>
+      <div class="owner-stack">${renderOwnerMetricCards(dashboard.activationFunnel || [])}</div>
+    </section>
+
+    <section class="owner-section">
+      <div class="panel-heading">
+        <div>
+          <p>Bildirim</p>
+          <h2>Mail, SMS ve erişim sağlığı</h2>
+        </div>
+      </div>
+      <div class="owner-stack">${renderOwnerMetricCards(dashboard.notificationHealth || [])}</div>
+    </section>
+
+    <section class="owner-section owner-section-wide">
+      <div class="panel-heading">
+        <div>
+          <p>Öncelik</p>
+          <h2>Takip edilmesi gerekenler</h2>
+        </div>
+      </div>
+      <div class="owner-risk-list">${renderRiskQueue(dashboard.riskQueue || [])}</div>
+    </section>
+
+    <section class="owner-section">
+      <div class="panel-heading">
+        <div>
+          <p>Kategori</p>
+          <h2>Arz ve rezervasyon kırılımı</h2>
+        </div>
+      </div>
+      <div class="owner-compact-list">${renderCompactList(dashboard.categoryPerformance || [], "revenueLabel")}</div>
+    </section>
+
+    <section class="owner-section">
+      <div class="panel-heading">
+        <div>
+          <p>Ödeme</p>
+          <h2>Ödeme modeli kırılımı</h2>
+        </div>
+      </div>
+      <div class="owner-compact-list">${renderCompactList(dashboard.paymentBreakdown || [], "volumeLabel")}</div>
+    </section>
+
+    <section class="owner-section owner-section-wide">
+      <div class="panel-heading">
+        <div>
+          <p>İşletme sağlığı</p>
+          <h2>Hazırlık, hacim ve eksikler</h2>
+        </div>
+      </div>
+      <div class="owner-row-list">
+        ${renderSimpleRows(dashboard.businessHealth || [], [
+          { label: "İşletme", key: "name" },
+          { label: "Kategori", key: "category" },
+          { label: "Skor", key: "readinessScore" },
+          { label: "Rezervasyon", key: "reservations" },
+          { label: "Hacim", key: "revenue" },
+          { label: "Eksik", key: "missing" },
+        ], { businessLink: true })}
+      </div>
+    </section>
+
+    <section class="owner-section">
+      <div class="panel-heading">
+        <div>
+          <p>Son rezervasyonlar</p>
+          <h2>Yeni işlemler</h2>
+        </div>
+      </div>
+      <div class="owner-row-list">
+        ${renderSimpleRows(dashboard.recentReservations || [], [
+          { label: "İşletme", key: "venueName" },
+          { label: "Müşteri", key: "customerName" },
+          { label: "Hizmet", key: "serviceLabel" },
+          { label: "Tutar", key: "amount" },
+          { label: "Durum", key: "status" },
+        ])}
+      </div>
+    </section>
+
+    <section class="owner-section">
+      <div class="panel-heading">
+        <div>
+          <p>Son kullanıcılar</p>
+          <h2>Yeni hesaplar</h2>
+        </div>
+      </div>
+      <div class="owner-row-list">
+        ${renderSimpleRows(dashboard.recentUsers || [], [
+          { label: "Ad", key: "name" },
+          { label: "Tip", key: "type" },
+          { label: "E-posta", key: "email" },
+          { label: "Doğrulama", key: "verified" },
+        ])}
+      </div>
+    </section>
+  `;
 }
 
 function resultTitle(item) {
@@ -251,8 +462,15 @@ function renderDetail(item) {
           ["Yetkili", item.contactName || item.manager],
           ["E-posta", item.contactEmail],
           ["Telefon", item.contactPhone],
-          ["Doluluk", item.occupancy],
-          ["Haftalık ciro", item.weeklyRevenue],
+          ["Hazırlık skoru", `%${item.readinessScore || 0} · ${item.readinessCompleted || 0}/${item.readinessTotal || 0}`],
+          ["Eksik aksiyon", (item.missingActions || []).join(", ") || "Kritik eksik yok"],
+          ["Rezervasyon", `${item.reservationCount || 0} toplam · ${item.completedReservationCount || 0} tamamlandı`],
+          ["İşlem hacmi", item.weeklyRevenue],
+          ["Tyee komisyonu", item.commissionAmount ? item.commissionAmount.toLocaleString("tr-TR", { style: "currency", currency: "TRY" }) : "₺0"],
+          ["Online tahsilat", item.onlineAmount ? item.onlineAmount.toLocaleString("tr-TR", { style: "currency", currency: "TRY" }) : "₺0"],
+          ["Takvim", `${item.openSlots || 0} satışa açık · ${item.manualSlots || 0} manuel · ${item.closedSlots || 0} kapalı`],
+          ["Hizmet / görsel", `${item.serviceCount || 0} hizmet · ${item.galleryCount || 0} görsel`],
+          ["Ödeme modeli", item.paymentModeLabel],
           ["Sağlık", item.health],
         ]
       : [
@@ -276,6 +494,14 @@ function renderDetail(item) {
     ${renderDangerActions(item)}
   `;
   renderResults(state.results);
+}
+
+function selectBusinessResult(id = "") {
+  if (!id) return;
+  const index = state.results.findIndex((item) => item.resultType === "business" && item.id === id);
+  if (index < 0) return;
+  renderDetail(state.results[index]);
+  detailBody?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderAccessRules(access = {}) {
@@ -430,6 +656,7 @@ async function loadAdmin() {
   const data = await apiRequest("/api/admin/bootstrap");
   state.data = data;
   renderSummary(data.summary || []);
+  renderOwnerDashboard(data.ownerDashboard || {});
   renderReportOptions(data.reportDefaults || {});
   renderAccessRules(data.access || {});
   renderResults([...(data.businesses || []).map((item) => ({ ...item, resultType: "business" })), ...(data.customers || []).map((item) => ({ ...item, resultType: "customer" }))]);
@@ -442,6 +669,14 @@ directoryResults.addEventListener("click", (event) => {
   if (!button) return;
   renderDetail(state.results[Number(button.dataset.resultIndex)]);
 });
+
+if (ownerDashboard) {
+  ownerDashboard.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-owner-business-id]");
+    if (!item) return;
+    selectBusinessResult(item.dataset.ownerBusinessId);
+  });
+}
 
 detailBody.addEventListener("submit", async (event) => {
   const form = event.target.closest("#role-editor-form");
