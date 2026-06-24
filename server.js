@@ -299,6 +299,18 @@ function describeEmailDelivery(emailDelivery, sentMessage, devMessage) {
   return "E-posta gönderim durumu kaydedildi.";
 }
 
+function summarizeNotificationDelivery(delivery) {
+  if (!delivery) return { status: "skipped" };
+  return {
+    provider: delivery.provider || "dev-log",
+    channel: delivery.channel || "email",
+    status: delivery.status || "queued",
+    to: delivery.to || "",
+    template: delivery.template || "notification",
+    error: delivery.error || "",
+  };
+}
+
 async function sendPhoneVerification(user) {
   if (!user.phone || !user.phoneVerificationCode) return null;
   return sendMessage({
@@ -307,6 +319,30 @@ async function sendPhoneVerification(user) {
     template: "phone-verification",
     body: `tyee doğrulama kodun: ${user.phoneVerificationCode}`,
   });
+}
+
+function getVenueOwnerContact(venueId = "") {
+  const overlay = venueId ? getVenueOverlay(venueId) : {};
+  const settings = overlay.settings || {};
+  const contact = settings.contact || {};
+  const owner = getUsers().find((user) => getUserVenueId(user) === venueId && user.canManageVenue);
+
+  return {
+    name: contact.authorizedName || owner?.name || settings.businessName || "İşletme yetkilisi",
+    phone: contact.whatsapp || contact.phone || owner?.phone || "",
+    email: contact.email || owner?.email || "",
+  };
+}
+
+function createReservationSmsMessages(reservation) {
+  const when = [formatDateTr(reservation.serviceDate), reservation.serviceTime].filter(Boolean).join(" ");
+  const service = reservation.serviceLabel || reservation.categoryLabel || "Rezervasyon";
+  const total = formatCurrency(reservation.totalAmount);
+
+  return {
+    customer: `tyee: ${reservation.venueName} rezervasyonun ${when} için alındı. Hizmet: ${service}. Tutar: ${total}.`,
+    owner: `tyee: Yeni rezervasyon. ${reservation.customerName}, ${service}, ${when}. Tutar: ${total}. Müşteri tel: ${reservation.customerPhone}.`,
+  };
 }
 
 const DEMO_MARKETPLACE_SEED_VERSION = "2026-06-23-marketplace-v3-closed-calendar";
@@ -2600,17 +2636,38 @@ app.post("/api/reservations", async (req, res) => {
     billing,
   });
 
-  await sendEmail({
-    to: customerEmail || "info@tyee.app",
-    template: "reservation-confirmation",
-    subject: `tyee rezervasyonun alındı: ${reservation.venueName}`,
-    text: `Merhaba ${customerName},\n\n${reservation.venueName} için ${serviceDate} ${serviceTime} rezervasyonun alındı.\n\nÖdeme modeli: ${billing.paymentModeLabel}\nToplam bedel: ${formatCurrency(billing.totalAmount)}\ntyee komisyonu: ${formatCurrency(billing.commissionAmount)}\n\n${billing.settlement}\n\ntyee ekibi`,
-  }).catch(() => null);
+  const venueOwnerContact = getVenueOwnerContact(venueId);
+  const reservationSmsMessages = createReservationSmsMessages(reservation);
+  const [emailDelivery, customerSmsDelivery, ownerSmsDelivery] = await Promise.all([
+    sendEmail({
+      to: customerEmail || "info@tyee.app",
+      template: "reservation-confirmation",
+      subject: `tyee rezervasyonun alındı: ${reservation.venueName}`,
+      text: `Merhaba ${customerName},\n\n${reservation.venueName} için ${serviceDate} ${serviceTime} rezervasyonun alındı.\n\nÖdeme modeli: ${billing.paymentModeLabel}\nToplam bedel: ${formatCurrency(billing.totalAmount)}\ntyee komisyonu: ${formatCurrency(billing.commissionAmount)}\n\n${billing.settlement}\n\ntyee ekibi`,
+    }),
+    sendMessage({
+      channel: "sms",
+      to: customerPhone,
+      template: "reservation-confirmation-customer",
+      body: reservationSmsMessages.customer,
+    }),
+    sendMessage({
+      channel: "sms",
+      to: venueOwnerContact.phone,
+      template: "reservation-notification-owner",
+      body: reservationSmsMessages.owner,
+    }),
+  ]);
 
   res.status(201).json({
     message: "Rezervasyon oluşturuldu.",
     reservation,
     transaction: formatReservationTransaction(reservation),
+    notifications: {
+      email: summarizeNotificationDelivery(emailDelivery),
+      customerSms: summarizeNotificationDelivery(customerSmsDelivery),
+      ownerSms: summarizeNotificationDelivery(ownerSmsDelivery),
+    },
   });
 });
 
@@ -2648,8 +2705,10 @@ app.post("/api/auth/register", async (req, res) => {
     passwordResetToken: "",
   });
 
-  const emailDelivery = await sendVerificationEmail(req, user);
-  await sendPhoneVerification(user);
+  const [emailDelivery, smsDelivery] = await Promise.all([
+    sendVerificationEmail(req, user),
+    sendPhoneVerification(user),
+  ]);
 
   const token = createSession(user);
   res.status(201).json({
@@ -2665,6 +2724,7 @@ app.post("/api/auth/register", async (req, res) => {
       status: emailDelivery.status,
       error: emailDelivery.error || "",
     },
+    smsDelivery: summarizeNotificationDelivery(smsDelivery),
   });
 });
 

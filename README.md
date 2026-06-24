@@ -80,6 +80,10 @@ SMS ve WhatsApp gonderimi Twilio ile baglanir. Localde bu degerler yoksa mesajla
 `data/runtime/dev-sms.json` icine dev-log olarak kaydedilir; bu sayede gelistirme
 ortami Twilio olmadan da calisir.
 
+Telefonu girilen yeni uyelere SMS dogrulama kodu gider. Rezervasyon olustugunda
+musteriye rezervasyon onay SMS'i, isletme ayarlarindaki yetkili telefonuna ise yeni
+rezervasyon bildirimi gonderilir.
+
 Render Environment Variables:
 
 - `TWILIO_ACCOUNT_SID`
@@ -100,7 +104,7 @@ Desteklenen canli ayarlar:
 SMTP:
 
 - `EMAIL_PROVIDER=smtp`
-- `EMAIL_FROM` veya `SMTP_FROM` (`tyee <noreply@tyee.app>` gibi)
+- `EMAIL_FROM` veya `SMTP_FROM` (`tyee <info@tyee.app>` gibi)
 - `SMTP_HOST`
 - `SMTP_PORT` (`587` varsayilan)
 - `SMTP_USER`

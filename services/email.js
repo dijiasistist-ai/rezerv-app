@@ -8,7 +8,7 @@ function firstEnv(...keys) {
 }
 
 function getEmailFrom() {
-  return firstEnv("EMAIL_FROM", "SMTP_FROM", "SENDGRID_FROM", "RESEND_FROM", "MAIL_FROM") || "tyee <noreply@tyee.app>";
+  return firstEnv("EMAIL_FROM", "SMTP_FROM", "SENDGRID_FROM", "RESEND_FROM", "MAIL_FROM") || "tyee <info@tyee.app>";
 }
 
 function getReplyTo() {
