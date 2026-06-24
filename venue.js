@@ -94,7 +94,10 @@ const venueState = {
   calendarFilter: "all",
   calendarTeam: "all",
   setupRoadmapOpen: false,
+  pendingFacilitySelections: {},
 };
+
+let venueToastTimer = null;
 
 const VENUE_GALLERY_LIMIT = 6;
 const VENUE_GALLERY_ROLES = [
@@ -884,10 +887,15 @@ function getFacilityCategoryKey(settings = {}) {
 
 function getVisibleFacilityFeatures(settings = {}) {
   const categoryKey = getFacilityCategoryKey(settings);
+  const savedFacilities = Array.isArray(settings.facilities) ? settings.facilities : [];
+  const savedFacilityMap = new Map(savedFacilities.map((item) => [item.id, item]));
   return FACILITY_FEATURES.filter((feature) => {
     const scopes = Array.isArray(feature.scopes) ? feature.scopes : ["all"];
     return scopes.includes("all") || (categoryKey && scopes.includes(categoryKey));
-  });
+  }).map((feature) => ({
+    ...feature,
+    enabled: Boolean(savedFacilityMap.get(feature.id)?.enabled),
+  }));
 }
 
 const BUSINESS_CONTRACT_VERSION = "İşletme Sözleşmesi v1.0 - 08.06.2026";
@@ -3108,7 +3116,7 @@ function facilitySettingsFields(settings) {
   const facilitiesMarkup = visibleFeatures
     .map(
       (item) => `
-        <label class="settings-feature-card">
+        <label class="settings-feature-card${item.enabled ? " is-selected" : ""}" data-facility-card="${escapeHtml(item.id)}">
           <input type="checkbox" data-facility-id="${escapeHtml(item.id)}" ${item.enabled ? "checked" : ""} />
           <span class="settings-feature-icon" aria-hidden="true">${escapeHtml(item.icon)}</span>
           <span class="settings-feature-label">${escapeHtml(item.label)}</span>
@@ -3808,10 +3816,14 @@ function collectSettingsPayload() {
       logoUrl: valueOf("#settings-media-logo-url"),
       coverUrl: valueOf("#settings-media-cover-url"),
     };
-    next.facilities = (current.facilities || FACILITY_FEATURES).map((item) => ({
-      ...item,
-      enabled: checked(`[data-facility-id="${item.id}"]`),
-    }));
+    const pendingFacilitySelections = venueState.pendingFacilitySelections || {};
+    next.facilities = (current.facilities || FACILITY_FEATURES).map((item) => {
+      const hasPendingSelection = Object.prototype.hasOwnProperty.call(pendingFacilitySelections, item.id);
+      return {
+        ...item,
+        enabled: hasPendingSelection ? Boolean(pendingFacilitySelections[item.id]) : checked(`[data-facility-id="${item.id}"]`),
+      };
+    });
     const allowedFeatureIds = new Set(getVisibleFacilityFeatures(next).map((item) => item.id));
     next.facilities = next.facilities.map((item) => ({
       ...item,
@@ -3906,6 +3918,7 @@ async function saveVenueSettings() {
     body: JSON.stringify({ venueId: venueState.venueId, settings }),
   });
   venueState.dashboard.settings = normalizeSettings(payload.settings);
+  venueState.pendingFacilitySelections = {};
   renderVenueIdentity();
   renderSettingsTabs(venueState.dashboard.settings.tabs);
   renderSettingsOnboarding(venueState.dashboard.settings);
@@ -3915,14 +3928,55 @@ async function saveVenueSettings() {
   renderTransactions(venueState.dashboard.transactions || []);
   renderGuidanceRail(venueState.dashboard);
   refreshCalendarOps().catch(() => renderCalendarOperations());
-  setSaveStatus("[data-settings-status]", "Kaydedildi");
+  setSaveStatus("[data-settings-status]", "Ayarlar kaydedildi");
+  showVenueToast("Ayarlar kaydedildi");
 }
 
 function setSaveStatus(selector, message, isError = false) {
   const node = document.querySelector(selector);
   if (!node) return;
+  const isSuccess = !isError && /kaydedildi|eklendi|güncellendi/i.test(message);
   node.textContent = message;
   node.classList.toggle("is-error", isError);
+  node.classList.toggle("is-success", isSuccess);
+  node.setAttribute("role", isError ? "alert" : "status");
+}
+
+function showVenueToast(message, isError = false) {
+  if (!message) return;
+  let toast = document.querySelector("[data-venue-toast]");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "venue-toast";
+    toast.dataset.venueToast = "";
+    toast.setAttribute("role", "status");
+    document.body.appendChild(toast);
+  }
+
+  window.clearTimeout(venueToastTimer);
+  toast.textContent = message;
+  toast.classList.toggle("is-error", isError);
+  toast.classList.add("is-visible");
+  venueToastTimer = window.setTimeout(() => {
+    toast.classList.remove("is-visible");
+  }, 2800);
+}
+
+function syncFacilityFeatureSelection(input) {
+  if (!input?.dataset?.facilityId || !venueState.dashboard) return;
+  venueState.pendingFacilitySelections = {
+    ...(venueState.pendingFacilitySelections || {}),
+    [input.dataset.facilityId]: input.checked,
+  };
+  const form = input.closest("#settings-onboarding-form") || settingsOnboardingForm || document;
+  const facilityInputs = Array.from(form.querySelectorAll("[data-facility-id]"));
+  facilityInputs.forEach((featureInput) => {
+    featureInput.closest(".settings-feature-card")?.classList.toggle("is-selected", featureInput.checked);
+  });
+  venueState.dashboard.settings = collectSettingsPayload();
+  const selectedCount = facilityInputs.filter((featureInput) => featureInput.checked).length;
+  const summary = form.querySelector(".settings-feature-summary strong");
+  if (summary) summary.textContent = `${selectedCount} özellik seçili`;
 }
 
 function openNavGroupForView(viewId) {
@@ -4572,6 +4626,12 @@ function bindVenueInteractions() {
   });
 
   settingsOnboardingForm?.addEventListener("change", (event) => {
+    const facilityInput = event.target.closest("[data-facility-id]");
+    if (facilityInput) {
+      syncFacilityFeatureSelection(facilityInput);
+      return;
+    }
+
     const categoryField = event.target.closest("#settings-detail-category");
     if (!categoryField || !venueState.dashboard) return;
     venueState.dashboard.settings = collectSettingsPayload();
@@ -4579,6 +4639,13 @@ function bindVenueInteractions() {
   });
 
   settingsOnboardingForm?.addEventListener("click", async (event) => {
+    const facilityCard = event.target.closest("[data-facility-card]");
+    if (facilityCard && !event.target.closest("button, a")) {
+      const facilityInput = facilityCard.querySelector("[data-facility-id]");
+      if (facilityInput) requestAnimationFrame(() => syncFacilityFeatureSelection(facilityInput));
+      return;
+    }
+
     const removeMediaButton = event.target.closest("[data-media-remove]");
     if (removeMediaButton && venueState.dashboard) {
       venueState.dashboard.settings = collectSettingsPayload();
@@ -4628,6 +4695,7 @@ function bindVenueInteractions() {
       await saveVenueSettings();
     } catch (error) {
       setSaveStatus("[data-settings-status]", error.message, true);
+      showVenueToast(error.message || "Ayarlar kaydedilemedi.", true);
     }
   });
 
@@ -4653,6 +4721,7 @@ function bindVenueInteractions() {
       await saveVenueSettings();
     } catch (error) {
       setSaveStatus("[data-settings-status]", error.message, true);
+      showVenueToast(error.message || "Ayarlar kaydedilemedi.", true);
     }
   });
 
