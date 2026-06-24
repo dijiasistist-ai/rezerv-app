@@ -1356,7 +1356,7 @@ async function requireVenueAccess() {
     renderGlobalAccount(null);
     authWall.classList.remove("hidden");
     setTimeout(() => {
-      window.location.href = "/index.html";
+      window.location.href = "/index.html?auth=venue-login";
     }, 1200);
     throw new Error("No auth token");
   }
@@ -1372,7 +1372,7 @@ async function requireVenueAccess() {
     authWall.classList.remove("hidden");
     localStorage.removeItem("tyee_token");
     setTimeout(() => {
-      window.location.href = "/index.html";
+      window.location.href = "/index.html?auth=venue-login";
     }, 1200);
     throw new Error("Invalid session");
   }
@@ -1382,7 +1382,7 @@ async function requireVenueAccess() {
   if (!payload.user || !payload.user.canManageVenue) {
     authWall.classList.remove("hidden");
     setTimeout(() => {
-      window.location.href = "/index.html";
+      window.location.href = "/index.html?auth=venue-login";
     }, 1400);
     throw new Error("Not a venue user");
   }

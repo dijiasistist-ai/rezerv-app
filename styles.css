@@ -4160,6 +4160,20 @@ button {
   color: var(--green);
 }
 
+.auth-inline-action {
+  justify-self: end;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--tyee-blue);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.auth-inline-action:hover {
+  color: #073f8f;
+}
+
 .auth-submit,
 .auth-back-button {
   width: 100%;
@@ -4167,6 +4181,13 @@ button {
   border-radius: 10px;
 }
 
+.auth-reset-request {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 10px;
+}
+
+.auth-reset-request:disabled,
 .auth-submit:disabled {
   opacity: 0.55;
   cursor: not-allowed;

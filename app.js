@@ -40,12 +40,21 @@ const authTitle = document.querySelector("#auth-title");
 const authTabs = document.querySelectorAll(".auth-tab");
 const authForm = document.querySelector("#auth-form");
 const authStepEntry = document.querySelector("#auth-step-entry");
+const authStepReset = document.querySelector("#auth-step-reset");
 const authName = document.querySelector("#auth-name");
 const authPhone = document.querySelector("#auth-phone");
 const authEmail = document.querySelector("#auth-email");
 const authPassword = document.querySelector("#auth-password");
 const authSubmit = document.querySelector("#auth-submit");
 const authFeedback = document.querySelector("#auth-feedback");
+const authForgotPassword = document.querySelector("#auth-forgot-password");
+const authResetEmail = document.querySelector("#auth-reset-email");
+const authResetCode = document.querySelector("#auth-reset-code");
+const authResetPassword = document.querySelector("#auth-reset-password");
+const authResetRequest = document.querySelector("#auth-reset-request");
+const authResetConfirm = document.querySelector("#auth-reset-confirm");
+const authResetBack = document.querySelector("#auth-reset-back");
+const authResetFeedback = document.querySelector("#auth-reset-feedback");
 const nameField = document.querySelector("#name-field");
 const phoneField = document.querySelector("#phone-field");
 const authStepForm = document.querySelector("#auth-step-form");
@@ -1366,7 +1375,9 @@ function setAuthMode(mode) {
   phoneField.classList.toggle("hidden", !isRegister);
   authStepEntry.classList.remove("hidden");
   authStepForm.classList.add("hidden");
+  authStepReset?.classList.add("hidden");
   authEntryBack.classList.add("hidden");
+  authForgotPassword?.classList.add("hidden");
   authTermsPanel?.classList.add("hidden");
   authDialog?.classList.add("is-choice-step");
   authDialog?.classList.remove("is-form-step");
@@ -1378,11 +1389,56 @@ function setAuthMode(mode) {
   updateAuthSubmitState();
 }
 
+function setResetFeedback(message = "", isSuccess = false) {
+  if (!authResetFeedback) return;
+  authResetFeedback.textContent = message;
+  authResetFeedback.classList.toggle("is-success", Boolean(isSuccess));
+}
+
 function openAuthModal(mode = "login") {
   setAuthMode(mode);
   closeAccountMenu();
   authModal.classList.remove("hidden");
   authModal.setAttribute("aria-hidden", "false");
+}
+
+function openPasswordResetStep({ email = "", token = "" } = {}) {
+  state.authMode = "reset";
+  state.authStep = "reset";
+  closeAccountMenu();
+  authTabs.forEach((tab) => tab.classList.remove("is-active"));
+  authTitle.textContent = "Şifremi unuttum";
+  authStepEntry.classList.add("hidden");
+  authStepForm.classList.add("hidden");
+  authStepReset?.classList.remove("hidden");
+  authEntryBack.classList.add("hidden");
+  authForgotPassword?.classList.add("hidden");
+  authTermsPanel?.classList.add("hidden");
+  authDialog?.classList.remove("is-choice-step");
+  authDialog?.classList.add("is-form-step");
+  authModal.dataset.mode = "reset";
+  authModal.classList.remove("hidden");
+  authModal.setAttribute("aria-hidden", "false");
+  if (authResetEmail) authResetEmail.value = email || authEmail.value.trim();
+  if (authResetCode) authResetCode.value = token;
+  if (authResetPassword) authResetPassword.value = "";
+  authFeedback.textContent = "";
+  authFeedback.classList.remove("is-success");
+  setResetFeedback(
+    token ? "Kod e-postadan alındı. Yeni şifreni yazıp işlemi tamamlayabilirsin." : "",
+    Boolean(token),
+  );
+  window.setTimeout(() => (token ? authResetPassword : authResetEmail)?.focus(), 40);
+}
+
+function returnToLoginFromReset(message = "") {
+  setAuthMode("login");
+  state.authStep = "form";
+  showAuthFormStep();
+  if (message) {
+    authFeedback.textContent = message;
+    authFeedback.classList.add("is-success");
+  }
 }
 
 function openVenueLoginModal(message = "") {
@@ -1400,6 +1456,7 @@ function closeAuthModal() {
   authModal.setAttribute("aria-hidden", "true");
   state.authStep = "entry";
   authForm.reset();
+  authStepReset?.classList.add("hidden");
   if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
   updateAuthSubmitState();
 }
@@ -1410,6 +1467,7 @@ function showAuthFormStep() {
   const isRegister = state.authMode === "register";
   authStepEntry.classList.add("hidden");
   authStepForm.classList.remove("hidden");
+  authStepReset?.classList.add("hidden");
   authEntryBack.classList.remove("hidden");
   authDialog?.classList.remove("is-choice-step");
   authDialog?.classList.add("is-form-step");
@@ -1417,6 +1475,7 @@ function showAuthFormStep() {
   authSubmit.textContent = isRegister ? getAuthRegisterButtonLabel(role) : "Giriş Yap";
   nameField.classList.toggle("hidden", !isRegister);
   phoneField.classList.toggle("hidden", !isRegister);
+  authForgotPassword?.classList.toggle("hidden", isRegister);
   authTermsPanel?.classList.toggle("hidden", !isRegister);
   authFeedback.textContent = "";
   authFeedback.classList.remove("is-success");
@@ -2024,8 +2083,71 @@ authEntryChoices.forEach((button) => {
 
 authCustomerTermsAccept?.addEventListener("change", updateAuthSubmitState);
 
+authForgotPassword?.addEventListener("click", () => {
+  openPasswordResetStep({ email: authEmail.value.trim() });
+});
+
+authResetBack?.addEventListener("click", () => {
+  returnToLoginFromReset();
+});
+
+authResetRequest?.addEventListener("click", async () => {
+  const email = authResetEmail?.value.trim();
+  setResetFeedback("");
+  if (!email) {
+    setResetFeedback("E-posta adresini yazmalısın.");
+    return;
+  }
+
+  authResetRequest.disabled = true;
+  authResetRequest.textContent = "Gönderiliyor...";
+  try {
+    const payload = await apiRequest("/api/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    setResetFeedback(payload.message || "Şifre yenileme kodu gönderildi.", true);
+    authResetCode?.focus();
+  } catch (error) {
+    setResetFeedback(error.message || "Şifre yenileme isteği gönderilemedi.");
+  } finally {
+    authResetRequest.disabled = false;
+    authResetRequest.textContent = "Kod gönder";
+  }
+});
+
+authResetConfirm?.addEventListener("click", async () => {
+  const email = authResetEmail?.value.trim();
+  const token = authResetCode?.value.trim();
+  const password = authResetPassword?.value || "";
+  setResetFeedback("");
+
+  if (!email || !token || password.length < 6) {
+    setResetFeedback("E-posta, kod ve en az 6 karakter yeni şifre gerekli.");
+    return;
+  }
+
+  authResetConfirm.disabled = true;
+  authResetConfirm.textContent = "Güncelleniyor...";
+  try {
+    const payload = await apiRequest("/api/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ email, token, password }),
+    });
+    authForm.reset();
+    if (authEmail) authEmail.value = email;
+    returnToLoginFromReset(payload.message || "Şifre güncellendi. Yeni şifrenle giriş yapabilirsin.");
+  } catch (error) {
+    setResetFeedback(error.message || "Şifre güncellenemedi.");
+  } finally {
+    authResetConfirm.disabled = false;
+    authResetConfirm.textContent = "Şifreyi yenile";
+  }
+});
+
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (state.authMode === "reset") return;
   authFeedback.textContent = "";
   authFeedback.classList.remove("is-success");
 
@@ -2139,8 +2261,23 @@ loadTermsForRole("customer").catch(() => {
 
 syncInfoViewWithHash();
 
-const verifiedState = new URLSearchParams(window.location.search).get("verified");
-if (verifiedState) {
+const initialParams = new URLSearchParams(window.location.search);
+const resetEmailParam = initialParams.get("resetEmail") || "";
+const resetTokenParam = initialParams.get("resetToken") || "";
+const authParam = initialParams.get("auth") || "";
+const verifiedState = initialParams.get("verified");
+if (resetEmailParam || resetTokenParam) {
+  openPasswordResetStep({ email: resetEmailParam, token: resetTokenParam });
+  initialParams.delete("resetEmail");
+  initialParams.delete("resetToken");
+  const nextQuery = initialParams.toString();
+  window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
+} else if (authParam === "venue-login") {
+  openVenueLoginModal("İşletme paneline girmek için işletme hesabı ile giriş yapmalısın.");
+  initialParams.delete("auth");
+  const nextQuery = initialParams.toString();
+  window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
+} else if (verifiedState) {
   openAuthModal("login");
   authFeedback.textContent =
     verifiedState === "success"

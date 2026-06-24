@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/styles.css?v=20260624-nemo-gallery-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260624-password-reset-1" />
   </head>
   <body>
     <div class="page-shell">
@@ -646,6 +646,7 @@
               <span>Şifre</span>
               <input id="auth-password" type="password" placeholder="En az 6 karakter" required />
             </label>
+            <button class="auth-inline-action" id="auth-forgot-password" type="button">Şifremi unuttum</button>
             <div class="auth-terms-panel hidden" id="auth-customer-terms">
               <div class="auth-terms-scroll" id="auth-customer-terms-text">
                 <p>Sözleşme yükleniyor...</p>
@@ -661,6 +662,30 @@
             <button class="ghost-button auth-back-button hidden" id="auth-entry-back" type="button">
               Hesap tipini değiştir
             </button>
+          </div>
+
+          <div class="auth-step hidden" id="auth-step-reset">
+            <div class="auth-role-copy auth-reset-copy">
+              <p class="eyebrow">Şifre yenileme</p>
+              <h3>Hesabına yeniden eriş</h3>
+              <p>E-posta adresini yaz; sana tek kullanımlık kod ve yenileme bağlantısı gönderelim.</p>
+            </div>
+            <label>
+              <span>E-posta</span>
+              <input id="auth-reset-email" type="email" placeholder="ornek@mail.com" autocomplete="username" />
+            </label>
+            <button class="ghost-button auth-reset-request" id="auth-reset-request" type="button">Kod gönder</button>
+            <label>
+              <span>Kod</span>
+              <input id="auth-reset-code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="E-postadaki kod" />
+            </label>
+            <label>
+              <span>Yeni şifre</span>
+              <input id="auth-reset-password" type="password" autocomplete="new-password" placeholder="En az 6 karakter" />
+            </label>
+            <p class="auth-feedback" id="auth-reset-feedback"></p>
+            <button class="solid-button auth-submit" id="auth-reset-confirm" type="button">Şifreyi yenile</button>
+            <button class="ghost-button auth-back-button" id="auth-reset-back" type="button">Girişe dön</button>
           </div>
         </form>
       </div>
@@ -694,6 +719,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260624-nemo-gallery-1"></script>
+    <script src="/app.js?v=20260624-password-reset-1"></script>
   </body>
 </html>

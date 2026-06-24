@@ -247,15 +247,23 @@ function verificationEmailTemplate({ name, verifyUrl, accountType = "customer" }
   };
 }
 
-function passwordResetEmailTemplate({ name, resetToken }) {
+function passwordResetEmailTemplate({ name, resetToken, resetUrl }) {
+  const safeName = escapeHtml(name || "tyee kullanıcısı");
+  const safeResetToken = escapeHtml(resetToken);
+  const safeResetUrl = escapeHtml(resetUrl);
   return {
     subject: "tyee şifre sıfırlama",
-    text: `Merhaba ${name}, şifre sıfırlama kodun: ${resetToken}`,
+    text: `Merhaba ${name},\n\ntyee şifreni yenilemek için bu kodu kullanabilirsin: ${resetToken}\n\nŞifre yenileme bağlantısı: ${resetUrl}\n\nBu işlem sana ait değilse bu e-postayı yok sayabilirsin.\n\nTyee Ekibi`,
     html: `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
-        <h1 style="margin:0 0 12px;font-size:24px">Şifre sıfırlama</h1>
-        <p>Merhaba ${name}, şifre sıfırlama kodun:</p>
-        <strong style="display:inline-block;font-size:22px;letter-spacing:2px">${resetToken}</strong>
+      <div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:auto;padding:32px;color:#101828;background:#ffffff">
+        <div style="border:1px solid #e7edf5;border-radius:18px;padding:30px;background:#fbfdff">
+          <h1 style="margin:0 0 12px;font-size:24px;color:#07123d">Şifreni yenile</h1>
+          <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#344054">Merhaba ${safeName}, tyee hesabın için şifre yenileme isteği aldık.</p>
+          <a href="${safeResetUrl}" target="_blank" rel="noopener" style="display:inline-block;margin:0 0 22px;padding:13px 20px;border-radius:12px;background:#248be8;color:#fff;text-decoration:none;font-weight:800">Şifremi yenile</a>
+          <p style="margin:0 0 10px;font-size:14px;line-height:1.55;color:#667085">Bağlantı açılmazsa bu kodu kullan:</p>
+          <strong style="display:inline-block;margin:0 0 20px;font-size:24px;letter-spacing:3px;color:#07123d">${safeResetToken}</strong>
+          <p style="margin:0;font-size:13px;line-height:1.55;color:#667085">Bu işlem sana ait değilse bu e-postayı yok sayabilirsin.</p>
+        </div>
       </div>
     `,
   };
@@ -2799,12 +2807,25 @@ app.post("/api/auth/password-reset/request", async (req, res) => {
   const user = findUserByEmail(email);
   if (user) {
     const resetToken = createSmsCode();
-    const updated = upsertUser({ ...user, passwordResetToken: resetToken });
-    await sendEmail({
+    const resetUrl = `${publicBaseUrl(req)}/index.html?resetEmail=${encodeURIComponent(email)}&resetToken=${encodeURIComponent(resetToken)}`;
+    const updated = upsertUser({
+      ...user,
+      passwordResetToken: resetToken,
+      passwordResetExpiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    });
+    const emailDelivery = await sendEmail({
       to: updated.email,
       template: "password-reset",
-      ...passwordResetEmailTemplate({ name: updated.name, resetToken }),
+      ...passwordResetEmailTemplate({ name: updated.name, resetToken, resetUrl }),
     });
+    res.json({
+      message: describeEmailDelivery(
+        emailDelivery,
+        "Şifre yenileme bağlantısı e-posta adresine gönderildi.",
+        "Şifre yenileme bağlantısı hazırlandı. Geliştirme ortamında admin posta kutusuna kaydedildi.",
+      ),
+    });
+    return;
   }
   res.json({ message: "Hesap varsa şifre sıfırlama e-postası gönderildi." });
 });
@@ -2814,9 +2835,11 @@ app.post("/api/auth/password-reset/confirm", (req, res) => {
   const resetToken = String(req.body.token || "").trim();
   const password = String(req.body.password || "");
   const user = findUserByEmail(email);
+  const expiresAt = user?.passwordResetExpiresAt ? new Date(user.passwordResetExpiresAt).getTime() : 0;
+  const isExpired = !expiresAt || expiresAt < Date.now();
 
-  if (!user || !user.passwordResetToken || user.passwordResetToken !== resetToken || password.length < 6) {
-    res.status(400).json({ error: "Kod geçersiz veya şifre en az 6 karakter değil." });
+  if (!user || !user.passwordResetToken || user.passwordResetToken !== resetToken || isExpired || password.length < 6) {
+    res.status(400).json({ error: "Kod geçersiz, süresi dolmuş veya şifre en az 6 karakter değil." });
     return;
   }
 
@@ -2824,6 +2847,7 @@ app.post("/api/auth/password-reset/confirm", (req, res) => {
     ...user,
     passwordHash: hashPassword(password),
     passwordResetToken: "",
+    passwordResetExpiresAt: "",
   });
   res.json({ message: "Şifre güncellendi." });
 });
