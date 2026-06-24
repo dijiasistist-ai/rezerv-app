@@ -221,6 +221,19 @@ function initials(name = "T") {
     .toLocaleUpperCase("tr-TR");
 }
 
+function normalizeVenueGallery(gallery: unknown): string[] {
+  if (!Array.isArray(gallery)) return [];
+  return gallery
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object" && "src" in item) return String(item.src || "");
+      return "";
+    })
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
 function normalizeVenueSettings(settings?: Partial<VenueSettings>): VenueSettings {
   return {
     businessName: settings?.businessName || "",
@@ -249,7 +262,7 @@ function normalizeVenueSettings(settings?: Partial<VenueSettings>): VenueSetting
     media: {
       logoUrl: settings?.media?.logoUrl || "",
       coverUrl: settings?.media?.coverUrl || "",
-      gallery: Array.isArray(settings?.media?.gallery) ? settings.media.gallery : [],
+      gallery: normalizeVenueGallery(settings?.media?.gallery),
     },
     areas:
       Array.isArray(settings?.areas) && settings.areas.length

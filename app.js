@@ -305,6 +305,37 @@ function mediaStyleAttribute(value = "") {
   return ` style="background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.24)), url('${escapeHtml(cssUrl)}')"`;
 }
 
+function getListingGallerySources(item = {}) {
+  const seen = new Set();
+  const urls = [];
+  const addUrl = (value = "") => {
+    const url = safeMediaUrl(value);
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    urls.push(url);
+  };
+
+  (Array.isArray(item.gallery) ? item.gallery : []).forEach((photo) => {
+    addUrl(typeof photo === "string" ? photo : photo?.src);
+  });
+  addUrl(item.mediaUrl);
+  return urls.slice(0, 6);
+}
+
+function listingMediaStyleAttribute(item = {}) {
+  return mediaStyleAttribute(getListingGallerySources(item)[0] || item.mediaUrl);
+}
+
+function galleryDotsMarkup(item = {}) {
+  const gallery = getListingGallerySources(item);
+  if (gallery.length < 2) return "";
+  return `
+    <div class="listing-gallery-dots" aria-label="${gallery.length} fotoğraf">
+      ${gallery.map((_, index) => `<i class="${index === 0 ? "is-active" : ""}" aria-hidden="true"></i>`).join("")}
+    </div>
+  `;
+}
+
 function getInitials(name = "Dilek Yıldız") {
   return name
     .split(" ")
@@ -924,7 +955,7 @@ function renderNearbyListings(items = state.nearbyItems) {
           const nextSlotLabel = hasSpecificSlot ? `${item.nextSlot} müsait` : "Müsait";
           return `
           <article class="nearby-facility-card" data-marker-id="${item.id}">
-            <div class="nearby-facility-media ${item.mediaClass || "media-field"}"${mediaStyleAttribute(item.mediaUrl)}></div>
+            <div class="nearby-facility-media ${item.mediaClass || "media-field"}"${listingMediaStyleAttribute(item)}>${galleryDotsMarkup(item)}</div>
             <div class="nearby-facility-body">
               <div class="nearby-facility-title">
                 <h3>${item.name}</h3>
@@ -981,9 +1012,10 @@ function renderListings(items = []) {
 
         return `
         <article class="listing-card" data-id="${item.id}">
-          <div class="listing-media ${item.mediaClass || "media-pet"}"${mediaStyleAttribute(item.mediaUrl)}>
+          <div class="listing-media ${item.mediaClass || "media-pet"}"${listingMediaStyleAttribute(item)}>
             <span>${availabilityLabel}</span>
             <button type="button" aria-label="Kaydet">♡</button>
+            ${galleryDotsMarkup(item)}
           </div>
           <div class="listing-body">
             <div class="rating-row">

@@ -890,6 +890,34 @@ button {
   background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.32));
 }
 
+.listing-gallery-dots {
+  position: absolute;
+  z-index: 3;
+  right: 10px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 4px 6px;
+  background: rgba(7, 16, 40, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.listing-gallery-dots i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.listing-gallery-dots i.is-active {
+  width: 14px;
+  border-radius: 999px;
+  background: #fff;
+}
+
 .mosaic-label {
   position: absolute;
   left: 50%;
@@ -1764,6 +1792,11 @@ button {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(20, 35, 55, 0.16));
+}
+
+.nearby-facility-media .listing-gallery-dots {
+  right: 8px;
+  bottom: 8px;
 }
 
 .nearby-facility-media span {

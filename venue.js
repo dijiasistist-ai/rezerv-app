@@ -1074,12 +1074,12 @@ function getGalleryRole(index = 0) {
 function normalizeMediaGallery(gallery = []) {
   return (Array.isArray(gallery) ? gallery : [])
     .map((item, index) => {
-      const src = getSafeMediaUrl(item?.src);
+      const src = getSafeMediaUrl(typeof item === "string" ? item : item?.src);
       if (!src) return null;
-      const role = String(item.role || getGalleryRole(index)).trim();
-      const name = String(item.name || role || `Görsel ${index + 1}`).trim();
+      const role = String(item?.role || getGalleryRole(index)).trim();
+      const name = String(item?.name || role || `Görsel ${index + 1}`).trim();
       return {
-        ...item,
+        ...(typeof item === "object" && item ? item : {}),
         src,
         name,
         role,

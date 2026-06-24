@@ -302,6 +302,24 @@ async function sendPhoneVerification(user) {
 }
 
 const DEMO_MARKETPLACE_SEED_VERSION = "2026-06-23-marketplace-v3-closed-calendar";
+const NEMO_DETAIL_SEED_VERSION = "2026-06-24-nemo-gallery-v1";
+const NEMO_DEFAULT_GALLERY = [
+  {
+    src: "/assets/pet-kuafor-grooming.png",
+    role: "Dış görünüş",
+    name: "pet-kuafor-grooming.png",
+  },
+  {
+    src: "/assets/pet-kuafor-poodle.jpg",
+    role: "Dükkan içi",
+    name: "pet-kuafor-poodle.jpg",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=1400&q=82",
+    role: "Çalışanlar",
+    name: "pet-bakim-ekibi",
+  },
+];
 
 function createDemoSlots() {
   return { slotModes: {}, slotServices: {} };
@@ -314,6 +332,18 @@ function createDemoFacilities(items = []) {
     icon: item.icon || "✓",
     enabled: true,
   }));
+}
+
+function getValidGallerySource(item) {
+  return typeof item === "string" ? item : item?.src;
+}
+
+function hasUsableGallery(media = {}) {
+  return (Array.isArray(media.gallery) ? media.gallery : []).some((item) => getSafeMediaUrl(getValidGallerySource(item)));
+}
+
+function getNemoSeedGallery(media = {}) {
+  return hasUsableGallery(media) ? media.gallery : NEMO_DEFAULT_GALLERY;
 }
 
 function ensureDemoVenueUser(email, demo) {
@@ -604,12 +634,14 @@ function seedExistingNemoVenue() {
   const venueId = "venue-d7aa7820-733b-4b72-8779-0b53604c0cf1";
   const existingOverlay = getVenueOverlay(venueId);
   const existingName = String(existingOverlay.settings?.businessName || "").toLocaleLowerCase("tr-TR");
-  if (existingOverlay._nemoDetailVersion === DEMO_MARKETPLACE_SEED_VERSION) return;
+  if (existingOverlay._nemoDetailVersion === NEMO_DETAIL_SEED_VERSION && hasUsableGallery(existingOverlay.settings?.media)) return;
   if (existingName && !existingName.includes("nemo")) return;
 
   const { slotModes, slotServices } = createDemoSlots();
+  const existingMedia = existingOverlay.settings?.media || {};
+  const nemoGallery = getNemoSeedGallery(existingMedia);
   saveVenueOverlay(venueId, {
-    _nemoDetailVersion: DEMO_MARKETPLACE_SEED_VERSION,
+    _nemoDetailVersion: NEMO_DETAIL_SEED_VERSION,
     settings: {
       ...(existingOverlay.settings || {}),
       businessName: "nemo",
@@ -636,9 +668,10 @@ function seedExistingNemoVenue() {
         mapUrl: "",
       },
       media: {
-        logoUrl: "",
-        coverUrl: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=1400&q=82",
-        gallery: [],
+        ...(existingMedia || {}),
+        logoUrl: existingMedia.logoUrl || "",
+        coverUrl: existingMedia.coverUrl || getValidGallerySource(nemoGallery[0]) || "",
+        gallery: nemoGallery,
       },
       areas: [
         { name: "Küçük Irk Banyo & Tıraş", type: "Köpek bakımı", capacity: "1", price: "900", isActive: true },
@@ -1966,22 +1999,32 @@ function getVenueMediaUrl(settings = {}) {
 
 function getVenueGallery(settings = {}) {
   const media = settings.media || {};
-  return (Array.isArray(media.gallery) ? media.gallery : [])
-    .map((item, index) => {
-      const src = getSafeMediaUrl(item?.src);
-      if (!src) return null;
-      const role = String(item.role || (index === 0 ? "Kapak" : `Görsel ${index + 1}`)).trim();
-      const name = String(item.name || role).trim();
-      return {
-        src,
-        role,
-        name,
-        width: Number(item.width || 0),
-        height: Number(item.height || 0),
-      };
-    })
-    .filter(Boolean)
-    .slice(0, VENUE_GALLERY_LIMIT);
+  const seen = new Set();
+  const items = [];
+  const addItem = (item = {}, fallbackRole = "") => {
+    const src = getSafeMediaUrl(getValidGallerySource(item));
+    if (!src || seen.has(src)) return;
+    seen.add(src);
+    const role = String(item?.role || fallbackRole || `Görsel ${items.length + 1}`).trim();
+    const name = String(item?.name || role).trim();
+    items.push({
+      ...(typeof item === "object" && item ? item : {}),
+      src,
+      role,
+      name,
+      width: Number(item?.width || 0),
+      height: Number(item?.height || 0),
+    });
+  };
+
+  (Array.isArray(media.gallery) ? media.gallery : []).forEach((item, index) => {
+    addItem(item, index === 0 ? "Kapak" : `Görsel ${index + 1}`);
+  });
+  addItem({ src: media.coverUrl, role: "Kapak" }, "Kapak");
+  addItem({ src: media.profileUrl, role: "Profil" }, "Profil");
+  addItem({ src: media.logoUrl, role: "Logo" }, "Logo");
+
+  return items.slice(0, VENUE_GALLERY_LIMIT);
 }
 
 function getActiveVenueAreas(settings = {}) {
