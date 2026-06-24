@@ -44,7 +44,7 @@ const {
   calculateReservationBilling,
   summarizeMonthlyCommission,
 } = require("./services/reservation-billing");
-const { customerReservationTerms } = require("./data/legal-terms");
+const { customerReservationTerms, venuePartnerTerms } = require("./data/legal-terms");
 
 const app = express();
 const port = Number(process.env.PORT || 8091);
@@ -53,6 +53,7 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
 const HIDE_PUBLIC_VENUES = process.env.HIDE_PUBLIC_VENUES === "1";
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
+const VENUE_GALLERY_LIMIT = 6;
 const CALENDAR_SLOT_TIMES = [
   "08:00",
   "09:00",
@@ -75,6 +76,25 @@ const CALENDAR_SLOT_TIMES = [
 ];
 
 app.set("trust proxy", true);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowedOrigin =
+    origin && /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?|https:\/\/tyee\.app)$/.test(origin)
+      ? origin
+      : "";
+  if (allowedOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  }
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
 
 function createToken(bytes = 24) {
   return crypto.randomBytes(bytes).toString("hex");
@@ -480,14 +500,14 @@ function seedDemoVenues() {
       name: "Barber Republic",
       owner: "Barber Republic",
       phone: "+90 532 000 34 05",
-      category: "Erkek kuaför",
+      category: "Erkek Berber",
       district: "Ataşehir",
       address: "Barbaros Mah. Mor Sümbül Sok. No: 7, Ataşehir / İstanbul",
       lat: 40.9928,
       lng: 29.1244,
       paymentMethod: "Sadece randevu",
       coverUrl: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1400&q=82",
-      description: "Saç kesim, sakal tasarım, cilt bakım ve damat hazırlığı için randevulu erkek kuaförü.",
+      description: "Saç kesim, sakal tasarım, cilt bakım ve damat hazırlığı için randevulu erkek berberi.",
       facilities: [
         { id: "coffee", label: "İkram", icon: "✦" },
         { id: "card", label: "Kartla ödeme", icon: "₺" },
@@ -1789,6 +1809,10 @@ app.get("/api/legal/customer-terms", (_req, res) => {
   res.json(customerReservationTerms);
 });
 
+app.get("/api/legal/venue-terms", (_req, res) => {
+  res.json(venuePartnerTerms);
+});
+
 app.get("/api/listings", (req, res) => {
   if (HIDE_PUBLIC_VENUES) {
     res.json({ total: 0, items: [] });
@@ -1874,7 +1898,10 @@ function normalizeVenueCategory(value = "") {
     return { id: "tattoo", label: "Dövmeci", icon: "✒️" };
   }
   if (normalized.includes("erkek kuaf") || normalized.includes("berber") || normalized.includes("barber")) {
-    return { id: "sac-kuafor", label: "Erkek Kuaför", icon: "✂️" };
+    return { id: "erkek-berber", label: "Erkek Berber", icon: "💈" };
+  }
+  if (normalized.includes("bayan kuaf") || normalized.includes("kadın kuaf") || normalized.includes("kadin kuaf") || normalized.includes("hair")) {
+    return { id: "bayan-kuafor", label: "Bayan Kuaför", icon: "💇‍♀️" };
   }
   if (normalized.includes("kadın") || normalized.includes("kadin") || normalized.includes("makeup") || normalized.includes("makyaj") || normalized.includes("tırnak") || normalized.includes("tirnak")) {
     return { id: "guzellik", label: "Güzellik Merkezi", icon: "💄" };
@@ -1898,7 +1925,8 @@ function getVenueCategoryMediaClass(categoryId = "") {
     guzellik: "media-beauty",
     restaurant: "media-restaurant",
     tattoo: "media-tattoo",
-    "sac-kuafor": "media-beauty",
+    "bayan-kuafor": "media-hair",
+    "erkek-berber": "media-barber",
     "hali-saha": "media-field",
     tenis: "media-padel",
     padel: "media-padel",
@@ -1927,8 +1955,33 @@ function getSafeMediaUrl(value = "") {
 
 function getVenueMediaUrl(settings = {}) {
   const media = settings.media || {};
-  const gallery = Array.isArray(media.gallery) ? media.gallery : [];
-  return getSafeMediaUrl(media.coverUrl) || getSafeMediaUrl(gallery.find((item) => item?.src)?.src);
+  const gallery = getVenueGallery(settings);
+  return (
+    gallery[0]?.src ||
+    getSafeMediaUrl(media.coverUrl) ||
+    getSafeMediaUrl(media.profileUrl) ||
+    getSafeMediaUrl(media.logoUrl)
+  );
+}
+
+function getVenueGallery(settings = {}) {
+  const media = settings.media || {};
+  return (Array.isArray(media.gallery) ? media.gallery : [])
+    .map((item, index) => {
+      const src = getSafeMediaUrl(item?.src);
+      if (!src) return null;
+      const role = String(item.role || (index === 0 ? "Kapak" : `Görsel ${index + 1}`)).trim();
+      const name = String(item.name || role).trim();
+      return {
+        src,
+        role,
+        name,
+        width: Number(item.width || 0),
+        height: Number(item.height || 0),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, VENUE_GALLERY_LIMIT);
 }
 
 function getActiveVenueAreas(settings = {}) {
@@ -2008,6 +2061,7 @@ function getRuntimeVenueMapItems(origin) {
       const serviceOptions = serviceCatalog.map((service) => service.name);
       const distanceKm = getDistanceKm(origin, { lat, lng });
       const nextSlotInfo = getVenueNextSlotInfo(venueId);
+      const gallery = getVenueGallery(settings);
       return {
         id: venueId,
         name: settings.businessName || user.name || "İşletme",
@@ -2027,6 +2081,7 @@ function getRuntimeVenueMapItems(origin) {
         paymentMode: resolveVenuePaymentPolicy(venueId).paymentMode,
         mediaClass: getVenueCategoryMediaClass(category.id),
         mediaUrl: getVenueMediaUrl(settings),
+        gallery,
         facilities: getEnabledSettingsFacilities(settings),
         summary: details.description || `${category.label} hizmetleri ve müsaitlik bilgileri işletme panelinden yönetiliyor.`,
         serviceTypes: serviceTypes.length ? serviceTypes : [category.label],
@@ -2061,6 +2116,7 @@ function getRuntimeVenueListingById(id) {
     cta: "Rezerv et",
     mediaClass: item.mediaClass || "media-field",
     mediaUrl: item.mediaUrl || "",
+    gallery: item.gallery || [],
     featured: true,
     eveningTime: item.nextSlot || "19:30",
     availability: { today: true, nextSlot: item.nextSlot || "19:30", nextDate: item.nextDate || "", openSlots: 4 },
@@ -2164,22 +2220,41 @@ function isGenericServiceLabel(value = "") {
 }
 
 function withActiveVenueCategoryCounts(categories = []) {
+  const formatter = new Intl.NumberFormat("tr-TR");
+
   if (HIDE_PUBLIC_VENUES) {
     return categories.map((category) => ({
       ...category,
       count: "0",
+      businessCount: 0,
+      orderCount: 0,
+      popularityScore: 0,
     }));
   }
 
-  const counts = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).reduce((totals, item) => {
+  const listings = mergeListingItems(
+    getRuntimeVenueListingsForSearch({ city: "istanbul" }),
+    filterListings({ city: "istanbul" }),
+    filterListings({ city: "all" }),
+  );
+  const businessCounts = listings.reduce((totals, item) => {
+    if (!item.category) return totals;
     totals[item.category] = (totals[item.category] || 0) + 1;
     return totals;
   }, {});
-  const formatter = new Intl.NumberFormat("tr-TR");
+  const orderCounts = getReservations().reduce((totals, reservation) => {
+    const category = String(reservation.category || "").trim();
+    if (!category) return totals;
+    totals[category] = (totals[category] || 0) + 1;
+    return totals;
+  }, {});
 
   return categories.map((category) => ({
     ...category,
-    count: formatter.format(counts[category.id] || 0),
+    count: formatter.format(businessCounts[category.id] || 0),
+    businessCount: businessCounts[category.id] || 0,
+    orderCount: orderCounts[category.id] || 0,
+    popularityScore: (orderCounts[category.id] || 0) * 100 + (businessCounts[category.id] || 0) * 10,
   }));
 }
 

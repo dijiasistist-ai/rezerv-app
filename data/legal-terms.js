@@ -66,6 +66,64 @@ const customerReservationTerms = {
   ],
 };
 
+const venuePartnerTerms = {
+  id: "venue-partner-terms",
+  version: "2026-06-23",
+  title: "tyee İşletme Paneli ve Marketplace Kullanım Sözleşmesi",
+  sections: [
+    {
+      title: "Tanımlar",
+      body: [
+        "Bu sözleşme, işletmenin tyee üzerinde işletme profili oluşturması, hizmetlerini marketplace'te yayınlaması, takvim ve ödeme modellerini yönetmesi, müşteri rezervasyonlarını takip etmesi ve panel özelliklerini kullanması için temel koşulları düzenler.",
+        "\"İşletme\", Platform üzerinde hizmet, ürün, alan, ders, seans veya benzeri rezervasyonları satışa açan gerçek veya tüzel kişidir. \"Panel\", işletmenin takvim, hizmet menüsü, görsel, fiyat, kapora, tam ödeme, rapor ve müşteri iletişimi ayarlarını yönettiği tyee işletme alanıdır.",
+      ],
+    },
+    {
+      title: "İşletme hesabı ve yetkili kullanıcı",
+      body: [
+        "İşletme, kayıt sırasında ve panel kullanımında verdiği ticari unvan, marka, adres, iletişim, vergi, kategori, çalışma saati ve temsilci bilgilerinin doğru ve güncel olduğunu kabul eder.",
+        "Hesap sahibi, panelde yapılan hizmet ekleme, fiyat güncelleme, takvim açma/kapatma, rezervasyon onayı, iptal, iade notu, görsel yükleme ve ödeme modeli seçimlerinden sorumludur.",
+      ],
+    },
+    {
+      title: "Hizmet, fiyat ve müsaitlik yönetimi",
+      body: [
+        "İşletme, hizmet adlarını, süreleri, fiyatları, kapasiteyi, personel veya alan bilgisini, satışa açık slotları ve görünürlük durumunu panel üzerinden güncel tutmakla yükümlüdür.",
+        "Marketplace'te yayınlanan her hizmet müşteriye gösterilen fiyat, süre, açıklama, iptal koşulu ve ödeme modeliyle birlikte değerlendirilir. Yanlış veya eksik bilgi nedeniyle oluşabilecek müşteri uyuşmazlıklarında operasyonel sorumluluk işletmeye aittir.",
+      ],
+    },
+    {
+      title: "Ödeme modeli, kapora ve tahsilat",
+      body: [
+        "İşletme, hizmetleri için yalnızca rezervasyon, ön ödeme/kapora veya ödemenin tamamını online alma seçeneklerinden birini kullanabilir. Seçilen model, müşteriye rezervasyon adımında açıkça gösterilir.",
+        "Ön ödeme veya tam ödeme kullanılan işlemlerde tahsilat, iade, komisyon, mutabakat ve raporlama bilgileri panelde gösterilen kurallara ve ödeme kuruluşu süreçlerine göre yürütülür.",
+      ],
+    },
+    {
+      title: "Görseller, içerik ve kalite",
+      body: [
+        "İşletme, yüklediği profil resmi, kapak görseli, galeri, hizmet açıklaması ve kampanya metinlerinin kendisine ait olduğunu veya kullanım hakkına sahip bulunduğunu kabul eder.",
+        "tyee, marketplace kalitesini korumak amacıyla yanıltıcı, düşük kaliteli, uygunsuz veya üçüncü kişi haklarını ihlal edebilecek içeriklerin görünürlüğünü kısıtlayabilir ya da işletmeden güncelleme isteyebilir.",
+      ],
+    },
+    {
+      title: "Müşteri verileri ve iletişim",
+      body: [
+        "İşletme, rezervasyon kapsamında eriştiği müşteri adı, iletişim bilgisi, hizmet tercihi, randevu notu ve ödeme durumunu yalnızca hizmetin sunulması ve yasal yükümlülüklerin yerine getirilmesi amacıyla kullanır.",
+        "Müşteriyle yapılacak bilgilendirme, değişiklik, iptal veya satış sonrası iletişimde doğru, ölçülü ve mevzuata uygun hareket etmek işletmenin sorumluluğundadır.",
+      ],
+    },
+    {
+      title: "Yayın, askıya alma ve fesih",
+      body: [
+        "tyee, marketplace güvenliği, ödeme riski, müşteri şikayeti, hatalı fiyatlandırma, yoğun iptal, yanıltıcı içerik veya mevzuata aykırılık şüphesi halinde ilgili işletmenin görünürlüğünü geçici olarak kısıtlayabilir.",
+        "Taraflar mevcut hak ve yükümlülükleri saklı kalmak kaydıyla işletme paneli kullanımını sonlandırabilir. Fesih, fesih tarihinden önce doğan rezervasyon, tahsilat, iade, komisyon, rapor ve müşteri desteği yükümlülüklerini ortadan kaldırmaz.",
+      ],
+    },
+  ],
+};
+
 module.exports = {
   customerReservationTerms,
+  venuePartnerTerms,
 };

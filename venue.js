@@ -44,6 +44,8 @@ const subscriptionsBody = document.querySelector("#subscriptions-body");
 const newSubscriptionButton = document.querySelector("#new-subscription-button");
 const transactionsBody = document.querySelector("#transactions-body");
 const venueGuidesChecklist = document.querySelector("#venue-guides-checklist");
+const venueSidebarGuide = document.querySelector("#venue-sidebar-guide");
+const venueSetupProgress = document.querySelector("#venue-setup-progress");
 const venueNextAppointments = document.querySelector("#venue-next-appointments");
 const venueWaitlist = document.querySelector("#venue-waitlist");
 const venueOpsNotes = document.querySelector("#venue-ops-notes");
@@ -66,6 +68,8 @@ const profileFormGrid = document.querySelector("#profile-form-grid");
 const reviewsShell = document.querySelector("#reviews-shell");
 const billingBody = document.querySelector("#billing-body");
 const billingAddButton = document.querySelector(".billing-add-button");
+const setupRoadmap = document.querySelector(".venue-setup-roadmap");
+const setupRoadmapToggle = document.querySelector("[data-setup-roadmap-toggle]");
 const navGroups = document.querySelectorAll(".venue-nav-group");
 const navGroupTriggers = document.querySelectorAll(".venue-nav-heading");
 const navItems = document.querySelectorAll(".venue-nav-item");
@@ -89,7 +93,18 @@ const venueState = {
   customerSearch: "",
   calendarFilter: "all",
   calendarTeam: "all",
+  setupRoadmapOpen: false,
 };
+
+const VENUE_GALLERY_LIMIT = 6;
+const VENUE_GALLERY_ROLES = [
+  "Dış görünüş",
+  "Dükkan içi",
+  "Çalışanlar",
+  "Hizmet alanı",
+  "Bekleme alanı",
+  "Detay",
+];
 
 const VIEW_META = {
   overview: {
@@ -258,7 +273,8 @@ const BUSINESS_CATEGORY_OPTIONS = [
   "Restoran",
   "Dövmeci",
   "Pet Kuaför",
-  "Erkek Kuaför",
+  "Bayan Kuaför",
+  "Erkek Berber",
   "Kadın Güzellik Merkezi",
   "Güzellik Merkezi",
   "Halı Saha",
@@ -444,9 +460,39 @@ const INDUSTRY_PRESETS = [
     optionalModules: ["inventory", "packages-memberships", "portfolio-media", "waitlist"],
   },
   {
+    id: "bayan-kuafor",
+    label: "Bayan Kuaför",
+    aliases: ["bayan kuafor", "bayan kuaför", "kadin kuafor", "kadın kuaför", "hair salon"],
+    primaryObject: "Koltuk / stilist randevusu",
+    resourceLabel: "Koltuk / bakım alanı",
+    teamLabel: "Stilist",
+    capacityUnit: "Kişi",
+    bookingMode: "Stilist, hizmet, süre ve bakım notu",
+    depositRule: "Boya, ombre ve uzun uygulamalarda kapora önerilir",
+    requiredForms: "Müşteri tercih notu, alerji/patch test notu opsiyonel",
+    notes: "Bayan kuaförde stilist takvimi, hizmet süresi ve işlem geçmişi birlikte yönetilmeli.",
+    requiredModules: [
+      "marketplace-profile",
+      "service-menu",
+      "availability-calendar",
+      "resource-booking",
+      "team-scheduling",
+      "client-crm",
+      "forms-waivers",
+      "deposit-cancellation",
+      "checkout-payments",
+      "packages-memberships",
+      "messaging",
+      "reviews",
+      "reports",
+      "portfolio-media",
+    ],
+    optionalModules: ["inventory", "waitlist"],
+  },
+  {
     id: "erkek-kuafor",
-    label: "Erkek Kuaför",
-    aliases: ["erkek kuafor", "erkek kuaför", "berber", "barber"],
+    label: "Erkek Berber",
+    aliases: ["erkek kuafor", "erkek kuaför", "erkek berber", "berber", "barber"],
     primaryObject: "Koltuk / uzman randevusu",
     resourceLabel: "Koltuk",
     teamLabel: "Berber",
@@ -736,7 +782,7 @@ const FACILITY_FEATURES = [
   { id: "locker", label: "Soyunma odası", icon: "🔐", scopes: ["hali-saha", "padel-kort", "masaj-spa", "yoga-pilates"] },
   { id: "pet-waiting", label: "Bekleme alanı", icon: "🐶", scopes: ["pet-kuafor"] },
   { id: "pet-safe-care", label: "Güvenli bakım alanı", icon: "🫧", scopes: ["pet-kuafor"] },
-  { id: "sterile-tools", label: "Steril ekipman", icon: "🧼", scopes: ["kadin-guzellik", "dovmeci", "pet-kuafor", "erkek-kuafor"] },
+  { id: "sterile-tools", label: "Steril ekipman", icon: "🧼", scopes: ["bayan-kuafor", "kadin-guzellik", "dovmeci", "pet-kuafor", "erkek-kuafor"] },
   { id: "private-room", label: "Özel bakım odası", icon: "🛏️", scopes: ["masaj-spa", "kadin-guzellik", "dovmeci"] },
 ];
 
@@ -1004,6 +1050,37 @@ function escapeHtml(value = "") {
     .replace(/"/g, "&quot;");
 }
 
+function getSafeMediaUrl(value = "") {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (/^data:image\/(png|jpe?g|webp);base64,/i.test(url)) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/assets/")) return url;
+  return "";
+}
+
+function getGalleryRole(index = 0) {
+  return VENUE_GALLERY_ROLES[index] || `Görsel ${index + 1}`;
+}
+
+function normalizeMediaGallery(gallery = []) {
+  return (Array.isArray(gallery) ? gallery : [])
+    .map((item, index) => {
+      const src = getSafeMediaUrl(item?.src);
+      if (!src) return null;
+      const role = String(item.role || getGalleryRole(index)).trim();
+      const name = String(item.name || role || `Görsel ${index + 1}`).trim();
+      return {
+        ...item,
+        src,
+        name,
+        role,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, VENUE_GALLERY_LIMIT);
+}
+
 function normalizeSettings(settings = {}) {
   const businessType = settings.selects?.find((item) => item.label === "İşletme Tipi")?.value || "";
   const savedFacilities = Array.isArray(settings.facilities) ? settings.facilities : [];
@@ -1033,11 +1110,12 @@ function normalizeSettings(settings = {}) {
     },
     details: normalizedDetails,
     media: {
+      profileUrl: "",
       logoUrl: "",
       coverUrl: "",
       gallery: [],
       ...(settings.media || {}),
-      gallery: Array.isArray(settings.media?.gallery) ? settings.media.gallery : [],
+      gallery: normalizeMediaGallery(settings.media?.gallery),
     },
     areas: Array.isArray(settings.areas) && settings.areas.length
       ? settings.areas
@@ -1077,6 +1155,29 @@ function getInitials(value = "") {
     .map((word) => word[0])
     .join("")
     .toLocaleUpperCase("tr-TR");
+}
+
+function getVenueProfileImage(settings = {}) {
+  const media = settings.media || {};
+  const gallery = Array.isArray(media.gallery) ? media.gallery : [];
+  return (
+    getSafeMediaUrl(media.profileUrl) ||
+    getSafeMediaUrl(media.logoUrl) ||
+    getSafeMediaUrl(media.coverUrl) ||
+    getSafeMediaUrl(gallery.find((item) => item?.src)?.src)
+  );
+}
+
+function renderAvatarNode(node, label, imageUrl = "") {
+  if (!node) return;
+  const safeImageUrl = getSafeMediaUrl(imageUrl);
+  node.classList.toggle("has-image", Boolean(safeImageUrl));
+  if (safeImageUrl) {
+    node.innerHTML = `<img src="${escapeHtml(safeImageUrl)}" alt="${escapeHtml(label)} profil görseli" />`;
+    return;
+  }
+
+  node.textContent = getInitials(label);
 }
 
 function getVenueDisplayName() {
@@ -1210,7 +1311,9 @@ function renderVenueIdentity() {
       location.address ||
       (location.lat && location.lng),
   );
-  venueAvatar.textContent = getInitials(displayName);
+  const profileImage = getVenueProfileImage(settings);
+  renderAvatarNode(venueAvatar, displayName, profileImage);
+  renderAvatarNode(venueGlobalAvatar, displayName, profileImage);
   venueName.textContent = displayName;
   venueBranch.textContent = hasLocation
     ? settings.details?.district || location.address || "Konum girildi"
@@ -1223,6 +1326,7 @@ function renderGlobalAccount(user = null) {
   if (!user) {
     venueGlobalAccount.classList.remove("is-authenticated");
     venueGlobalAvatar.classList.add("hidden");
+    venueGlobalAvatar.classList.remove("has-image");
     venueGlobalAvatar.textContent = "";
     venueGlobalAccountLabel.textContent = "Giriş Yap / Kayıt Ol";
     venueGlobalAccount.href = "/index.html";
@@ -1232,7 +1336,7 @@ function renderGlobalAccount(user = null) {
   const displayName = user.name || user.email || "Hesap";
   venueGlobalAccount.classList.add("is-authenticated");
   venueGlobalAvatar.classList.remove("hidden");
-  venueGlobalAvatar.textContent = getInitials(displayName);
+  renderAvatarNode(venueGlobalAvatar, displayName);
   venueGlobalAccountLabel.textContent = displayName;
   venueGlobalAccount.href = "/index.html";
 }
@@ -2371,45 +2475,93 @@ function getGuideSteps(payload) {
   const activeAreas = Array.isArray(settings.areas) ? settings.areas.filter((area) => area?.isActive) : [];
   const transactions = payload?.transactions || [];
   const completedSales = transactions.filter((item) => item.status === "Tamamlandı");
-  const firstBooking = transactions.length > 0;
+  const manualEntries = payload?.slotState?.manualEntries || venueState.manualEntries || {};
+  const firstBooking = transactions.length > 0 || Object.keys(manualEntries).length > 0;
 
   return [
     {
       title: "İşletme profilini tamamla",
+      shortTitle: "Profil",
       detail: "Açıklama, kategori, iletişim ve konum bilgileri dolu olmalı.",
+      shortDetail: "Bilgi, iletişim, konum",
       done: Boolean(settings.businessName && settings.details?.description && settings.contact?.phone),
       view: "settings",
+      tab: "İşletme Bilgileri",
+      focus: "#settings-business-name",
     },
     {
       title: "İlk hizmetini oluştur",
+      shortTitle: "Hizmet menüsü",
       detail: "Rezervasyona açık en az bir hizmet veya saha tanımla.",
+      shortDetail: "Fiyat, süre, ödeme",
       done: activeAreas.length > 0,
       view: "sales-products",
+      focus: "#sales-products-view [data-area-add]",
     },
     {
       title: "Çalışma saatlerini belirle",
+      shortTitle: "Çalışma saatleri",
       detail: "Müşterinin göreceği çalışma saatleri ve iptal politikası açık olsun.",
+      shortDetail: "Açık gün ve iptal kuralı",
       done: Boolean(settings.details?.workingHours && settings.details?.cancellationPolicy),
       view: "settings",
+      tab: "İşletme Bilgileri",
+      focus: "#settings-detail-working-hours",
     },
     {
       title: "İlk rezervasyonu oluştur",
+      shortTitle: "İlk rezervasyon",
       detail: "Takvime ilk randevuyu düşür ve slot düzenini doğrula.",
+      shortDetail: "Takvime test randevusu",
       done: firstBooking,
       view: "calendar",
+      focus: "#calendar-new-appointment",
     },
     {
       title: "İlk tahsilatı tamamla",
+      shortTitle: "İlk tahsilat",
       detail: "Checkout akışını canlı test et ve ilk satışı kapat.",
+      shortDetail: "Checkout kapatma testi",
       done: completedSales.length > 0,
       view: "transactions",
+      focus: "#transactions-body",
     },
   ];
 }
 
+function renderSidebarSetupGuide(steps) {
+  if (!venueSidebarGuide) return;
+  const completedCount = steps.filter((step) => step.done).length;
+  if (venueSetupProgress) venueSetupProgress.textContent = `${completedCount}/${steps.length}`;
+  setSetupRoadmapOpen(venueState.setupRoadmapOpen);
+
+  venueSidebarGuide.innerHTML = steps
+    .map(
+      (step, index) => `
+        <button class="venue-setup-step ${step.done ? "is-complete" : ""}" type="button" data-guide-view="${escapeHtml(step.view)}" data-guide-tab="${escapeHtml(step.tab || "")}" data-guide-focus="${escapeHtml(step.focus || "")}">
+          <span class="venue-setup-step-index">${step.done ? "✓" : index + 1}</span>
+          <span class="venue-setup-step-copy">
+            <strong>${escapeHtml(step.shortTitle || step.title)}</strong>
+            <small>${escapeHtml(step.shortDetail || step.detail)}</small>
+          </span>
+        </button>
+      `,
+    )
+    .join("");
+}
+
+function setSetupRoadmapOpen(isOpen = false) {
+  venueState.setupRoadmapOpen = Boolean(isOpen);
+  setupRoadmap?.classList.toggle("is-collapsed", !venueState.setupRoadmapOpen);
+  setupRoadmap?.classList.toggle("is-open", venueState.setupRoadmapOpen);
+  setupRoadmapToggle?.setAttribute("aria-expanded", String(venueState.setupRoadmapOpen));
+}
+
 function renderGuidanceRail(payload) {
+  const steps = getGuideSteps(payload);
+  renderSidebarSetupGuide(steps);
+
   if (venueGuidesChecklist) {
-    const steps = getGuideSteps(payload);
     venueGuidesChecklist.innerHTML = steps
       .map(
         (step, index) => `
@@ -2421,7 +2573,7 @@ function renderGuidanceRail(payload) {
                 <small>${escapeHtml(step.detail)}</small>
               </div>
             </div>
-            <button class="guide-step-action" type="button" data-guide-view="${escapeHtml(step.view)}">${step.done ? "Gözden geçir" : "Bu adıma git"}</button>
+            <button class="guide-step-action" type="button" data-guide-view="${escapeHtml(step.view)}" data-guide-tab="${escapeHtml(step.tab || "")}" data-guide-focus="${escapeHtml(step.focus || "")}">${step.done ? "Gözden geçir" : "Bu adıma git"}</button>
           </article>
         `,
       )
@@ -2826,25 +2978,71 @@ function settingsSection(title, subtitle, body) {
   `;
 }
 
+function profileImageSettingsMarkup(settings) {
+  const media = settings.media || {};
+  const profileImage = getVenueProfileImage(settings);
+  const preview = profileImage
+    ? `<img src="${escapeHtml(profileImage)}" alt="${escapeHtml(getVenueDisplayName())} profil resmi" />`
+    : `<span>${escapeHtml(getInitials(getVenueDisplayName()))}</span>`;
+
+  return `
+    <div class="settings-profile-image-card">
+      <div class="settings-profile-image-preview">${preview}</div>
+      <div class="settings-profile-image-copy">
+        <strong>Profil resmi</strong>
+        <small>Kontrol Merkezi sağ üstte ve işletme kimliğinde görünür.</small>
+        <label class="settings-input-field settings-profile-url-field">
+          <span>Profil resmi URL</span>
+          <input id="settings-media-profile-url" type="url" value="${escapeHtml(media.profileUrl || "")}" placeholder="https://..." />
+        </label>
+        <label class="settings-profile-upload-button">
+          <span>Resim yükle</span>
+          <input type="file" accept="image/*" data-profile-image-upload />
+        </label>
+      </div>
+    </div>
+  `;
+}
+
 function mediaSettingsFields(settings) {
   const media = settings.media;
-  const galleryMarkup = media.gallery.length
-    ? media.gallery
+  const gallery = normalizeMediaGallery(media.gallery);
+  const remainingSlots = Math.max(0, VENUE_GALLERY_LIMIT - gallery.length);
+  const galleryMarkup = gallery.length
+    ? gallery
         .map(
           (item, index) => `
-            <article class="settings-media-card">
-              <img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.name || "İşletme görseli")}" />
-              <div>
-                <strong>${escapeHtml(item.name || `Görsel ${index + 1}`)}</strong>
-                <button class="ghost-button" type="button" data-media-remove="${index}">Kaldır</button>
+            <article class="settings-media-card${index === 0 ? " is-cover-source" : ""}">
+              <div class="settings-media-thumb">
+                <img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.role || item.name || "İşletme görseli")}" />
+                ${index === 0 ? `<span class="settings-media-badge">Kapak</span>` : ""}
+              </div>
+              <div class="settings-media-card-body">
+                <div class="settings-media-card-copy">
+                  <strong>${escapeHtml(item.role || getGalleryRole(index))}</strong>
+                  <small>${escapeHtml(item.name || `Görsel ${index + 1}`)}</small>
+                </div>
+                <div class="settings-media-actions">
+                  <button class="ghost-button" type="button" data-media-move="${index}" data-media-direction="-1"${index === 0 ? " disabled" : ""}>Yukarı</button>
+                  <button class="ghost-button" type="button" data-media-move="${index}" data-media-direction="1"${index === gallery.length - 1 ? " disabled" : ""}>Aşağı</button>
+                  <button class="ghost-button danger" type="button" data-media-remove="${index}">Kaldır</button>
+                </div>
               </div>
             </article>
           `,
         )
         .join("")
-    : `<div class="settings-empty-box">Henüz görsel eklenmedi.</div>`;
+    : `<div class="settings-empty-box">Henüz mekan fotoğrafı eklenmedi. İlk fotoğraf marketplace kartında kapak olarak görünür.</div>`;
 
   return `
+    ${profileImageSettingsMarkup(settings)}
+    <div class="settings-media-intro">
+      <div>
+        <strong>Mekan fotoğrafları</strong>
+        <span>Dükkan dışı, iç görünüş, çalışanlar ve hizmet alanlarını göster. En fazla ${VENUE_GALLERY_LIMIT} fotoğraf.</span>
+      </div>
+      <output>${gallery.length} / ${VENUE_GALLERY_LIMIT}</output>
+    </div>
     <div class="settings-form-grid">
       <label class="settings-input-field">
         <span>Logo URL</span>
@@ -2855,10 +3053,10 @@ function mediaSettingsFields(settings) {
         <input id="settings-media-cover-url" type="url" value="${escapeHtml(media.coverUrl)}" placeholder="https://..." />
       </label>
     </div>
-    <label class="settings-upload-box">
-      <span>Resim ekle</span>
-      <input type="file" accept="image/*" multiple data-media-upload />
-      <small>Görseller 1600px'e kadar kaliteli ölçeklenir; ilk görsel kapak boşsa marketplace kartında kullanılır.</small>
+    <label class="settings-upload-box${remainingSlots === 0 ? " is-disabled" : ""}">
+      <span>${remainingSlots === 0 ? "Galeri dolu" : "Mekan fotoğrafı ekle"}</span>
+      <input type="file" accept="image/png,image/jpeg,image/webp" multiple data-media-upload${remainingSlots === 0 ? " disabled" : ""} />
+      <small>${remainingSlots === 0 ? "Yeni görsel eklemek için önce bir fotoğraf kaldır." : `${remainingSlots} fotoğraf daha ekleyebilirsin. PNG, JPG ve WebP dosyaları 1600px'e kadar kaliteli ölçeklenir.`}</small>
     </label>
     <div class="settings-media-grid">${galleryMarkup}</div>
   `;
@@ -3270,40 +3468,8 @@ function renderDetailSettings(settings) {
 }
 
 function renderMediaSettings(settings) {
-  const media = settings.media;
-  const galleryMarkup = media.gallery.length
-    ? media.gallery
-        .map(
-          (item, index) => `
-            <article class="settings-media-card">
-              <img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.name || "İşletme görseli")}" />
-              <div>
-                <strong>${escapeHtml(item.name || `Görsel ${index + 1}`)}</strong>
-                <button class="ghost-button" type="button" data-media-remove="${index}">Kaldır</button>
-              </div>
-            </article>
-          `,
-        )
-        .join("")
-    : `<div class="settings-empty-box">Henüz görsel eklenmedi.</div>`;
-
   return `
-    <div class="settings-form-grid">
-      <label class="settings-input-field">
-        <span>Logo URL</span>
-        <input id="settings-media-logo-url" type="url" value="${escapeHtml(media.logoUrl)}" placeholder="https://..." />
-      </label>
-      <label class="settings-input-field">
-        <span>Kapak görseli URL</span>
-        <input id="settings-media-cover-url" type="url" value="${escapeHtml(media.coverUrl)}" placeholder="https://..." />
-      </label>
-    </div>
-    <label class="settings-upload-box">
-      <span>Resim ekle</span>
-      <input type="file" accept="image/*" multiple data-media-upload />
-      <small>Görseller 1600px'e kadar kaliteli ölçeklenir; ilk görsel kapak boşsa marketplace kartında kullanılır.</small>
-    </label>
-    <div class="settings-media-grid">${galleryMarkup}</div>
+    ${mediaSettingsFields(settings)}
     ${settingsSaveMarkup()}
   `;
 }
@@ -3638,6 +3804,7 @@ function collectSettingsPayload() {
     next.operations = normalizeOperations(next);
     next.media = {
       ...current.media,
+      profileUrl: valueOf("#settings-media-profile-url"),
       logoUrl: valueOf("#settings-media-logo-url"),
       coverUrl: valueOf("#settings-media-cover-url"),
     };
@@ -3728,6 +3895,7 @@ function addSalesProductDraft() {
   venueState.dashboard.settings = settings;
   renderSalesProducts(settings);
   renderCalendarFieldPills();
+  renderGuidanceRail(venueState.dashboard);
 }
 
 async function saveVenueSettings() {
@@ -3745,6 +3913,7 @@ async function saveVenueSettings() {
   renderCalendarFieldPills();
   renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
   renderTransactions(venueState.dashboard.transactions || []);
+  renderGuidanceRail(venueState.dashboard);
   refreshCalendarOps().catch(() => renderCalendarOperations());
   setSaveStatus("[data-settings-status]", "Kaydedildi");
 }
@@ -3760,10 +3929,10 @@ function openNavGroupForView(viewId) {
   const activeItem = [...navItems].find((item) => item.dataset.view === viewId);
   const parentGroup = activeItem?.closest(".venue-nav-group");
   if (!parentGroup) return;
+  if (parentGroup.dataset.navAccordion) return;
   navGroups.forEach((group) => {
     const shouldOpen = group === parentGroup;
-    group.classList.toggle("is-open", shouldOpen);
-    group.querySelector(".venue-nav-heading")?.setAttribute("aria-expanded", String(shouldOpen));
+    setNavGroupExpanded(group, shouldOpen);
   });
 }
 
@@ -3782,15 +3951,45 @@ function setView(viewId) {
   openNavGroupForView(viewId);
 }
 
+function navigateGuideButton(button) {
+  const target = button.dataset.guideView;
+  if (!target) return;
+
+  if (button.dataset.guideTab && venueState.dashboard) {
+    venueState.dashboard.settings = collectSettingsPayload();
+    venueState.activeSettingsTab = button.dataset.guideTab;
+    renderSettingsTabs(venueState.dashboard.settings.tabs);
+    renderSettingsOnboarding(venueState.dashboard.settings);
+  }
+
+  setView(target);
+
+  if (button.dataset.guideFocus) {
+    requestAnimationFrame(() => {
+      const targetNode = document.querySelector(button.dataset.guideFocus);
+      targetNode?.scrollIntoView({ block: "center", behavior: "smooth" });
+      targetNode?.focus?.({ preventScroll: true });
+    });
+  }
+
+  button.closest(".venue-sidebar")?.scrollTo({ top: 0, behavior: "auto" });
+}
+
 function setNavGroupOpen(activeGroup) {
   navGroups.forEach((group) => {
     const shouldOpen = group === activeGroup && !group.classList.contains("is-open");
-    group.classList.toggle("is-open", shouldOpen);
-    group.querySelector(".venue-nav-heading")?.setAttribute("aria-expanded", String(shouldOpen));
+    setNavGroupExpanded(group, shouldOpen);
   });
 }
 
-function imageFileToGalleryItem(file) {
+function setNavGroupExpanded(group, isOpen = false) {
+  if (!group) return;
+  group.classList.toggle("is-open", Boolean(isOpen));
+  group.classList.toggle("is-collapsed", !isOpen && Boolean(group.dataset.navAccordion));
+  group.querySelector(".venue-nav-heading")?.setAttribute("aria-expanded", String(Boolean(isOpen)));
+}
+
+function imageFileToGalleryItem(file, galleryIndex = 0) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -3808,6 +4007,45 @@ function imageFileToGalleryItem(file) {
         context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
         const src = canvas.toDataURL("image/jpeg", 0.86);
+        resolve({
+          name: file.name,
+          role: getGalleryRole(galleryIndex),
+          src,
+          width: canvas.width,
+          height: canvas.height,
+          originalWidth: image.width,
+          originalHeight: image.height,
+          sizeKb: Math.round((src.length * 0.75) / 1024),
+          preparedAt: new Date().toISOString(),
+        });
+      };
+      image.onerror = reject;
+      image.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function imageFileToProfileItem(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const size = Math.min(image.width, image.height);
+        const sourceX = Math.max(0, Math.round((image.width - size) / 2));
+        const sourceY = Math.max(0, Math.round((image.height - size) / 2));
+        const canvas = document.createElement("canvas");
+        canvas.width = 512;
+        canvas.height = 512;
+        const context = canvas.getContext("2d");
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, sourceX, sourceY, size, size, 0, 0, canvas.width, canvas.height);
+        const src = canvas.toDataURL("image/jpeg", 0.9);
         resolve({
           name: file.name,
           src,
@@ -3883,6 +4121,10 @@ async function loadVenueDashboard() {
 function bindVenueInteractions() {
   setView("calendar");
 
+  setupRoadmapToggle?.addEventListener("click", () => {
+    setSetupRoadmapOpen(!venueState.setupRoadmapOpen);
+  });
+
   navGroupTriggers.forEach((trigger) => {
     trigger.addEventListener("click", () => {
       const group = trigger.closest(".venue-nav-group");
@@ -3899,20 +4141,31 @@ function bindVenueInteractions() {
       }
 
       const target = item.dataset.view;
-      if (target) setView(target);
+      if (target) {
+        const accordionGroup = item.closest("[data-nav-accordion]");
+        setView(target);
+        if (accordionGroup) setNavGroupExpanded(accordionGroup, false);
+      }
     });
   });
 
   venueGuidesChecklist?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-guide-view]");
     if (!button) return;
-    setView(button.dataset.guideView);
+    navigateGuideButton(button);
+  });
+
+  venueSidebarGuide?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-guide-view]");
+    if (!button) return;
+    navigateGuideButton(button);
+    setSetupRoadmapOpen(false);
   });
 
   workspaceFlow?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-guide-view]");
     if (!button) return;
-    setView(button.dataset.guideView);
+    navigateGuideButton(button);
   });
 
   venueNextAppointments?.addEventListener("click", (event) => {
@@ -3924,16 +4177,6 @@ function bindVenueInteractions() {
 
   goCalendarButton?.addEventListener("click", () => {
     setView("calendar");
-    const operationGroup = [...navGroupTriggers]
-      .find((trigger) => trigger.textContent.trim().toLocaleLowerCase("tr-TR") === "operasyon")
-      ?.closest(".venue-nav-group");
-    if (operationGroup) {
-      navGroups.forEach((group) => {
-        const isOperation = group === operationGroup;
-        group.classList.toggle("is-open", isOperation);
-        group.querySelector(".venue-nav-heading")?.setAttribute("aria-expanded", String(isOperation));
-      });
-    }
   });
 
   calendarOpsStrip?.addEventListener("click", (event) => {
@@ -4203,6 +4446,7 @@ function bindVenueInteractions() {
       venueState.dashboard.reviewSummary = payload.reviewSummary || venueState.dashboard.reviewSummary || {};
       renderTransactions(venueState.dashboard.transactions);
       renderReviews(venueState.dashboard.reviews, venueState.dashboard.reviewSummary);
+      renderGuidanceRail(venueState.dashboard);
       loadVenueReport().catch(() => null);
     } catch (error) {
       completeButton.disabled = false;
@@ -4310,6 +4554,7 @@ function bindVenueInteractions() {
     }
     if (venueState.dashboard) {
       renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
+      renderGuidanceRail(venueState.dashboard);
     }
     saveSlotState().catch((error) => {
       console.error(error);
@@ -4339,8 +4584,32 @@ function bindVenueInteractions() {
       venueState.dashboard.settings = collectSettingsPayload();
       const settings = normalizeSettings(venueState.dashboard.settings);
       settings.media.gallery.splice(Number(removeMediaButton.dataset.mediaRemove), 1);
+      settings.media.gallery = normalizeMediaGallery(settings.media.gallery);
       venueState.dashboard.settings = settings;
       renderSettingsOnboarding(settings);
+      return;
+    }
+
+    const moveMediaButton = event.target.closest("[data-media-move]");
+    if (moveMediaButton && venueState.dashboard) {
+      venueState.dashboard.settings = collectSettingsPayload();
+      const settings = normalizeSettings(venueState.dashboard.settings);
+      const fromIndex = Number(moveMediaButton.dataset.mediaMove);
+      const direction = Number(moveMediaButton.dataset.mediaDirection);
+      const toIndex = fromIndex + direction;
+      if (
+        Number.isInteger(fromIndex) &&
+        Number.isInteger(toIndex) &&
+        settings.media.gallery[fromIndex] &&
+        settings.media.gallery[toIndex]
+      ) {
+        const nextGallery = [...settings.media.gallery];
+        [nextGallery[fromIndex], nextGallery[toIndex]] = [nextGallery[toIndex], nextGallery[fromIndex]];
+        settings.media.gallery = normalizeMediaGallery(nextGallery);
+        venueState.dashboard.settings = settings;
+        renderSettingsOnboarding(settings);
+        setSaveStatus("[data-settings-status]", "Galeri sırası güncellendi. Kaydetmeyi unutma.");
+      }
       return;
     }
 
@@ -4388,6 +4657,27 @@ function bindVenueInteractions() {
   });
 
   settingsOnboardingForm?.addEventListener("change", async (event) => {
+    const profileInput = event.target.closest("[data-profile-image-upload]");
+    if (profileInput && venueState.dashboard && profileInput.files?.length) {
+      setSaveStatus("[data-settings-status]", "Profil resmi hazırlanıyor...");
+      try {
+        venueState.dashboard.settings = collectSettingsPayload();
+        const settings = normalizeSettings(venueState.dashboard.settings);
+        const file = Array.from(profileInput.files).find((item) => item.type.startsWith("image/"));
+        if (!file) throw new Error("Görsel seçilemedi.");
+        const profileImage = await imageFileToProfileItem(file);
+        settings.media.profileUrl = profileImage.src;
+        settings.media.profileImage = profileImage;
+        venueState.dashboard.settings = settings;
+        renderVenueIdentity();
+        renderSettingsOnboarding(settings);
+        setSaveStatus("[data-settings-status]", "Profil resmi eklendi. Kaydetmeyi unutma.");
+      } catch (error) {
+        setSaveStatus("[data-settings-status]", error.message || "Profil resmi eklenemedi.", true);
+      }
+      return;
+    }
+
     const input = event.target.closest("[data-media-upload]");
     if (!input || !venueState.dashboard || !input.files?.length) return;
 
@@ -4395,14 +4685,36 @@ function bindVenueInteractions() {
     try {
       venueState.dashboard.settings = collectSettingsPayload();
       const settings = normalizeSettings(venueState.dashboard.settings);
-      const files = Array.from(input.files).filter((file) => file.type.startsWith("image/"));
-      const nextImages = await Promise.all(files.map(imageFileToGalleryItem));
-      settings.media.gallery = [...settings.media.gallery, ...nextImages];
+      const remainingSlots = Math.max(0, VENUE_GALLERY_LIMIT - settings.media.gallery.length);
+      if (!remainingSlots) throw new Error("Galeri en fazla 6 fotoğraf alır. Önce bir fotoğraf kaldır.");
+      const files = Array.from(input.files)
+        .filter((file) => /^image\/(png|jpe?g|webp)$/i.test(file.type))
+        .slice(0, remainingSlots);
+      if (!files.length) throw new Error("PNG, JPG veya WebP formatında bir görsel seç.");
+      const nextImages = await Promise.all(
+        files.map((file, index) => imageFileToGalleryItem(file, settings.media.gallery.length + index)),
+      );
+      if (!settings.media.profileUrl && nextImages[0]?.src) {
+        const firstFile = files[0];
+        const profileImage = firstFile ? await imageFileToProfileItem(firstFile) : null;
+        if (profileImage) {
+          settings.media.profileUrl = profileImage.src;
+          settings.media.profileImage = profileImage;
+        }
+      }
+      settings.media.gallery = normalizeMediaGallery([...settings.media.gallery, ...nextImages]);
       venueState.dashboard.settings = settings;
+      renderVenueIdentity();
       renderSettingsOnboarding(settings);
-      setSaveStatus("[data-settings-status]", "Görsel eklendi. Kaydetmeyi unutma.");
+      const clippedCount = input.files.length - files.length;
+      setSaveStatus(
+        "[data-settings-status]",
+        clippedCount > 0
+          ? `${files.length} görsel eklendi, ${clippedCount} dosya 6 fotoğraf limiti nedeniyle alınmadı. Kaydetmeyi unutma.`
+          : "Görsel eklendi. Kaydetmeyi unutma.",
+      );
     } catch (error) {
-      setSaveStatus("[data-settings-status]", "Görsel eklenemedi.", true);
+      setSaveStatus("[data-settings-status]", error.message || "Görsel eklenemedi.", true);
     }
   });
 

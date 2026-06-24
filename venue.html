@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260623-calendar-polish-1" />
+    <link rel="stylesheet" href="/venue.css?v=20260624-sidebar-accordion-2" />
   </head>
   <body>
     <header class="venue-global-header">
@@ -16,7 +16,6 @@
         <img src="/assets/tyee-header.png?v=20260609-header-logo-2" alt="tyee" />
       </a>
       <nav class="venue-global-nav" aria-label="Ana menü">
-        <a href="/#hero">Keşfet</a>
         <a href="/#categories">Kategoriler</a>
         <a href="/#nearby-map">Yakınımda</a>
         <a href="/#featured">Fırsatlar</a>
@@ -96,9 +95,25 @@
             </div>
           </div>
 
-          <div class="venue-nav-group is-open">
-            <button class="venue-nav-heading" type="button" aria-expanded="true">Operasyon</button>
-            <div class="venue-nav-group-body">
+          <section class="venue-setup-roadmap is-collapsed" aria-label="İşletme başlangıç sırası">
+            <button class="venue-setup-roadmap-head" type="button" aria-expanded="false" aria-controls="venue-sidebar-guide" data-setup-roadmap-toggle>
+              <div>
+                <span>Yayına hazırlık</span>
+                <strong>Adım adım tamamla</strong>
+              </div>
+              <output id="venue-setup-progress" aria-label="Tamamlanan adım sayısı">0/5</output>
+              <span class="venue-setup-roadmap-chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="venue-setup-steps" id="venue-sidebar-guide"></div>
+          </section>
+
+          <div class="venue-nav-group venue-nav-accordion is-collapsed" data-nav-accordion="operations">
+            <button class="venue-nav-heading" type="button" aria-expanded="false" aria-controls="venue-operations-menu">
+              <span class="venue-nav-heading-label">Operasyon</span>
+              <span class="venue-nav-heading-count">9</span>
+              <span class="venue-nav-chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="venue-nav-group-body" id="venue-operations-menu">
               <button class="venue-nav-item is-active" data-view="calendar">Takvim</button>
               <button class="venue-nav-item" data-view="transactions">Checkout & Satış</button>
               <button class="venue-nav-item" data-view="customers">Müşteriler</button>
@@ -603,6 +618,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/venue.js?v=20260623-marketplace-demo-1"></script>
+    <script src="/venue.js?v=20260624-sidebar-accordion-2"></script>
   </body>
 </html>

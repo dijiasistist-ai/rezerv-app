@@ -7,7 +7,10 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageBackground,
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -22,6 +25,15 @@ declare const process: { env?: Record<string, string | undefined> };
 const API_BASE_URL = (process.env?.EXPO_PUBLIC_API_URL || "https://tyee.app").replace(/\/$/, "");
 const SESSION_KEY = "tyee.mobile.session";
 const brandLogo = require("./assets/tyee-logo.png");
+const authCustomerBg = require("./assets/auth-customer-photo-bg.jpg");
+const authVenueBg = require("./assets/auth-venue-photo-bg.jpg");
+const profilePhotoUri = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=82";
+const fallbackStudioImages = [
+  "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=900&q=84",
+  "https://images.unsplash.com/photo-1600334129128-685c5582fd35?auto=format&fit=crop&w=900&q=84",
+  "https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?auto=format&fit=crop&w=900&q=84",
+  "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=900&q=84",
+];
 
 type Role = "customer" | "venue";
 type MainTab = "discover" | "nearby" | "bookings" | "account";
@@ -48,13 +60,17 @@ type Listing = {
   id: string;
   name: string;
   category: string;
+  categoryLabel?: string;
   cityLabel: string;
   rating?: number;
+  reviews?: number;
   distance?: string;
   price?: number;
   priceUnit?: string;
   summary?: string;
   tags?: string[];
+  mediaUrl?: string;
+  gallery?: { src: string; role?: string }[];
   availability?: { nextSlot?: string; openSlots?: number };
 };
 
@@ -66,6 +82,33 @@ type NearbyItem = {
   cityLabel: string;
   distanceLabel: string;
   nextSlot: string;
+  priceLabel?: string;
+  mediaUrl?: string;
+};
+
+type AvailabilitySlot = {
+  time: string;
+  available: boolean;
+  label?: string;
+};
+
+type CustomerReservation = {
+  id: string;
+  shortId?: string;
+  venueName: string;
+  serviceLabel: string;
+  serviceDate: string;
+  serviceTime: string;
+  status: string;
+  paymentModeLabel?: string;
+  totalAmount?: number;
+};
+
+type CustomerDashboard = {
+  reservations?: {
+    upcoming?: CustomerReservation[];
+    past?: CustomerReservation[];
+  };
 };
 
 type VenueArea = {
@@ -164,6 +207,10 @@ function money(value?: number) {
   return `₺${new Intl.NumberFormat("tr-TR").format(Number(value || 0))}`;
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function initials(name = "T") {
   return name
     .split(/\s+/)
@@ -209,6 +256,23 @@ function normalizeVenueSettings(settings?: Partial<VenueSettings>): VenueSetting
         ? settings.areas
         : [{ name: "", type: "", capacity: "", price: "", isActive: true }],
   };
+}
+
+function getListingImageUri(listing?: Partial<Listing | NearbyItem> | null) {
+  if (!listing) return "";
+  const direct = "mediaUrl" in listing ? listing.mediaUrl : "";
+  if (direct) return direct;
+  const category = "category" in listing ? listing.category : "";
+  const categoryLabel = "categoryLabel" in listing ? listing.categoryLabel : "";
+  const key = `${category || ""} ${categoryLabel || ""}`.toLocaleLowerCase("tr-TR");
+  if (key.includes("pet")) return "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=900&q=82";
+  if (key.includes("restaurant") || key.includes("restoran")) return "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=900&q=82";
+  if (key.includes("berber")) return "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=900&q=82";
+  if (key.includes("halı") || key.includes("saha")) return "https://images.unsplash.com/photo-1526232761682-d26e03ac148e?auto=format&fit=crop&w=900&q=82";
+  if (key.includes("tenis")) return "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&w=900&q=82";
+  if (key.includes("tattoo") || key.includes("dövme")) return "https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=900&q=82";
+  if (key.includes("yoga") || key.includes("masaj") || key.includes("spa")) return "https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?auto=format&fit=crop&w=900&q=82";
+  return "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=82";
 }
 
 function getMissingVenueSteps(settings?: Partial<VenueSettings>): VenueOnboardingStep[] {
@@ -287,6 +351,20 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [nearby, setNearby] = useState<NearbyItem[]>([]);
+  const [query, setQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+  const [customerDashboard, setCustomerDashboard] = useState<CustomerDashboard | null>(null);
+  const [reservationDraft, setReservationDraft] = useState({
+    serviceDate: todayIso(),
+    serviceTime: "",
+    customerName: "",
+    customerPhone: "",
+    customerEmail: "",
+    note: "",
+  });
+  const [reservationLoading, setReservationLoading] = useState(false);
   const [venuePayload, setVenuePayload] = useState<VenuePayload | null>(null);
   const [venueOnboardingDismissed, setVenueOnboardingDismissed] = useState(false);
 
@@ -294,10 +372,10 @@ export default function App() {
   const missingVenueSteps = useMemo(() => getMissingVenueSteps(venuePayload?.settings), [venuePayload?.settings]);
   const customerTabs = useMemo(
     () => [
-      { id: "discover" as const, label: "Keşfet" },
-      { id: "nearby" as const, label: "Yakınımda" },
-      { id: "bookings" as const, label: "Rezervasyon" },
-      { id: "account" as const, label: "Hesabım" },
+      { id: "discover" as const, label: "Ana Sayfa", icon: "⌂" },
+      { id: "nearby" as const, label: "Ara", icon: "⌕" },
+      { id: "bookings" as const, label: "Etkinlik", icon: "□" },
+      { id: "account" as const, label: "Profil", icon: "○" },
     ],
     [],
   );
@@ -320,14 +398,31 @@ export default function App() {
     }
   }, []);
 
-  const loadPublicData = useCallback(async () => {
+  const loadPublicData = useCallback(async (next: { category?: string; query?: string } = {}) => {
+    const category = next.category || "all";
+    const search = next.query || "";
+    const params = new URLSearchParams();
+    if (category && category !== "all") params.set("category", category);
+    if (search.trim()) params.set("query", search.trim());
+    const listingPath = `/api/listings${params.toString() ? `?${params.toString()}` : ""}`;
     const [bootstrap, listingPayload] = await Promise.all([
       apiRequest<{ categories: Category[] }>("/api/bootstrap"),
-      apiRequest<{ items: Listing[] }>("/api/listings"),
+      apiRequest<{ items: Listing[] }>(listingPath),
     ]);
     setCategories(bootstrap.categories || []);
     setListings(listingPayload.items || []);
   }, []);
+
+  const refreshListings = useCallback(
+    async (next: { category?: string; query?: string } = {}) => {
+      const category = next.category ?? selectedCategory;
+      const search = next.query ?? query;
+      setSelectedCategory(category);
+      setQuery(search);
+      await loadPublicData({ category, query: search });
+    },
+    [loadPublicData, query, selectedCategory],
+  );
 
   const loadNearby = useCallback(async () => {
     let lat = 41.0351;
@@ -350,6 +445,123 @@ export default function App() {
     },
     [],
   );
+
+  const loadCustomerDashboard = useCallback(async (token: string) => {
+    const payload = await apiRequest<CustomerDashboard>("/api/customer/dashboard", { token });
+    setCustomerDashboard(payload);
+    return payload;
+  }, []);
+
+  const openListing = useCallback(
+    async (listing: Listing | NearbyItem | string) => {
+      const listingId = typeof listing === "string" ? listing : listing.id;
+      const serviceDate = reservationDraft.serviceDate || todayIso();
+      try {
+        setReservationLoading(true);
+        const [detailPayload, availabilityPayload] = await Promise.all([
+          apiRequest<{ item: Listing }>(`/api/listings/${listingId}`),
+          apiRequest<{ slots: AvailabilitySlot[] }>(`/api/listings/${listingId}/availability?date=${serviceDate}`),
+        ]);
+        const detail = detailPayload.item;
+        const firstSlot = (availabilityPayload.slots || []).find((slot) => slot.available);
+        setSelectedListing(detail);
+        setAvailabilitySlots(availabilityPayload.slots || []);
+        setReservationDraft((current) => ({
+          ...current,
+          serviceDate,
+          serviceTime: firstSlot?.time || current.serviceTime,
+          customerName: current.customerName || session?.user.name || "",
+          customerEmail: current.customerEmail || session?.user.email || "",
+          customerPhone: current.customerPhone || session?.user.phone || "",
+        }));
+      } catch (error) {
+        Alert.alert("İşletme açılamadı", error instanceof Error ? error.message : "Lütfen tekrar dene.");
+      } finally {
+        setReservationLoading(false);
+      }
+    },
+    [reservationDraft.serviceDate, session?.user.email, session?.user.name, session?.user.phone],
+  );
+
+  const refreshSelectedAvailability = useCallback(
+    async (serviceDate: string) => {
+      if (!selectedListing) return;
+      if (!serviceDate.trim()) {
+        Alert.alert("Tarih gerekli", "Müsait saatleri görmek için tarih alanını doldur.");
+        return;
+      }
+      try {
+        setReservationLoading(true);
+        const availabilityPayload = await apiRequest<{ slots: AvailabilitySlot[] }>(
+          `/api/listings/${selectedListing.id}/availability?date=${encodeURIComponent(serviceDate.trim())}`,
+        );
+        const slots = availabilityPayload.slots || [];
+        const firstSlot = slots.find((slot) => slot.available);
+        setAvailabilitySlots(slots);
+        setReservationDraft((current) => ({
+          ...current,
+          serviceDate: serviceDate.trim(),
+          serviceTime: firstSlot?.time || "",
+        }));
+      } catch (error) {
+        Alert.alert("Saatler yenilenemedi", error instanceof Error ? error.message : "Lütfen tekrar dene.");
+      } finally {
+        setReservationLoading(false);
+      }
+    },
+    [selectedListing],
+  );
+
+  const submitMobileReservation = useCallback(async () => {
+    if (!selectedListing) return;
+    const customerName = reservationDraft.customerName.trim();
+    const customerPhone = reservationDraft.customerPhone.trim();
+    const serviceDate = reservationDraft.serviceDate.trim();
+    const serviceTime = reservationDraft.serviceTime.trim();
+    if (!customerName || !customerPhone) {
+      Alert.alert("Bilgilerin eksik", "Rezervasyon için ad soyad ve telefon gerekli.");
+      return;
+    }
+    if (!serviceDate || !serviceTime) {
+      Alert.alert("Tarih ve saat seç", "Rezervasyon oluşturmak için uygun bir tarih ve saat seçmelisin.");
+      return;
+    }
+    if (!Number(selectedListing.price || 0)) {
+      Alert.alert("Fiyat bilgisi eksik", "Bu işletmenin rezervasyon bedeli henüz tanımlanmamış.");
+      return;
+    }
+    try {
+      setReservationLoading(true);
+      const response = await apiRequest<{ message?: string }>("/api/reservations", {
+        method: "POST",
+        token: session?.token,
+        body: {
+          venueId: selectedListing.id,
+          listingId: selectedListing.id,
+          venueName: selectedListing.name,
+          listingName: selectedListing.name,
+          category: selectedListing.category,
+          categoryLabel: selectedListing.categoryLabel || selectedListing.category,
+          serviceLabel: selectedListing.categoryLabel || selectedListing.name,
+          customerName,
+          customerPhone,
+          customerEmail: reservationDraft.customerEmail.trim(),
+          totalAmount: selectedListing.price || 0,
+          serviceDate,
+          serviceTime,
+          note: reservationDraft.note.trim(),
+        },
+      });
+      Alert.alert("Rezervasyon alındı", response.message || "Rezervasyonun oluşturuldu.");
+      setSelectedListing(null);
+      if (session?.token) await loadCustomerDashboard(session.token);
+      setMainTab("bookings");
+    } catch (error) {
+      Alert.alert("Rezervasyon oluşturulamadı", error instanceof Error ? error.message : "Lütfen tekrar dene.");
+    } finally {
+      setReservationLoading(false);
+    }
+  }, [loadCustomerDashboard, reservationDraft, selectedListing, session?.token]);
 
   const saveVenueSettings = useCallback(
     async (settings: VenueSettings) => {
@@ -377,6 +589,7 @@ export default function App() {
         await apiRequest<{ user: User }>("/api/auth/me", { token: parsed.token });
         await saveSession(parsed);
         if (parsed.user.canManageVenue) await loadVenue(parsed.token);
+        else await loadCustomerDashboard(parsed.token);
       } catch (_error) {
         await SecureStore.deleteItemAsync(SESSION_KEY);
       } finally {
@@ -387,7 +600,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [loadPublicData, loadVenue, saveSession]);
+  }, [loadCustomerDashboard, loadPublicData, loadVenue, saveSession]);
 
   useEffect(() => {
     if (mainTab === "nearby" && nearby.length === 0) {
@@ -408,6 +621,8 @@ export default function App() {
       if (data.user.canManageVenue) {
         setVenueOnboardingDismissed(false);
         await loadVenue(data.token);
+      } else {
+        await loadCustomerDashboard(data.token);
       }
       if (data.nextStep) Alert.alert("tyee", data.nextStep);
     } catch (error) {
@@ -420,6 +635,7 @@ export default function App() {
   async function logout() {
     await saveSession(null);
     setVenuePayload(null);
+    setCustomerDashboard(null);
     setVenueOnboardingDismissed(false);
     setMainTab("discover");
   }
@@ -438,17 +654,17 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
-      <View style={styles.header}>
-        <Image source={brandLogo} style={styles.logo} resizeMode="contain" />
-        {session ? (
-          <View style={styles.userPill}>
-            <Text style={styles.userInitials}>{initials(session.user.name)}</Text>
-          </View>
-        ) : null}
-      </View>
 
       {isVenueUser ? (
         <>
+          <View style={styles.header}>
+            <Image source={brandLogo} style={styles.logo} resizeMode="contain" />
+            {session ? (
+              <View style={styles.userPill}>
+                <Text style={styles.userInitials}>{initials(session.user.name)}</Text>
+              </View>
+            ) : null}
+          </View>
           <SegmentedTabs items={venueTabs} active={venueTab} onChange={setVenueTab} />
           <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
             {session && venuePayload && !venueOnboardingDismissed && missingVenueSteps.length ? (
@@ -473,37 +689,84 @@ export default function App() {
           </ScrollView>
         </>
       ) : (
-        <>
-          <SegmentedTabs items={customerTabs} active={mainTab} onChange={setMainTab} />
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-            {mainTab === "discover" ? (
-              <DiscoverScreen
-                categories={categories}
-                listings={listings}
-                signedIn={Boolean(session)}
-                onLoginPress={() => setMainTab("account")}
-              />
-            ) : null}
-            {mainTab === "nearby" ? <NearbyScreen items={nearby} onRefresh={loadNearby} /> : null}
-            {mainTab === "bookings" ? <BookingsScreen signedIn={Boolean(session)} onLoginPress={() => setMainTab("account")} /> : null}
-            {mainTab === "account" ? (
-              session ? (
-                <AccountCard session={session} onLogout={logout} />
-              ) : (
-                <AuthCard
-                  mode={authMode}
-                  role={role}
-                  form={form}
-                  loading={loading}
-                  onModeChange={setAuthMode}
-                  onRoleChange={setRole}
-                  onFormChange={setForm}
-                  onSubmit={submitAuth}
+        <View style={styles.consumerShell}>
+          <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <ScrollView
+              style={styles.consumerScroll}
+              contentContainerStyle={[
+                styles.consumerContent,
+                mainTab === "nearby" && !selectedListing ? styles.searchContent : null,
+              ]}
+              showsVerticalScrollIndicator={false}
+            >
+              {selectedListing ? (
+                <ListingDetailScreen
+                  listing={selectedListing}
+                  slots={availabilitySlots}
+                  draft={reservationDraft}
+                  loading={reservationLoading}
+                  onBack={() => setSelectedListing(null)}
+                  onDraftChange={setReservationDraft}
+                  onRefreshSlots={refreshSelectedAvailability}
+                  onSubmit={submitMobileReservation}
                 />
-              )
-            ) : null}
-          </ScrollView>
-        </>
+              ) : (
+                <>
+                  {mainTab === "discover" ? (
+                    <DiscoverScreen
+                      categories={categories}
+                      listings={listings}
+                      query={query}
+                      selectedCategory={selectedCategory}
+                      signedIn={Boolean(session)}
+                      onQueryChange={setQuery}
+                      onSearch={() => refreshListings()}
+                      onCategoryPress={(categoryId) => refreshListings({ category: categoryId, query })}
+                      onListingPress={openListing}
+                      onLoginPress={() => setMainTab("account")}
+                    />
+                  ) : null}
+                  {mainTab === "nearby" ? (
+                    <NearbyScreen items={nearby} listings={listings} onRefresh={loadNearby} onItemPress={openListing} />
+                  ) : null}
+                  {mainTab === "bookings" ? (
+                    <BookingsScreen
+                      signedIn={Boolean(session)}
+                      dashboard={customerDashboard}
+                      onLoginPress={() => setMainTab("account")}
+                      onExplorePress={() => setMainTab("nearby")}
+                      onRefresh={() => {
+                        if (session?.token) loadCustomerDashboard(session.token);
+                      }}
+                    />
+                  ) : null}
+                  {mainTab === "account" ? (
+                    <ProfileScreen
+                      session={session}
+                      authMode={authMode}
+                      role={role}
+                      form={form}
+                      loading={loading}
+                      onLogout={logout}
+                      onModeChange={setAuthMode}
+                      onRoleChange={setRole}
+                      onFormChange={setForm}
+                      onSubmitAuth={submitAuth}
+                    />
+                  ) : null}
+                </>
+              )}
+            </ScrollView>
+          </KeyboardAvoidingView>
+          <BottomTabs
+            items={customerTabs}
+            active={mainTab}
+            onChange={(tab) => {
+              setSelectedListing(null);
+              setMainTab(tab);
+            }}
+          />
+        </View>
       )}
     </SafeAreaView>
   );
@@ -533,81 +796,220 @@ function SegmentedTabs<T extends string>({
   );
 }
 
-function DiscoverScreen({
-  categories,
-  listings,
-  signedIn,
-  onLoginPress,
+function BottomTabs({
+  items,
+  active,
+  onChange,
 }: {
-  categories: Category[];
-  listings: Listing[];
-  signedIn: boolean;
-  onLoginPress: () => void;
+  items: { id: MainTab; label: string; icon: string }[];
+  active: MainTab;
+  onChange: (id: MainTab) => void;
 }) {
   return (
-    <>
-      <View style={styles.hero}>
-        <Text style={styles.eyebrow}>Mobil rezervasyon</Text>
-        <Text style={styles.heroTitle}>Yakınındaki hizmetleri keşfet, karşılaştır ve zamanı gelince kolayca rezervasyon yap.</Text>
-        <View style={styles.searchBox}>
-          <Text style={styles.searchText}>Pet kuaförü, halı saha, güzellik merkezi...</Text>
-          <Pressable style={styles.searchButton}>
-            <Text style={styles.searchButtonText}>Ara</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <SectionHeader title="Kategoriler" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-        {categories.map((category) => (
-          <View key={category.id} style={styles.categoryCard}>
-            <Text style={styles.categoryIcon}>{category.icon}</Text>
-            <Text style={styles.categoryTitle}>{category.label}</Text>
-            <Text style={styles.categoryCount}>{category.count}</Text>
-          </View>
-        ))}
-      </ScrollView>
-
-      <SectionHeader title="Öne çıkan işletmeler" />
-      {listings.slice(0, 6).map((listing) => (
-        <ListingCard key={listing.id} listing={listing} />
-      ))}
-
-      {!signedIn ? (
-        <Pressable style={styles.softCta} onPress={onLoginPress}>
-          <Text style={styles.softCtaTitle}>Hesabını aç</Text>
-          <Text style={styles.softCtaText}>Favorilerini, bildirimlerini ve rezervasyonlarını tek yerden takip et.</Text>
-        </Pressable>
-      ) : null}
-    </>
-  );
-}
-
-function ListingCard({ listing }: { listing: Listing }) {
-  return (
-    <View style={styles.listingCard}>
-      <View style={styles.listingAvatar}>
-        <Text style={styles.listingAvatarText}>{initials(listing.name)}</Text>
-      </View>
-      <View style={styles.listingBody}>
-        <Text style={styles.listingName}>{listing.name}</Text>
-        <Text style={styles.listingMeta}>
-          {listing.cityLabel} {listing.distance ? `· ${listing.distance}` : ""}
-        </Text>
-        <Text style={styles.listingSummary}>{listing.summary}</Text>
-        <View style={styles.listingFooter}>
-          <Text style={styles.priceText}>
-            {money(listing.price)} {listing.priceUnit || ""}
-          </Text>
-          <Text style={styles.nextSlot}>{listing.availability?.nextSlot || "Yakında"}</Text>
-        </View>
+    <View style={styles.bottomNavWrap}>
+      <View style={styles.bottomNav}>
+        {items.map((item) => {
+          const isActive = item.id === active;
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => onChange(item.id)}
+              style={[styles.bottomTab, isActive && styles.bottomTabActive]}
+            >
+              <Text style={[styles.bottomTabIcon, isActive && styles.bottomTabIconActive]}>{item.icon}</Text>
+              <Text style={[styles.bottomTabLabel, isActive && styles.bottomTabLabelActive]}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
 }
 
-function NearbyScreen({ items, onRefresh }: { items: NearbyItem[]; onRefresh: () => Promise<void> }) {
+function DiscoverScreen({
+  categories,
+  listings,
+  query,
+  selectedCategory,
+  signedIn,
+  onQueryChange,
+  onSearch,
+  onCategoryPress,
+  onListingPress,
+  onLoginPress,
+}: {
+  categories: Category[];
+  listings: Listing[];
+  query: string;
+  selectedCategory: string;
+  signedIn: boolean;
+  onQueryChange: (value: string) => void;
+  onSearch: () => void;
+  onCategoryPress: (categoryId: string) => void;
+  onListingPress: (listing: Listing) => void;
+  onLoginPress: () => void;
+}) {
+  const categoryTiles = [
+    { id: "all", label: "Tümü", icon: "▦" },
+    { id: "bayan-kuafor", label: "Bayan kuaför", icon: "⌁" },
+    { id: "guzellik", label: "Kaşlar ve kirpikler", icon: "⌒" },
+    { id: "masaj", label: "Masaj", icon: "━" },
+    { id: "spa", label: "Spa & sauna", icon: "▤" },
+    { id: "guzellik", label: "Tırnaklar", icon: "∩" },
+    { id: "guzellik", label: "Epilasyon", icon: "▣" },
+    { id: "guzellik", label: "Yüz bakımları", icon: "☺" },
+    { id: "erkek-berber", label: "Erkek berber", icon: "⌙" },
+    { id: "guzellik", label: "Estetik", icon: "⌬" },
+  ];
+  const recommended = listings.slice(0, 4);
+  const fresh = listings.slice(4, 8).length ? listings.slice(4, 8) : listings.slice(0, 4);
+  const nearbyItems = listings.slice(0, 6);
+  const categoryColumns = categoryTiles.slice(0, 5).map((_, index) => categoryTiles.filter((__, itemIndex) => itemIndex % 5 === index));
+
+  return (
+    <View style={styles.mobilePage}>
+      <Pressable style={styles.locationRow}>
+        <Text style={styles.locationPin}>●</Text>
+        <Text style={styles.locationText}>Mevcut konum</Text>
+        <Text style={styles.locationChevron}>⌄</Text>
+      </Pressable>
+
+      <View style={styles.mobileSearchBar}>
+        <Text style={styles.mobileSearchIcon}>⌕</Text>
+        <View style={styles.mobileSearchInputWrap}>
+          <TextInput
+            value={query}
+            onChangeText={onQueryChange}
+            placeholder="Tüm tedavilere göz atın"
+            placeholderTextColor="#8b8b8b"
+            returnKeyType="search"
+            onSubmitEditing={onSearch}
+            style={styles.mobileSearchInput}
+          />
+        </View>
+        <Pressable style={styles.mobileSearchButton} onPress={onSearch}>
+          <Text style={styles.mobileSearchButtonText}>Ara</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView horizontal style={styles.mobileCategoryScroller} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mobileCategoryColumns}>
+        {categoryColumns.map((column, columnIndex) => (
+          <View key={`category-column-${columnIndex}`} style={styles.mobileCategoryColumn}>
+            {column.map((category, itemIndex) => (
+              <Pressable key={`${category.label}-${itemIndex}`} style={styles.mobileCategoryTile} onPress={() => onCategoryPress(category.id)}>
+                <View style={[styles.mobileCategoryIconBox, selectedCategory === category.id && styles.mobileCategoryIconBoxActive]}>
+                  <Text style={styles.mobileCategoryIcon}>{category.icon}</Text>
+                </View>
+                <Text style={styles.mobileCategoryLabel}>{category.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+
+      <View style={styles.mobileSectionHeader}>
+        <Text style={styles.mobileSectionTitle}>Önerilen</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featureRail}>
+        {recommended.map((listing, index) => (
+          <FeatureListingCard key={listing.id} listing={listing} index={index} onPress={() => onListingPress(listing)} />
+        ))}
+      </ScrollView>
+
+      <View style={styles.mobileSectionHeader}>
+        <Text style={styles.mobileSectionTitle}>tyee'de yeni</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featureRail}>
+        {fresh.map((listing, index) => (
+          <FeatureListingCard key={`fresh-${listing.id}`} listing={listing} index={index + 1} compact onPress={() => onListingPress(listing)} />
+        ))}
+      </ScrollView>
+
+      <View style={styles.mobileSectionHeader}>
+        <Text style={styles.mobileSectionTitle}>Yakındaki mekânlar</Text>
+        <Pressable onPress={onSearch}>
+          <Text style={styles.seeAllText}>Tümünü gör</Text>
+        </Pressable>
+      </View>
+      {nearbyItems.map((listing, index) => (
+        <NearbyVenueCard key={`near-${listing.id}`} listing={listing} index={index} onPress={() => onListingPress(listing)} />
+      ))}
+
+      {!signedIn ? (
+        <Pressable style={styles.mobileSoftLogin} onPress={onLoginPress}>
+          <Text style={styles.mobileSoftLoginText}>Favoriler ve randevular için giriş yap</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function FeatureListingCard({
+  listing,
+  index,
+  compact = false,
+  onPress,
+}: {
+  listing: Listing;
+  index: number;
+  compact?: boolean;
+  onPress: () => void;
+}) {
+  const imageUri = listing.mediaUrl || listing.gallery?.[0]?.src || fallbackStudioImages[index % fallbackStudioImages.length] || getListingImageUri(listing);
+  const reviews = listing.reviews || (index + 1) * 61;
+  return (
+    <Pressable style={[styles.featureCard, compact && styles.featureCardCompact]} onPress={onPress}>
+      <View>
+        <Image source={{ uri: imageUri }} style={styles.featureImage} />
+        <View style={styles.featureBadge}>
+          <Text style={styles.featureBadgeText}>Öne Çıkanlar</Text>
+        </View>
+      </View>
+      <View style={styles.featureTitleRow}>
+        <Text style={styles.featureTitle} numberOfLines={1}>{listing.name}</Text>
+        <Text style={styles.featureRating}>★ {Number(listing.rating || 5).toFixed(1).replace(".", ",")}</Text>
+      </View>
+      <Text style={styles.featureMeta} numberOfLines={1}>
+        {listing.distance || ">50 km"} · {listing.cityLabel || "İstanbul"}
+      </Text>
+      <Text style={styles.featureMeta} numberOfLines={1}>
+        {listing.categoryLabel || listing.category} · {reviews} değerlendirme
+      </Text>
+    </Pressable>
+  );
+}
+
+function NearbyVenueCard({ listing, index, onPress }: { listing: Listing; index: number; onPress: () => void }) {
+  const imageUri = listing.mediaUrl || listing.gallery?.[0]?.src || fallbackStudioImages[(index + 2) % fallbackStudioImages.length] || getListingImageUri(listing);
+  return (
+    <Pressable style={styles.nearVenueCard} onPress={onPress}>
+      <Image source={{ uri: imageUri }} style={styles.nearVenueImage} />
+      <View style={styles.nearVenueBody}>
+        <Text style={styles.nearVenueTitle} numberOfLines={1}>{listing.name}</Text>
+        <Text style={styles.nearVenueMeta} numberOfLines={1}>
+          {listing.distance || `${(index + 2).toString()},${index + 1} km`} · {listing.cityLabel || "İstanbul"}
+        </Text>
+        <Text style={styles.nearVenueMeta} numberOfLines={1}>
+          ★ {Number(listing.rating || 4.9).toFixed(1).replace(".", ",")} · {listing.categoryLabel || listing.category}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function NearbyScreen({
+  items,
+  listings,
+  onRefresh,
+  onItemPress,
+}: {
+  items: NearbyItem[];
+  listings: Listing[];
+  onRefresh: () => Promise<void>;
+  onItemPress: (item: NearbyItem | Listing) => void;
+}) {
   const [loading, setLoading] = useState(false);
+  const visibleListings = listings.length ? listings : [];
 
   async function refresh() {
     setLoading(true);
@@ -619,44 +1021,286 @@ function NearbyScreen({ items, onRefresh }: { items: NearbyItem[]; onRefresh: ()
   }
 
   return (
-    <>
-      <View style={styles.mapPreview}>
-        <Text style={styles.mapTitle}>Yakınımda</Text>
-        <Text style={styles.mapText}>Konum izniyle sana en yakın işletmeleri listeliyoruz.</Text>
-        <Pressable style={styles.inlineButton} onPress={refresh}>
-          <Text style={styles.inlineButtonText}>{loading ? "Yenileniyor..." : "Konumumu kullan"}</Text>
-        </Pressable>
-      </View>
-      {items.slice(0, 12).map((item) => (
-        <View key={item.id} style={styles.nearbyCard}>
-          <Text style={styles.nearbyIcon}>{item.icon}</Text>
-          <View style={styles.listingBody}>
-            <Text style={styles.listingName}>{item.name}</Text>
-            <Text style={styles.listingMeta}>
-              {item.categoryLabel} · {item.cityLabel}
-            </Text>
+    <View style={styles.searchPage}>
+      <View style={styles.mapStage}>
+        <View style={[styles.mapRoad, styles.mapRoadOne]} />
+        <View style={[styles.mapRoad, styles.mapRoadTwo]} />
+        <View style={[styles.mapRoad, styles.mapRoadThree]} />
+        <Text style={[styles.mapLabel, { top: 118, left: 118 }]}>LEVENT MH.</Text>
+        <Text style={[styles.mapLabel, { top: 196, right: 54 }]}>NİSBETİYE</Text>
+        <Text style={[styles.mapPointLabel, { top: 282, left: 150 }]}>Zorlu Performans</Text>
+        <View style={styles.userMapDot} />
+        <View style={styles.searchMapBar}>
+          <Text style={styles.searchMapIcon}>⌕</Text>
+          <View style={styles.searchMapTexts}>
+            <Text style={styles.searchMapTitle}>Tüm işlemler</Text>
+            <Text style={styles.searchMapSub}>Mevcut konum</Text>
           </View>
-          <Text style={styles.distance}>{item.distanceLabel}</Text>
+          <Pressable style={styles.searchMapFilter} onPress={refresh}>
+            <Text style={styles.searchMapFilterText}>{loading ? "…" : "☰"}</Text>
+          </Pressable>
         </View>
-      ))}
-    </>
+      </View>
+      <View style={styles.searchSheet}>
+        <View style={styles.sheetHandle} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRail}>
+          {["☷", "Mekanlar⌄", "En iyi eşleşme⌄", "Fiyat⌄"].map((filter) => (
+            <Pressable key={filter} style={styles.filterChip}>
+              <Text style={styles.filterChipText}>{filter}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <Text style={styles.mapCount}>Harita alanındaki {(visibleListings.length || items.length || 19)} mekân</Text>
+        {visibleListings.slice(0, 8).map((listing, index) => (
+          <SearchResultCard key={`search-${listing.id}`} listing={listing} index={index} onPress={() => onItemPress(listing)} />
+        ))}
+        {!visibleListings.length ? (
+          items.slice(0, 8).map((item, index) => (
+            <SearchNearbyItem key={item.id} item={item} index={index} onPress={() => onItemPress(item)} />
+          ))
+        ) : null}
+      </View>
+    </View>
   );
 }
 
-function BookingsScreen({ signedIn, onLoginPress }: { signedIn: boolean; onLoginPress: () => void }) {
+function SearchResultCard({ listing, index, onPress }: { listing: Listing; index: number; onPress: () => void }) {
+  const imageUri = listing.mediaUrl || listing.gallery?.[0]?.src || fallbackStudioImages[index % fallbackStudioImages.length] || getListingImageUri(listing);
   return (
-    <View style={styles.emptyCard}>
-      <Text style={styles.emptyTitle}>Rezervasyonların burada toplanacak.</Text>
-      <Text style={styles.emptyText}>
-        İlk aşamada ödeme ve kesin rezervasyon akışına geçmeden önce favori işletme, seçili hizmet ve saat bilgilerini burada
-        hazırlayacağız.
-      </Text>
-      {!signedIn ? (
-        <Pressable style={styles.inlineButton} onPress={onLoginPress}>
-          <Text style={styles.inlineButtonText}>Giriş yap / kayıt ol</Text>
+    <Pressable style={styles.searchResultCard} onPress={onPress}>
+      <Image source={{ uri: imageUri }} style={styles.searchResultImage} />
+      <View style={styles.searchResultText}>
+        <View style={styles.featureTitleRow}>
+          <Text style={styles.searchResultTitle} numberOfLines={2}>{listing.name}</Text>
+          <Text style={styles.searchResultRating}>★ {Number(listing.rating || 5).toFixed(1).replace(".", ",")}</Text>
+        </View>
+        <Text style={styles.searchResultMeta} numberOfLines={1}>
+          {listing.distance || `${index + 2},${index} km`} · {listing.cityLabel || "İstanbul"}
+        </Text>
+        <Text style={styles.searchResultMeta} numberOfLines={1}>
+          {listing.categoryLabel || listing.category} · {listing.reviews || (index + 1) * 85} değerlendirme
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function SearchNearbyItem({ item, index, onPress }: { item: NearbyItem; index: number; onPress: () => void }) {
+  const imageUri = item.mediaUrl || fallbackStudioImages[index % fallbackStudioImages.length];
+  return (
+    <Pressable style={styles.searchResultCard} onPress={onPress}>
+      <Image source={{ uri: imageUri }} style={styles.searchResultImage} />
+      <View style={styles.searchResultText}>
+        <Text style={styles.searchResultTitle} numberOfLines={2}>{item.name}</Text>
+        <Text style={styles.searchResultMeta}>{item.distanceLabel} · {item.cityLabel}</Text>
+        <Text style={styles.searchResultMeta}>{item.categoryLabel} · {item.nextSlot} müsait</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function BookingsScreen({
+  signedIn,
+  dashboard,
+  onLoginPress,
+  onExplorePress,
+  onRefresh,
+}: {
+  signedIn: boolean;
+  dashboard: CustomerDashboard | null;
+  onLoginPress: () => void;
+  onExplorePress: () => void;
+  onRefresh: () => void;
+}) {
+  const upcoming = dashboard?.reservations?.upcoming || [];
+  const past = dashboard?.reservations?.past || [];
+  if (signedIn && upcoming.length + past.length > 0) {
+    return (
+      <>
+        <View style={styles.sectionHeaderRow}>
+          <SectionHeader title="Rezervasyonlarım" />
+          <Pressable onPress={onRefresh}>
+            <Text style={styles.refreshText}>Yenile</Text>
+          </Pressable>
+        </View>
+        {upcoming.map((reservation) => (
+          <View key={reservation.id} style={styles.reservationCard}>
+            <Text style={styles.listingName}>{reservation.venueName}</Text>
+            <Text style={styles.listingMeta}>
+              {reservation.serviceLabel} · {reservation.serviceDate} {reservation.serviceTime}
+            </Text>
+            <View style={styles.listingFooter}>
+              <StatusPill label={reservation.status || "Aktif"} active />
+              <Text style={styles.priceText}>{money(reservation.totalAmount)}</Text>
+            </View>
+          </View>
+        ))}
+        {past.slice(0, 4).map((reservation) => (
+          <View key={reservation.id} style={styles.reservationCardMuted}>
+            <Text style={styles.listingName}>{reservation.venueName}</Text>
+            <Text style={styles.listingMeta}>{reservation.serviceLabel}</Text>
+          </View>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <View style={styles.activityPage}>
+      <Text style={styles.pageTitle}>Etkinlik</Text>
+      <View style={styles.activityEmptyWrap}>
+        <View style={styles.activityIcon}>
+          <View style={styles.activityIconTop} />
+        </View>
+        <Text style={styles.activityTitle}>Etkinlik yok</Text>
+        <Text style={styles.activityText}>
+          Yaklaşan ve geçmiş randevularınızı yönetmek veya etkinliği görüntülemek için oturum açın veya kaydolun
+        </Text>
+        <Pressable style={styles.blackButton} onPress={onExplorePress}>
+          <Text style={styles.blackButtonText}>Mekan ara</Text>
         </Pressable>
-      ) : null}
+        {!signedIn ? (
+          <Pressable style={styles.outlinePillButton} onPress={onLoginPress}>
+            <Text style={styles.outlinePillButtonText}>Oturum açın veya kaydolun</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
+  );
+}
+
+function ListingDetailScreen({
+  listing,
+  slots,
+  draft,
+  loading,
+  onBack,
+  onDraftChange,
+  onRefreshSlots,
+  onSubmit,
+}: {
+  listing: Listing;
+  slots: AvailabilitySlot[];
+  draft: {
+    serviceDate: string;
+    serviceTime: string;
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    note: string;
+  };
+  loading: boolean;
+  onBack: () => void;
+  onDraftChange: (draft: {
+    serviceDate: string;
+    serviceTime: string;
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    note: string;
+  }) => void;
+  onRefreshSlots: (serviceDate: string) => void;
+  onSubmit: () => void;
+}) {
+  const imageUri = getListingImageUri(listing);
+  const availableSlots = slots.filter((slot) => slot.available);
+  return (
+    <>
+      <Pressable style={styles.backButton} onPress={onBack}>
+        <Text style={styles.backButtonText}>‹ Listeye dön</Text>
+      </Pressable>
+      <View style={styles.detailCard}>
+        <Image source={{ uri: imageUri }} style={styles.detailImage} />
+        <View style={styles.detailContent}>
+          <View style={styles.listingTitleRow}>
+            <Text style={styles.detailTitle}>{listing.name}</Text>
+            <Text style={styles.ratingBadge}>{Number(listing.rating || 4.8).toFixed(1)}</Text>
+          </View>
+          <Text style={styles.listingMeta}>
+            {listing.cityLabel} · {listing.categoryLabel || listing.category}
+          </Text>
+          <Text style={styles.detailSummary}>{listing.summary || "Bu işletme tyee üzerinden rezervasyona açık."}</Text>
+          <View style={styles.tagRow}>
+            {(listing.tags || ["Müsaitlik", "Rezervasyon", "Güvenli akış"]).slice(0, 3).map((tag) => (
+              <Text key={tag} style={styles.tagPill}>{tag}</Text>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.bookingPanel}>
+        <Text style={styles.sectionTitle}>Rezerv et</Text>
+        <Text style={styles.bookingLabel}>Tarih</Text>
+        <TextInput
+          value={draft.serviceDate}
+          onChangeText={(serviceDate) => onDraftChange({ ...draft, serviceDate })}
+          placeholder="YYYY-MM-DD"
+          onEndEditing={() => onRefreshSlots(draft.serviceDate)}
+          style={styles.input}
+        />
+        <Pressable style={styles.secondaryCompactButton} onPress={() => onRefreshSlots(draft.serviceDate)} disabled={loading}>
+          <Text style={styles.secondaryCompactButtonText}>{loading ? "Yenileniyor..." : "Bu tarihteki saatleri getir"}</Text>
+        </Pressable>
+        <Text style={styles.bookingLabel}>Saat</Text>
+        {slots.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.slotPicker}>
+            {(availableSlots.length ? availableSlots : slots).slice(0, 8).map((slot) => (
+              <Pressable
+                key={slot.time}
+                disabled={!slot.available}
+                style={[
+                  styles.slotButton,
+                  draft.serviceTime === slot.time && styles.slotButtonActive,
+                  !slot.available && styles.slotButtonDisabled,
+                ]}
+                onPress={() => onDraftChange({ ...draft, serviceTime: slot.time })}
+              >
+                <Text style={[styles.slotButtonText, draft.serviceTime === slot.time && styles.slotButtonTextActive]}>{slot.time}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : (
+          <Text style={styles.emptySlotText}>Bu tarih için uygun saat bulunamadı.</Text>
+        )}
+
+        <Text style={styles.bookingLabel}>Bilgilerin</Text>
+        <TextInput
+          value={draft.customerName}
+          onChangeText={(customerName) => onDraftChange({ ...draft, customerName })}
+          placeholder="Ad soyad"
+          style={styles.input}
+        />
+        <TextInput
+          value={draft.customerPhone}
+          onChangeText={(customerPhone) => onDraftChange({ ...draft, customerPhone })}
+          placeholder="Telefon"
+          keyboardType="phone-pad"
+          style={styles.input}
+        />
+        <TextInput
+          value={draft.customerEmail}
+          onChangeText={(customerEmail) => onDraftChange({ ...draft, customerEmail })}
+          placeholder="E-posta"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          style={styles.input}
+        />
+        <TextInput
+          value={draft.note}
+          onChangeText={(note) => onDraftChange({ ...draft, note })}
+          placeholder="Not (opsiyonel)"
+          style={[styles.input, styles.noteInput]}
+          multiline
+        />
+        <View style={styles.paymentPreview}>
+          <Text style={styles.paymentTitle}>Ödeme modeli işletmeye göre uygulanır</Text>
+          <Text style={styles.paymentText}>Sadece rezervasyon, kapora veya ödemenin tamamı seçeneklerinden işletmenin aktif ettiği model kullanılır.</Text>
+        </View>
+        <Pressable style={styles.primaryButton} onPress={onSubmit} disabled={loading}>
+          <Text style={styles.primaryButtonText}>{loading ? "Oluşturuluyor..." : `${money(listing.price)} ile rezerv et`}</Text>
+        </Pressable>
+      </View>
+    </>
   );
 }
 
@@ -682,16 +1326,24 @@ function AuthCard({
   return (
     <View style={styles.authCard}>
       <Text style={styles.authTitle}>{mode === "login" ? "Giriş yap" : "Hesap oluştur"}</Text>
-      <View style={styles.roleSwitch}>
-        <Pressable
-          style={[styles.roleButton, role === "customer" && styles.roleButtonActive]}
+      <Text style={styles.authLead}>Kullanım tipini seç; sözleşme ve giriş akışı buna göre hazırlanır.</Text>
+      <View style={styles.authRoleGrid}>
+        <AuthRoleCard
+          title="Bireysel"
+          description="Rezervasyon yap, favorilerini takip et ve ödemelerini yönet."
+          icon="👤"
+          image={authCustomerBg}
+          active={role === "customer"}
           onPress={() => onRoleChange("customer")}
-        >
-          <Text style={[styles.roleText, role === "customer" && styles.roleTextActive]}>Bireysel</Text>
-        </Pressable>
-        <Pressable style={[styles.roleButton, role === "venue" && styles.roleButtonActive]} onPress={() => onRoleChange("venue")}>
-          <Text style={[styles.roleText, role === "venue" && styles.roleTextActive]}>İşletme</Text>
-        </Pressable>
+        />
+        <AuthRoleCard
+          title="İşletme"
+          description="Takvim, hizmet, tahsilat ve marketplace satışlarını yönet."
+          icon="▦"
+          image={authVenueBg}
+          active={role === "venue"}
+          onPress={() => onRoleChange("venue")}
+        />
       </View>
       {mode === "register" ? (
         <TextInput
@@ -731,6 +1383,140 @@ function AuthCard({
       <Pressable onPress={() => onModeChange(mode === "login" ? "register" : "login")}>
         <Text style={styles.authToggle}>{mode === "login" ? "Yeni hesap oluştur" : "Zaten hesabım var"}</Text>
       </Pressable>
+    </View>
+  );
+}
+
+function AuthRoleCard({
+  title,
+  description,
+  icon,
+  image,
+  active,
+  onPress,
+}: {
+  title: string;
+  description: string;
+  icon: string;
+  image: number;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={[styles.mobileRoleCard, active && styles.mobileRoleCardActive]} onPress={onPress}>
+      <ImageBackground source={image} style={styles.mobileRoleBg} imageStyle={styles.mobileRoleBgImage}>
+        <View style={styles.mobileRoleOverlay}>
+          <View style={styles.mobileRoleIcon}>
+            <Text style={styles.mobileRoleIconText}>{icon}</Text>
+          </View>
+          <Text style={styles.mobileRoleTitle}>{title}</Text>
+          <Text style={styles.mobileRoleDescription}>{description}</Text>
+          <Text style={styles.mobileRoleAction}>{active ? "Seçili" : "Seç"}</Text>
+        </View>
+      </ImageBackground>
+    </Pressable>
+  );
+}
+
+function ProfileScreen({
+  session,
+  authMode,
+  role,
+  form,
+  loading,
+  onLogout,
+  onModeChange,
+  onRoleChange,
+  onFormChange,
+  onSubmitAuth,
+}: {
+  session: Session | null;
+  authMode: "login" | "register";
+  role: Role;
+  form: { name: string; email: string; phone: string; password: string };
+  loading: boolean;
+  onLogout: () => void;
+  onModeChange: (mode: "login" | "register") => void;
+  onRoleChange: (role: Role) => void;
+  onFormChange: (form: { name: string; email: string; phone: string; password: string }) => void;
+  onSubmitAuth: () => void;
+}) {
+  const [showAuth, setShowAuth] = useState(false);
+  const displayName = session?.user.name || "Hüseyin Yıldız";
+  const menuItems = [
+    { icon: "▣", label: "Profil" },
+    { icon: "♡", label: "Favoriler" },
+    { icon: "○", label: "Mesajlar" },
+    { icon: "□", label: "Randevularım" },
+    { icon: "▤", label: "Formlar" },
+    { icon: "⚙", label: "Ayarlar" },
+  ];
+  const supportItems = [
+    { icon: "◎", label: "Destek" },
+    { icon: "◌", label: "Türkçe (Türkiye)" },
+  ];
+
+  return (
+    <View style={styles.profilePage}>
+      <View style={styles.profileHeader}>
+        <View style={styles.profileIdentity}>
+          <Text style={styles.profileName} numberOfLines={1}>{displayName}</Text>
+          <Text style={styles.profileSubtitle}>Kişisel profil</Text>
+        </View>
+        <Image source={{ uri: profilePhotoUri }} style={styles.profilePhoto} />
+      </View>
+
+      <View style={styles.walletCard}>
+        <Text style={styles.walletLabel}>Cüzdan bakiyesi</Text>
+        <Text style={styles.walletAmount}>₺0,00</Text>
+        <Pressable style={styles.walletButton}>
+          <Text style={styles.walletButtonText}>Cüzdanı görüntüle</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.profileMenuCard}>
+        {menuItems.map((item) => (
+          <Pressable key={item.label} style={styles.profileMenuItem}>
+            <Text style={styles.profileMenuIcon}>{item.icon}</Text>
+            <Text style={styles.profileMenuLabel}>{item.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={styles.profileMenuCard}>
+        {supportItems.map((item) => (
+          <Pressable key={item.label} style={styles.profileMenuItem}>
+            <Text style={styles.profileMenuIcon}>{item.icon}</Text>
+            <Text style={styles.profileMenuLabel}>{item.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {session ? (
+        <Pressable style={styles.logoutCard} onPress={onLogout}>
+          <Text style={styles.profileMenuIcon}>↪</Text>
+          <Text style={styles.profileMenuLabel}>Oturumu kapat</Text>
+        </Pressable>
+      ) : (
+        <>
+          <Pressable style={styles.logoutCard} onPress={() => setShowAuth((current) => !current)}>
+            <Text style={styles.profileMenuIcon}>↪</Text>
+            <Text style={styles.profileMenuLabel}>Giriş yap / Kayıt ol</Text>
+          </Pressable>
+          {showAuth ? (
+            <AuthCard
+              mode={authMode}
+              role={role}
+              form={form}
+              loading={loading}
+              onModeChange={onModeChange}
+              onRoleChange={onRoleChange}
+              onFormChange={onFormChange}
+              onSubmit={onSubmitAuth}
+            />
+          ) : null}
+        </>
+      )}
     </View>
   );
 }
@@ -1123,7 +1909,7 @@ function VenueCalendar({ payload }: { payload: VenuePayload | null }) {
               <View key={`${day.date}-${slot.time}`} style={styles.slotRow}>
                 <Text style={styles.slotTime}>{slot.time}</Text>
                 <Text style={styles.slotTitle}>{slot.title || slot.status}</Text>
-                <StatusPill label={slot.status} active={slot.status !== "kapalı"} />
+                <StatusPill label={slot.status} active={slot.status !== "kapalı" && slot.status !== "closed"} />
               </View>
             ))}
           </View>
@@ -1235,9 +2021,706 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
+  keyboardArea: {
+    flex: 1,
+  },
   content: {
     padding: 16,
     paddingBottom: 34,
+  },
+  consumerShell: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  consumerScroll: {
+    flex: 1,
+  },
+  consumerContent: {
+    paddingHorizontal: 20,
+    paddingTop: 34,
+    paddingBottom: 132,
+  },
+  searchContent: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+  },
+  bottomNavWrap: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 18,
+  },
+  bottomNav: {
+    minHeight: 76,
+    borderRadius: 38,
+    borderWidth: 1,
+    borderColor: "rgba(10, 18, 40, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.82)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 7,
+    shadowColor: "#07123d",
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  bottomTab: {
+    flex: 1,
+    minHeight: 62,
+    borderRadius: 31,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  bottomTabActive: {
+    backgroundColor: "rgba(36, 139, 232, 0.13)",
+  },
+  bottomTabIcon: {
+    color: "#05070c",
+    fontSize: 30,
+    lineHeight: 32,
+    fontWeight: "900",
+  },
+  bottomTabIconActive: {
+    color: "#248be8",
+  },
+  bottomTabLabel: {
+    color: "#05070c",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  bottomTabLabelActive: {
+    color: "#248be8",
+  },
+  mobilePage: {
+    flex: 1,
+  },
+  locationRow: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginTop: 8,
+    marginBottom: 28,
+  },
+  locationPin: {
+    color: "#248be8",
+    fontSize: 17,
+    lineHeight: 20,
+  },
+  locationText: {
+    color: "#05070c",
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  locationChevron: {
+    color: "#05070c",
+    fontSize: 20,
+    fontWeight: "900",
+    marginTop: -5,
+  },
+  mobileSearchBar: {
+    minHeight: 72,
+    borderRadius: 36,
+    borderWidth: 1,
+    borderColor: "#e7e7e7",
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingLeft: 20,
+    paddingRight: 9,
+    marginBottom: 32,
+    shadowColor: "#07123d",
+    shadowOpacity: 0.1,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  mobileSearchIcon: {
+    color: "#05070c",
+    fontSize: 35,
+    lineHeight: 38,
+    fontWeight: "300",
+  },
+  mobileSearchInputWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  mobileSearchInput: {
+    color: "#05070c",
+    fontSize: 19,
+    fontWeight: "600",
+    minHeight: 50,
+  },
+  mobileSearchButton: {
+    minWidth: 74,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#05070c",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobileSearchButtonText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  mobileCategoryGrid: {
+    width: 760,
+    height: 264,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    columnGap: 20,
+    rowGap: 18,
+    paddingRight: 24,
+    paddingBottom: 8,
+  },
+  mobileCategoryScroller: {
+    height: 278,
+    marginBottom: 6,
+  },
+  mobileCategoryColumns: {
+    flexDirection: "row",
+    gap: 20,
+    paddingRight: 24,
+  },
+  mobileCategoryColumn: {
+    width: 82,
+    gap: 18,
+  },
+  mobileCategoryTile: {
+    width: 82,
+    height: 128,
+    alignItems: "center",
+  },
+  mobileCategoryIconBox: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#e1e1e1",
+    backgroundColor: "#fbfbfb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobileCategoryIconBoxActive: {
+    borderColor: "#248be8",
+    backgroundColor: "#eef8ff",
+  },
+  mobileCategoryIcon: {
+    color: "#05070c",
+    fontSize: 31,
+    lineHeight: 34,
+    fontWeight: "800",
+  },
+  mobileCategoryLabel: {
+    color: "#05070c",
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: "800",
+    textAlign: "center",
+    marginTop: 10,
+  },
+  mobileSectionHeader: {
+    marginTop: 18,
+    marginBottom: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  mobileSectionTitle: {
+    color: "#05070c",
+    fontSize: 27,
+    lineHeight: 32,
+    fontWeight: "900",
+  },
+  seeAllText: {
+    color: "#05070c",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  featureRail: {
+    gap: 16,
+    paddingRight: 20,
+    paddingBottom: 10,
+  },
+  featureCard: {
+    width: 278,
+  },
+  featureCardCompact: {
+    width: 242,
+  },
+  featureImage: {
+    width: "100%",
+    height: 182,
+    borderRadius: 18,
+    backgroundColor: "#eef2f6",
+  },
+  featureBadge: {
+    position: "absolute",
+    top: 14,
+    left: 14,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.88)",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  featureBadgeText: {
+    color: "#05070c",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  featureTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 13,
+  },
+  featureTitle: {
+    flex: 1,
+    color: "#05070c",
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "900",
+  },
+  featureRating: {
+    color: "#05070c",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  featureMeta: {
+    color: "#858585",
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  nearVenueCard: {
+    minHeight: 134,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    overflow: "hidden",
+    marginBottom: 14,
+  },
+  nearVenueImage: {
+    width: 132,
+    minHeight: 134,
+    backgroundColor: "#eef2f6",
+  },
+  nearVenueBody: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  nearVenueTitle: {
+    color: "#05070c",
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "900",
+  },
+  nearVenueMeta: {
+    color: "#858585",
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  mobileSoftLogin: {
+    minHeight: 58,
+    borderRadius: 29,
+    backgroundColor: "#05070c",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+  mobileSoftLoginText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  searchPage: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  mapStage: {
+    height: 474,
+    backgroundColor: "#edf1e7",
+    overflow: "hidden",
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  mapRoad: {
+    position: "absolute",
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#d0d5dd",
+  },
+  mapRoadOne: {
+    width: 470,
+    top: 150,
+    left: -40,
+    transform: [{ rotate: "-18deg" }],
+  },
+  mapRoadTwo: {
+    width: 430,
+    top: 246,
+    right: -54,
+    transform: [{ rotate: "26deg" }],
+  },
+  mapRoadThree: {
+    width: 350,
+    top: 324,
+    left: -20,
+    transform: [{ rotate: "4deg" }],
+  },
+  mapLabel: {
+    position: "absolute",
+    color: "#72777f",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  mapPointLabel: {
+    position: "absolute",
+    color: "#d63f8c",
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: "900",
+    maxWidth: 150,
+  },
+  userMapDot: {
+    position: "absolute",
+    left: "50%",
+    bottom: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#248be8",
+    borderWidth: 5,
+    borderColor: "#fff",
+  },
+  searchMapBar: {
+    position: "absolute",
+    top: 56,
+    left: 22,
+    right: 22,
+    minHeight: 82,
+    borderRadius: 41,
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingLeft: 21,
+    paddingRight: 9,
+    shadowColor: "#07123d",
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 9 },
+    elevation: 10,
+  },
+  searchMapIcon: {
+    color: "#05070c",
+    fontSize: 38,
+    lineHeight: 40,
+  },
+  searchMapTexts: {
+    flex: 1,
+  },
+  searchMapTitle: {
+    color: "#05070c",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  searchMapSub: {
+    color: "#858585",
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  searchMapFilter: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: "#d8d8d8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchMapFilterText: {
+    color: "#05070c",
+    fontSize: 28,
+    fontWeight: "900",
+  },
+  searchSheet: {
+    marginTop: -42,
+    borderTopLeftRadius: 34,
+    borderTopRightRadius: 34,
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingTop: 17,
+    paddingBottom: 18,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 70,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#d0d0d0",
+    marginBottom: 20,
+  },
+  filterRail: {
+    gap: 10,
+    paddingRight: 20,
+    paddingBottom: 10,
+  },
+  filterChip: {
+    minHeight: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#d8d8d8",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  filterChipText: {
+    color: "#05070c",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  mapCount: {
+    color: "#858585",
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  searchResultCard: {
+    backgroundColor: "#fff",
+    marginBottom: 18,
+  },
+  searchResultImage: {
+    width: "100%",
+    height: 186,
+    borderRadius: 20,
+    backgroundColor: "#eef2f6",
+  },
+  searchResultText: {
+    paddingTop: 12,
+  },
+  searchResultTitle: {
+    flex: 1,
+    color: "#05070c",
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: "900",
+  },
+  searchResultRating: {
+    color: "#05070c",
+    fontSize: 19,
+    fontWeight: "900",
+  },
+  searchResultMeta: {
+    color: "#858585",
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  activityPage: {
+    minHeight: 720,
+  },
+  pageTitle: {
+    color: "#05070c",
+    fontSize: 38,
+    lineHeight: 45,
+    fontWeight: "900",
+    marginTop: 92,
+  },
+  activityEmptyWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    marginTop: 220,
+  },
+  activityIcon: {
+    width: 50,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: "#eee8ff",
+    overflow: "hidden",
+    marginBottom: 24,
+  },
+  activityIconTop: {
+    height: 16,
+    backgroundColor: "#6d5dfc",
+  },
+  activityTitle: {
+    color: "#05070c",
+    fontSize: 25,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  activityText: {
+    color: "#858585",
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 12,
+    marginBottom: 26,
+  },
+  blackButton: {
+    minHeight: 52,
+    borderRadius: 26,
+    backgroundColor: "#05070c",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+  blackButtonText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  outlinePillButton: {
+    minHeight: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#d8d8d8",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    marginTop: 12,
+  },
+  outlinePillButtonText: {
+    color: "#05070c",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  profilePage: {
+    flex: 1,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 42,
+    marginBottom: 28,
+  },
+  profileIdentity: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 18,
+  },
+  profileName: {
+    color: "#05070c",
+    fontSize: 39,
+    lineHeight: 45,
+    fontWeight: "900",
+  },
+  profileSubtitle: {
+    color: "#858585",
+    fontSize: 20,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  profilePhoto: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 2,
+    borderColor: "#e6e6e6",
+    backgroundColor: "#e7eef7",
+  },
+  walletCard: {
+    minHeight: 188,
+    borderRadius: 22,
+    backgroundColor: "#248be8",
+    padding: 26,
+    marginBottom: 26,
+    shadowColor: "#248be8",
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 9,
+  },
+  walletLabel: {
+    color: "rgba(255,255,255,0.84)",
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  walletAmount: {
+    color: "#fff",
+    fontSize: 40,
+    lineHeight: 48,
+    fontWeight: "900",
+    marginTop: 10,
+  },
+  walletButton: {
+    alignSelf: "flex-start",
+    minHeight: 50,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  walletButtonText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  profileMenuCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e2e2e2",
+    backgroundColor: "#fff",
+    paddingVertical: 14,
+    marginBottom: 24,
+  },
+  profileMenuItem: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+    paddingHorizontal: 24,
+  },
+  profileMenuIcon: {
+    width: 42,
+    color: "#05070c",
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  profileMenuLabel: {
+    flex: 1,
+    color: "#05070c",
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  logoutCard: {
+    minHeight: 76,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e2e2e2",
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+    paddingHorizontal: 24,
+    marginBottom: 26,
   },
   hero: {
     borderRadius: 24,
@@ -1283,6 +2766,13 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     fontWeight: "800",
   },
+  searchInput: {
+    flex: 1,
+    minHeight: 44,
+    color: "#07123d",
+    fontSize: 15,
+    fontWeight: "800",
+  },
   searchButton: {
     backgroundColor: "#248be8",
     borderRadius: 14,
@@ -1315,6 +2805,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  categoryCardActive: {
+    borderColor: "#248be8",
+    backgroundColor: "#eef8ff",
+  },
   categoryIcon: {
     fontSize: 30,
     marginBottom: 8,
@@ -1339,6 +2833,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 12,
   },
+  listingImage: {
+    width: 92,
+    height: 118,
+    borderRadius: 18,
+    backgroundColor: "#e7eef7",
+  },
   listingAvatar: {
     width: 58,
     height: 58,
@@ -1353,10 +2853,28 @@ const styles = StyleSheet.create({
   },
   listingBody: {
     flex: 1,
+    minWidth: 0,
+  },
+  listingTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
   },
   listingName: {
+    flex: 1,
     color: "#07123d",
     fontSize: 17,
+    fontWeight: "900",
+  },
+  ratingBadge: {
+    overflow: "hidden",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: "#20c65a",
+    color: "#fff",
+    fontSize: 12,
     fontWeight: "900",
   },
   listingMeta: {
@@ -1368,6 +2886,22 @@ const styles = StyleSheet.create({
     color: "#344054",
     marginTop: 8,
     lineHeight: 19,
+  },
+  tagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 10,
+  },
+  tagPill: {
+    overflow: "hidden",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: "#f0f7ff",
+    color: "#245f9f",
+    fontSize: 11,
+    fontWeight: "900",
   },
   listingFooter: {
     marginTop: 10,
@@ -1471,6 +3005,126 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     fontWeight: "700",
   },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  refreshText: {
+    color: "#248be8",
+    fontWeight: "900",
+  },
+  backButton: {
+    alignSelf: "flex-start",
+    marginBottom: 12,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#dfe8f3",
+  },
+  backButtonText: {
+    color: "#073d77",
+    fontWeight: "900",
+  },
+  detailCard: {
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#e2eaf4",
+    marginBottom: 16,
+  },
+  detailImage: {
+    width: "100%",
+    height: 230,
+    backgroundColor: "#e7eef7",
+  },
+  detailContent: {
+    padding: 16,
+  },
+  detailTitle: {
+    flex: 1,
+    color: "#07123d",
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: "900",
+  },
+  detailSummary: {
+    color: "#344054",
+    marginTop: 10,
+    lineHeight: 21,
+    fontWeight: "700",
+  },
+  bookingPanel: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e2eaf4",
+    borderRadius: 24,
+    padding: 16,
+  },
+  bookingLabel: {
+    marginTop: 12,
+    color: "#07123d",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  slotPicker: {
+    gap: 8,
+    paddingTop: 10,
+    paddingBottom: 2,
+  },
+  slotButton: {
+    minWidth: 76,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#dce7f3",
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  slotButtonActive: {
+    borderColor: "#07123d",
+    backgroundColor: "#07123d",
+  },
+  slotButtonDisabled: {
+    opacity: 0.4,
+  },
+  slotButtonText: {
+    color: "#07123d",
+    fontWeight: "900",
+  },
+  slotButtonTextActive: {
+    color: "#fff",
+  },
+  emptySlotText: {
+    color: "#667085",
+    fontWeight: "800",
+    marginTop: 10,
+  },
+  noteInput: {
+    minHeight: 82,
+    textAlignVertical: "top",
+  },
+  paymentPreview: {
+    marginTop: 14,
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: "#f7fbff",
+    borderWidth: 1,
+    borderColor: "#dceaf8",
+  },
+  paymentTitle: {
+    color: "#07123d",
+    fontWeight: "900",
+  },
+  paymentText: {
+    color: "#667085",
+    marginTop: 6,
+    lineHeight: 19,
+    fontWeight: "700",
+  },
   authCard: {
     backgroundColor: "#fff",
     borderWidth: 1,
@@ -1481,6 +3135,73 @@ const styles = StyleSheet.create({
   authTitle: {
     color: "#07123d",
     fontSize: 24,
+    fontWeight: "900",
+  },
+  authLead: {
+    color: "#667085",
+    marginTop: 8,
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+  authRoleGrid: {
+    gap: 12,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  mobileRoleCard: {
+    overflow: "hidden",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#e2eaf4",
+    backgroundColor: "#fff",
+  },
+  mobileRoleCardActive: {
+    borderColor: "#63c8ff",
+  },
+  mobileRoleBg: {
+    minHeight: 214,
+  },
+  mobileRoleBgImage: {
+    borderRadius: 21,
+  },
+  mobileRoleOverlay: {
+    minHeight: 214,
+    padding: 16,
+    backgroundColor: "rgba(255,255,255,0.64)",
+  },
+  mobileRoleIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.82)",
+  },
+  mobileRoleIconText: {
+    fontSize: 21,
+  },
+  mobileRoleTitle: {
+    marginTop: 14,
+    color: "#07123d",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  mobileRoleDescription: {
+    marginTop: 5,
+    color: "#344054",
+    lineHeight: 20,
+    fontWeight: "700",
+    maxWidth: 260,
+  },
+  mobileRoleAction: {
+    alignSelf: "flex-start",
+    overflow: "hidden",
+    marginTop: 12,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#248be8",
+    color: "#fff",
     fontWeight: "900",
   },
   roleSwitch: {
@@ -1584,10 +3305,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 18,
     marginBottom: 16,
-    shadowColor: "#248be8",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
+    boxShadow: "0px 10px 18px rgba(36, 139, 232, 0.08)",
   },
   onboardingHeader: {
     flexDirection: "row",
@@ -1645,6 +3363,21 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: "#073d77",
+    fontWeight: "900",
+  },
+  secondaryCompactButton: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#bfe6ff",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: "#f7fbff",
+  },
+  secondaryCompactButtonText: {
+    color: "#073d77",
+    fontSize: 13,
     fontWeight: "900",
   },
   dangerButton: {
@@ -1748,5 +3481,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     marginBottom: 10,
+  },
+  reservationCardMuted: {
+    backgroundColor: "#f8fbff",
+    borderWidth: 1,
+    borderColor: "#e2eaf4",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 10,
+    opacity: 0.82,
   },
 });

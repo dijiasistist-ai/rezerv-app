@@ -34,5 +34,11 @@ Canlı API varsayılan olarak `https://tyee.app` kullanır. Local API ile deneme
 EXPO_PUBLIC_API_URL=http://127.0.0.1:8091 npm run ios
 ```
 
+Web önizleme için:
+
+```bash
+EXPO_PUBLIC_API_URL=http://127.0.0.1:8091 npm run web -- --localhost --port 8093
+```
+
 Android emulator içinde local API kullanılacaksa `127.0.0.1` yerine Android host adresi
 gerekebilir.

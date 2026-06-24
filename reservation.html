@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee | Rezervasyon</title>
-    <link rel="stylesheet" href="/styles.css?v=20260623-marketplace-blue-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260624-venue-gallery-fit-2" />
   </head>
   <body class="reservation-page-body">
     <header class="site-header">
@@ -13,9 +13,8 @@
       </a>
 
       <nav class="main-nav" aria-label="Ana menü">
-        <a href="/index.html#hero">Keşfet</a>
-        <a href="/index.html#nearby-map">Yakınımda</a>
-        <a href="/venue.html">İşletmeler İçin</a>
+        <a href="/index.html#featured" id="nearby-map-trigger">Yakınımda</a>
+        <a href="/venue.html" id="business-nav-link">İşletmeler İçin</a>
       </nav>
 
       <div class="header-actions">
@@ -67,10 +66,31 @@
           </div>
         </details>
         <div class="account-shell">
-          <a class="account-button booking-login" id="booking-account-link" href="/index.html">
-            <span class="avatar-mini booking-account-avatar hidden" id="booking-account-avatar"></span>
-            <span class="account-label" id="booking-account-label">Giriş Yap / Kayıt Ol</span>
-          </a>
+          <button class="account-button" id="login-trigger" type="button" aria-expanded="false">
+            <span class="avatar-mini hidden"></span>
+            <span class="account-label">Giriş Yap / Kayıt Ol</span>
+          </button>
+          <div class="account-menu hidden" id="account-menu" aria-hidden="true">
+            <div class="account-menu-copy" id="account-menu-copy">
+              <strong>Hesap</strong>
+              <span>Rezervasyonlarını ve oturumunu yönet.</span>
+            </div>
+            <button class="account-menu-item hidden" id="account-dashboard" type="button">
+              İşletme paneline git
+            </button>
+            <button class="account-menu-item hidden" id="account-admin" type="button">
+              Yönetici paneline git
+            </button>
+            <div class="account-menu-divider customer-account-only"></div>
+            <button class="account-menu-item customer-account-only" type="button" data-customer-panel="reservations">Rezervasyonlarım</button>
+            <button class="account-menu-item customer-account-only" type="button" data-customer-panel="purchases">Satın Aldıklarım</button>
+            <button class="account-menu-item customer-account-only" type="button" data-customer-panel="reviews">Değerlendirmelerim</button>
+            <button class="account-menu-item customer-account-only" type="button" data-customer-panel="favorites">Favorilerim</button>
+            <button class="account-menu-item customer-account-only" type="button" data-customer-panel="billing">Fatura Adreslerim</button>
+            <button class="account-menu-item customer-account-only" type="button" data-customer-panel="cards">Kayıtlı Kartlarım</button>
+            <div class="account-menu-divider customer-account-only"></div>
+            <button class="account-menu-item" id="account-logout" type="button">Çıkış yap</button>
+          </div>
         </div>
       </div>
     </header>
@@ -79,6 +99,7 @@
       <section class="booking-workspace">
         <section class="booking-venue-card" aria-label="İşletme özeti">
           <div class="booking-hero-media media-field" id="booking-hero-media"></div>
+          <div class="booking-gallery" id="booking-gallery" aria-label="İşletme fotoğrafları"></div>
           <div class="booking-venue-content">
             <div class="booking-venue-topline">
               <span class="booking-rating" id="booking-rating">-</span>
@@ -208,6 +229,6 @@
       </section>
     </main>
 
-    <script src="/reservation-page.js?v=20260623-reservation-submit-1"></script>
+    <script src="/reservation-page.js?v=20260624-venue-gallery-fit-2"></script>
   </body>
 </html>

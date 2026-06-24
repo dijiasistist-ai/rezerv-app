@@ -6,13 +6,13 @@
     <title>tyee | Rezervasyon Marketplace</title>
     <meta
       name="description"
-      content="Saç kuaför, masaj, pet kuaför, halı saha, restaurant ve tattoo işletmelerini keşfet, karşılaştır ve anında rezervasyon oluştur."
+      content="Bayan kuaför, erkek berber, masaj, pet kuaför, halı saha, restaurant ve tattoo işletmelerini keşfet, karşılaştır ve anında rezervasyon oluştur."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/styles.css?v=20260623-map-preview-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260624-auth-choice-realphoto-1" />
   </head>
   <body>
     <div class="page-shell">
@@ -22,7 +22,6 @@
         </a>
 
         <nav class="main-nav" aria-label="Ana menü">
-          <a class="is-active" href="#hero">Keşfet</a>
           <a href="#featured" id="nearby-map-trigger">Yakınımda</a>
           <a href="/venue.html" id="business-nav-link">İşletmeler İçin</a>
         </nav>
@@ -116,22 +115,38 @@
             </p>
           </div>
 
-          <form class="search-panel" id="search-panel">
-            <label class="search-field search-field-main">
-              <span class="search-field-icon icon-search" aria-hidden="true"></span>
-              <input
-                id="search-query"
-                type="text"
-                placeholder="Örn: Makeup, masaj, restaurant, tattoo"
-              />
-            </label>
-            <label class="search-field search-field-location">
-              <span class="search-field-icon icon-pin" aria-hidden="true"></span>
-              <span class="sr-only">Nerede?</span>
-              <select id="search-city"></select>
-            </label>
-            <button class="solid-button search-button" type="submit">Ara →</button>
-          </form>
+          <div class="search-shell">
+            <form class="search-panel" id="search-panel">
+              <label class="search-field search-field-main">
+                <span class="search-field-icon icon-search" aria-hidden="true"></span>
+                <input
+                  id="search-query"
+                  type="text"
+                  placeholder="Örn: Makeup, masaj, restaurant, tattoo"
+                />
+              </label>
+              <label class="search-field search-field-location">
+                <span class="search-field-icon icon-pin" aria-hidden="true"></span>
+                <span class="sr-only">Nerede?</span>
+                <select id="search-city"></select>
+              </label>
+              <button class="solid-button search-button" type="submit">Ara →</button>
+            </form>
+            <div class="search-category-popover hidden" id="search-category-popover" aria-hidden="true">
+              <div class="search-category-tabs" aria-label="Arama türü">
+                <button class="is-active" type="button">Tümü</button>
+                <button type="button">Kategoriler</button>
+                <button type="button">İşletmeler</button>
+              </div>
+              <div class="search-category-list" id="search-category-list">
+                <button class="search-category-option" data-filter="all" data-category-label="" type="button">
+                  <span>⌕</span>
+                  <strong>Tüm hizmetler</strong>
+                  <small>Bütün kategorileri göster</small>
+                </button>
+              </div>
+            </div>
+          </div>
 
           <div class="hero-proof">
             <span class="hero-proof-avatars" aria-hidden="true">
@@ -142,7 +157,8 @@
 
           <div class="popular-searches">
             <strong>Popüler aramalar:</strong>
-            <button type="button" data-search="Saç kuaför">Saç kuaför</button>
+            <button type="button" data-search="Bayan kuaför">Bayan kuaför</button>
+            <button type="button" data-search="Erkek berber">Erkek berber</button>
             <button type="button" data-search="Halı saha">Halı saha</button>
             <button type="button" data-search="Masaj">Masaj</button>
             <button type="button" data-search="Pet kuaför">Pet kuaför</button>
@@ -154,16 +170,17 @@
 
         <section class="category-band" id="categories">
           <div class="section-title-row">
-            <h2>Bu hafta popüler</h2>
-            <a class="section-link" href="#featured">Tümünü keşfet</a>
+            <h2>Popüler kategoriler</h2>
+            <span class="section-meta">İşletme ve sipariş performansına göre</span>
           </div>
           <div class="category-rail" id="category-rail">
-            <button class="category-card" data-filter="pet-kuafor" type="button"><span>🐾</span><strong>Pet Kuaför</strong><small>0</small></button>
-            <button class="category-card" data-filter="sac-kuafor" type="button"><span>✂️</span><strong>Saç Kuaför</strong><small>0</small></button>
-            <button class="category-card" data-filter="masaj" type="button"><span>🪷</span><strong>Masaj</strong><small>0</small></button>
-            <button class="category-card" data-filter="hali-saha" type="button"><span>⚽</span><strong>Halı Saha</strong><small>0</small></button>
-            <button class="category-card" data-filter="restaurant" type="button"><span>🍽️</span><strong>Restaurant</strong><small>0</small></button>
-            <button class="category-card" data-filter="tattoo" type="button"><span>🖋️</span><strong>Tattoo</strong><small>0</small></button>
+            <button class="category-card" data-filter="pet-kuafor" type="button"><span class="category-card-badge">🐾</span><div class="category-card-copy"><strong>Pet Kuaför</strong><small>0 işletme · 0 sipariş</small></div></button>
+            <button class="category-card" data-filter="bayan-kuafor" type="button"><span class="category-card-badge">💇‍♀️</span><div class="category-card-copy"><strong>Bayan Kuaför</strong><small>0 işletme · 0 sipariş</small></div></button>
+            <button class="category-card" data-filter="erkek-berber" type="button"><span class="category-card-badge">💈</span><div class="category-card-copy"><strong>Erkek Berber</strong><small>0 işletme · 0 sipariş</small></div></button>
+            <button class="category-card" data-filter="guzellik" type="button"><span class="category-card-badge">💄</span><div class="category-card-copy"><strong>Güzellik</strong><small>0 işletme · 0 sipariş</small></div></button>
+            <button class="category-card" data-filter="masaj" type="button"><span class="category-card-badge">🪷</span><div class="category-card-copy"><strong>Masaj</strong><small>0 işletme · 0 sipariş</small></div></button>
+            <button class="category-card" data-filter="hali-saha" type="button"><span class="category-card-badge">⚽</span><div class="category-card-copy"><strong>Halı Saha</strong><small>0 işletme · 0 sipariş</small></div></button>
+            <button class="category-card" data-filter="restaurant" type="button"><span class="category-card-badge">🍽️</span><div class="category-card-copy"><strong>Restaurant</strong><small>0 işletme · 0 sipariş</small></div></button>
           </div>
         </section>
 
@@ -240,7 +257,6 @@
         </a>
 
         <nav class="info-main-nav" aria-label="Bilgi ekranı ana menü">
-          <a href="/#hero" data-info-home>Keşfet</a>
           <a href="/#categories" data-info-home>Kategoriler</a>
           <a href="/#nearby-map" data-info-home>Yakınımda</a>
           <a href="/#featured" data-info-home>Fırsatlar</a>
@@ -588,32 +604,32 @@
         <form class="auth-form" id="auth-form">
           <div class="auth-step" id="auth-step-entry">
             <div class="auth-role-copy">
-              <p class="eyebrow">Giriş tipi</p>
-              <h3>Nasıl devam etmek istersin?</h3>
-              <p>Bireysel rezervasyon akışına ya da işletme yönetim paneline uygun giriş tipini seç.</p>
+              <p class="eyebrow">Hesap tipi</p>
+              <h3>Bireysel mi, işletme mi?</h3>
+              <p>Önce kullanım şeklini seç. Sonraki adımda form ve sözleşme seçimine göre hazırlanacak.</p>
             </div>
 
             <div class="auth-role-grid">
-              <button class="auth-role-card" type="button" data-entry-choice="customer">
+              <button class="auth-role-card" type="button" data-entry-choice="customer" aria-pressed="false">
                 <span class="auth-role-icon" aria-hidden="true">👤</span>
                 <span class="auth-role-text">
-                  <strong>Bireysel giriş</strong>
-                  <span>Rezervasyonlarını, favorilerini ve ödemelerini yönet.</span>
+                  <strong>Bireysel</strong>
+                  <span>Rezervasyon yap, favori işletmelerini takip et ve ödemelerini yönet.</span>
                 </span>
-                <span class="auth-role-arrow" aria-hidden="true">›</span>
+                <span class="auth-role-arrow" aria-hidden="true">Devam et</span>
               </button>
-              <button class="auth-role-card" type="button" data-entry-choice="venue">
+              <button class="auth-role-card" type="button" data-entry-choice="venue" aria-pressed="false">
                 <span class="auth-role-icon" aria-hidden="true">▦</span>
                 <span class="auth-role-text">
-                  <strong>İşletme girişi</strong>
-                  <span>Takvim, tahsilat, doluluk ve işletme operasyonuna geç.</span>
+                  <strong>İşletme</strong>
+                  <span>Takvim, hizmet, tahsilat, kampanya ve marketplace satışlarını yönet.</span>
                 </span>
-                <span class="auth-role-arrow" aria-hidden="true">›</span>
+                <span class="auth-role-arrow" aria-hidden="true">Devam et</span>
               </button>
             </div>
           </div>
 
-          <div class="auth-step" id="auth-step-form">
+          <div class="auth-step hidden" id="auth-step-form">
             <label id="name-field" class="hidden">
               <span>Ad soyad</span>
               <input id="auth-name" type="text" placeholder="Adınızı girin" />
@@ -630,52 +646,20 @@
               <span>Şifre</span>
               <input id="auth-password" type="password" placeholder="En az 6 karakter" required />
             </label>
-            <p class="auth-feedback" id="auth-feedback"></p>
-            <button class="solid-button auth-submit" id="auth-submit" type="submit">Giriş Yap</button>
-            <button class="ghost-button auth-back-button hidden" id="auth-entry-back" type="button">
-              Giriş tipine dön
-            </button>
-          </div>
-
-          <div class="auth-step hidden" id="auth-step-role">
-            <div class="auth-role-copy">
-              <p class="eyebrow">Kullanım tipi</p>
-              <h3>tyee'ı nasıl kullanacaksın?</h3>
-              <p>Önce hesabını oluşturuyoruz, ardından kullanım şeklini seçerek doğru akışa geçiyorsun.</p>
-            </div>
-
-            <div class="auth-role-grid">
-              <button class="auth-role-card" type="button" data-role-choice="customer">
-                <span class="auth-role-icon" aria-hidden="true">👤</span>
-                <span class="auth-role-text">
-                  <strong>Bireysel kullanım</strong>
-                  <span>Rezervasyon yap, favori tesislerini takip et, ödemelerini yönet.</span>
-                </span>
-                <span class="auth-role-arrow" aria-hidden="true">›</span>
-              </button>
-              <button class="auth-role-card" type="button" data-role-choice="venue">
-                <span class="auth-role-icon" aria-hidden="true">▦</span>
-                <span class="auth-role-text">
-                  <strong>İşletme yönetimi</strong>
-                  <span>Takvim, tahsilat, doluluk, kampanya ve işletme operasyonunu yönet.</span>
-                </span>
-                <span class="auth-role-arrow" aria-hidden="true">›</span>
-              </button>
-            </div>
-
-            <div class="auth-terms-panel" id="auth-customer-terms">
+            <div class="auth-terms-panel hidden" id="auth-customer-terms">
               <div class="auth-terms-scroll" id="auth-customer-terms-text">
                 <p>Sözleşme yükleniyor...</p>
               </div>
               <label class="auth-terms-accept">
                 <input id="auth-customer-terms-accept" type="checkbox" />
-                <span>Bireysel Kullanıcı ve Rezervasyon Sözleşmesi'ni okudum ve kabul ediyorum.</span>
+                <span id="auth-terms-accept-label">Sözleşmeyi okudum ve kabul ediyorum.</span>
               </label>
-              <p class="auth-feedback" id="auth-role-feedback"></p>
+              <p class="auth-role-helper" id="auth-role-helper">Sözleşmeyi onaylayınca kayıt butonu aktif olur.</p>
             </div>
-
-            <button class="ghost-button auth-back-button" id="auth-back-to-form" type="button">
-              Bilgilere geri dön
+            <p class="auth-feedback" id="auth-feedback"></p>
+            <button class="solid-button auth-submit" id="auth-submit" type="submit">Giriş Yap</button>
+            <button class="ghost-button auth-back-button hidden" id="auth-entry-back" type="button">
+              Hesap tipini değiştir
             </button>
           </div>
         </form>
@@ -710,6 +694,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260623-map-preview-1"></script>
+    <script src="/app.js?v=20260623-category-split-1"></script>
   </body>
 </html>

@@ -3,6 +3,10 @@ const filterPillsContainer = document.querySelector("#filter-pills");
 const categoryRail = document.querySelector("#category-rail");
 const categoryNext = document.querySelector("#category-next");
 const searchPanel = document.querySelector("#search-panel");
+const searchShell = document.querySelector(".search-shell");
+const searchFieldMain = document.querySelector(".search-field-main");
+const searchCategoryPopover = document.querySelector("#search-category-popover");
+const searchCategoryList = document.querySelector("#search-category-list");
 const queryInput = document.querySelector("#search-query");
 const citySelect = document.querySelector("#search-city");
 const heroMetrics = document.querySelector("#hero-metrics");
@@ -29,6 +33,7 @@ const customerPanelContent = document.querySelector("#customer-panel-content");
 const customerPanelTabs = document.querySelectorAll("[data-customer-panel-tab]");
 const customerPanelTriggers = document.querySelectorAll("[data-customer-panel]");
 const authModal = document.querySelector("#auth-modal");
+const authDialog = document.querySelector(".auth-dialog");
 const authClose = document.querySelector("#auth-close");
 const authCloseButton = document.querySelector("#auth-close-button");
 const authTitle = document.querySelector("#auth-title");
@@ -44,14 +49,13 @@ const authFeedback = document.querySelector("#auth-feedback");
 const nameField = document.querySelector("#name-field");
 const phoneField = document.querySelector("#phone-field");
 const authStepForm = document.querySelector("#auth-step-form");
-const authStepRole = document.querySelector("#auth-step-role");
-const authBackToForm = document.querySelector("#auth-back-to-form");
 const authEntryBack = document.querySelector("#auth-entry-back");
-const authRoleChoices = document.querySelectorAll("[data-role-choice]");
 const authEntryChoices = document.querySelectorAll("[data-entry-choice]");
+const authTermsPanel = document.querySelector("#auth-customer-terms");
 const authCustomerTermsText = document.querySelector("#auth-customer-terms-text");
 const authCustomerTermsAccept = document.querySelector("#auth-customer-terms-accept");
-const authRoleFeedback = document.querySelector("#auth-role-feedback");
+const authTermsAcceptLabel = document.querySelector("#auth-terms-accept-label");
+const authRoleHelper = document.querySelector("#auth-role-helper");
 const popularSearches = document.querySelector(".popular-searches");
 const businessNavLinks = document.querySelectorAll('a[href="/venue.html"]');
 const nearbyMapTrigger = document.querySelector("#nearby-map-trigger");
@@ -104,8 +108,11 @@ const state = {
   featuredListings: [],
   authMode: "login",
   authEntry: "customer",
-  authStep: "form",
-  pendingRegistration: null,
+  authStep: "entry",
+  authTerms: {
+    customer: null,
+    venue: null,
+  },
   token: localStorage.getItem("tyee_token") || "",
   user: null,
   nearbyMarkers: {
@@ -129,7 +136,8 @@ const state = {
 
 const fallbackCategories = [
   { id: "pet-kuafor", label: "Pet Kuaför", icon: "🐾", count: "0" },
-  { id: "sac-kuafor", label: "Saç Kuaför", icon: "✂️", count: "0" },
+  { id: "bayan-kuafor", label: "Bayan Kuaför", icon: "💇‍♀️", count: "0" },
+  { id: "erkek-berber", label: "Erkek Berber", icon: "💈", count: "0" },
   { id: "guzellik", label: "Güzellik", icon: "💄", count: "0" },
   { id: "masaj", label: "Masaj", icon: "🪷", count: "0" },
   { id: "hali-saha", label: "Halı Saha", icon: "⚽", count: "0" },
@@ -143,7 +151,8 @@ const fallbackCategories = [
 
 const categoryShowcaseMeta = {
   "pet-kuafor": { mediaClass: "showcase-pet" },
-  "sac-kuafor": { mediaClass: "showcase-hair" },
+  "bayan-kuafor": { mediaClass: "showcase-hair" },
+  "erkek-berber": { mediaClass: "showcase-barber" },
   guzellik: { mediaClass: "showcase-beauty" },
   masaj: { mediaClass: "showcase-spa" },
   "hali-saha": { mediaClass: "showcase-field" },
@@ -180,7 +189,9 @@ function normalize(value = "") {
 function normalizeSearchQuery(value = "") {
   return normalize(value)
     .replace(/\bkuaforu\b/g, "kuafor")
-    .replace(/\bsac salonu\b/g, "sac kuafor")
+    .replace(/\bsac salonu\b/g, "bayan kuafor")
+    .replace(/\bsac kuafor\b/g, "bayan kuafor")
+    .replace(/\berkek kuafor\b/g, "erkek berber")
     .replace(/\bguzelligi\b/g, "guzellik")
     .replace(/\bmasaji\b/g, "masaj")
     .replace(/\brestoran\b/g, "restaurant")
@@ -751,6 +762,39 @@ function renderCities(items = []) {
   state.city = citySelect.value || "all";
 }
 
+function parseMetricCount(value = 0) {
+  const normalized = String(value ?? "0").replace(/[^\d]/g, "");
+  return Number(normalized || 0);
+}
+
+function formatCountLabel(value = 0, singular = "işletme") {
+  return `${new Intl.NumberFormat("tr-TR").format(Number(value || 0))} ${singular}`;
+}
+
+function getPopularCategoryItems(items = [], featuredByCategory = new Map()) {
+  return [...items]
+    .map((item) => {
+      const liveListing = featuredByCategory.get(item.id);
+      const businessCount = Number(item.businessCount ?? parseMetricCount(item.count));
+      const orderCount = Number(item.orderCount ?? 0);
+      const reviewCount = Number(liveListing?.reviews || 0);
+      const popularityScore = Number(item.popularityScore ?? orderCount * 100 + businessCount * 10 + reviewCount / 100);
+      return {
+        ...item,
+        businessCount,
+        orderCount,
+        popularityScore,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.popularityScore - a.popularityScore ||
+        b.orderCount - a.orderCount ||
+        b.businessCount - a.businessCount ||
+        String(a.label || "").localeCompare(String(b.label || ""), "tr"),
+    );
+}
+
 function renderCategories(items = []) {
   const safeItems = items.length ? items : fallbackCategories;
   state.categories = safeItems;
@@ -772,23 +816,50 @@ function renderCategories(items = []) {
     )
     .join("");
 
-  categoryRail.innerHTML = safeItems
+  const popularItems = getPopularCategoryItems(safeItems, featuredByCategory).slice(0, 7);
+
+  categoryRail.innerHTML = popularItems
     .map((item) => {
       const meta = categoryShowcaseMeta[item.id] || {};
-      const liveListing = featuredByCategory.get(item.id);
-      const rating = Number(liveListing?.rating || 0);
-      const reviewCount = Number(liveListing?.reviews || 0);
       return `
-        <button class="category-card ${meta.mediaClass || ""}${item.id === state.category ? " is-active" : ""}" data-filter="${item.id}" type="button">
-          <span class="category-card-badge">${item.icon || "✦"}</span>
+        <button class="category-card ${meta.mediaClass || ""}${item.id === state.category ? " is-active" : ""}" data-filter="${escapeHtml(item.id)}" type="button">
+          <span class="category-card-badge">${escapeHtml(item.icon || "✦")}</span>
           <div class="category-card-copy">
-            <strong>${item.label}</strong>
-            <small>★ ${rating ? rating.toFixed(1) : "0.0"} (${reviewCount || 0})</small>
+            <strong>${escapeHtml(item.label)}</strong>
+            <small>${formatCountLabel(item.businessCount, "işletme")} · ${formatCountLabel(item.orderCount, "sipariş")}</small>
           </div>
         </button>
       `;
     })
     .join("");
+
+  if (searchCategoryList) {
+    const allSearchItems = getPopularCategoryItems(safeItems, featuredByCategory);
+    const allBusinessCount = allSearchItems.reduce((total, item) => total + Number(item.businessCount || 0), 0);
+    const allOrderCount = allSearchItems.reduce((total, item) => total + Number(item.orderCount || 0), 0);
+    const searchItems = [
+      {
+        id: "all",
+        label: "Tüm hizmetler",
+        icon: "⌕",
+        businessCount: allBusinessCount,
+        orderCount: allOrderCount,
+      },
+      ...allSearchItems,
+    ];
+
+    searchCategoryList.innerHTML = searchItems
+      .map(
+        (item) => `
+          <button class="search-category-option${item.id === state.category ? " is-active" : ""}" data-filter="${escapeHtml(item.id)}" data-category-label="${escapeHtml(item.id === "all" ? "" : item.label)}" type="button">
+            <span>${escapeHtml(item.icon || "✦")}</span>
+            <strong>${escapeHtml(item.label)}</strong>
+            <small>${formatCountLabel(item.businessCount, "işletme")} · ${formatCountLabel(item.orderCount, "sipariş")}</small>
+          </button>
+        `,
+      )
+      .join("");
+  }
 }
 
 function renderMosaicCounts(items = []) {
@@ -827,6 +898,8 @@ function getFilteredNearbyItems(items = state.nearbyItems) {
           item.categoryLabel,
           item.cityLabel,
           item.category === "pet-kuafor" ? "pet kuafor pet kuaforu" : "",
+          item.category === "bayan-kuafor" ? "bayan kuafor kadin kuafor" : "",
+          item.category === "erkek-berber" ? "erkek berber barber" : "",
         ].join(" "),
       );
       const matchesQuery = !queryTerms.length || queryTerms.every((term) => searchable.includes(term));
@@ -845,11 +918,13 @@ function renderNearbyListings(items = state.nearbyItems) {
   } else {
     listingGrid.innerHTML = nearbyListings
       .map(
-        (item) => `
+        (item) => {
+          const nextSlot = normalize(item.nextSlot || "");
+          const hasSpecificSlot = item.nextSlot && !nextSlot.includes("yakinda") && !nextSlot.includes("yakında");
+          const nextSlotLabel = hasSpecificSlot ? `${item.nextSlot} müsait` : "Müsait";
+          return `
           <article class="nearby-facility-card" data-marker-id="${item.id}">
-            <div class="nearby-facility-media ${item.mediaClass || "media-field"}"${mediaStyleAttribute(item.mediaUrl)}>
-              <span>Yakında</span>
-            </div>
+            <div class="nearby-facility-media ${item.mediaClass || "media-field"}"${mediaStyleAttribute(item.mediaUrl)}></div>
             <div class="nearby-facility-body">
               <div class="nearby-facility-title">
                 <h3>${item.name}</h3>
@@ -864,12 +939,13 @@ function renderNearbyListings(items = state.nearbyItems) {
               </div>
               <div class="nearby-facility-foot">
                 <em>₺${item.priceLabel || "0"}</em>
-                <small>${item.nextSlot || "Yakında"} müsait</small>
+                <small>${nextSlotLabel}</small>
                 <button class="solid-button" data-reservation-id="${item.id}" type="button">Rezerv et</button>
               </div>
             </div>
           </article>
-        `,
+        `;
+        },
       )
       .join("");
   }
@@ -1003,9 +1079,54 @@ function renderLegalTerms(container, terms) {
   `;
 }
 
-async function loadCustomerTerms() {
-  const terms = await fetchJson("/api/legal/customer-terms");
-  renderLegalTerms(authCustomerTermsText, terms);
+function getAuthEntryType() {
+  return state.authEntry === "venue" ? "venue" : "customer";
+}
+
+function getAuthEntryLabel(role = getAuthEntryType()) {
+  return role === "venue" ? "İşletme" : "Bireysel";
+}
+
+function getAuthRegisterButtonLabel(role = getAuthEntryType()) {
+  return role === "venue" ? "İşletme hesabı oluştur" : "Bireysel hesap oluştur";
+}
+
+function updateAuthChoiceCards() {
+  authEntryChoices.forEach((button) => {
+    const isSelected = button.dataset.entryChoice === getAuthEntryType();
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+}
+
+function updateAuthSubmitState() {
+  if (!authSubmit) return;
+  const needsTerms = state.authMode === "register" && state.authStep === "form";
+  authSubmit.disabled = needsTerms && !authCustomerTermsAccept?.checked;
+  if (authRoleHelper) {
+    authRoleHelper.textContent = needsTerms && !authCustomerTermsAccept?.checked
+      ? "Sözleşmeyi onaylayınca kayıt butonu aktif olur."
+      : "";
+  }
+}
+
+function updateAuthTermsCopy(role = getAuthEntryType()) {
+  if (!authTermsAcceptLabel) return;
+  authTermsAcceptLabel.textContent =
+    role === "venue"
+      ? "İşletme Paneli ve Marketplace Kullanım Sözleşmesi'ni okudum ve kabul ediyorum."
+      : "Bireysel Kullanıcı ve Rezervasyon Sözleşmesi'ni okudum ve kabul ediyorum.";
+}
+
+async function loadTermsForRole(role = getAuthEntryType()) {
+  const normalizedRole = role === "venue" ? "venue" : "customer";
+  updateAuthTermsCopy(normalizedRole);
+  if (!state.authTerms[normalizedRole]) {
+    const endpoint = normalizedRole === "venue" ? "/api/legal/venue-terms" : "/api/legal/customer-terms";
+    state.authTerms[normalizedRole] = await fetchJson(endpoint);
+  }
+  renderLegalTerms(authCustomerTermsText, state.authTerms[normalizedRole]);
+  authCustomerTermsText?.scrollTo({ top: 0 });
 }
 
 function normalizeReservationItem(item = {}) {
@@ -1204,22 +1325,25 @@ async function loadListings() {
 
 function setAuthMode(mode) {
   state.authMode = mode;
-  state.authStep = mode === "login" ? "entry" : "form";
-  state.pendingRegistration = null;
+  state.authStep = "entry";
   authTabs.forEach((tab) => tab.classList.toggle("is-active", tab.dataset.mode === mode));
   const isRegister = mode === "register";
   authTitle.textContent = isRegister ? "Kayıt ol" : "Giriş yap";
-  authSubmit.textContent = isRegister ? "Devam Et" : "Giriş Yap";
+  authSubmit.textContent = isRegister ? "Kayıt Ol" : "Giriş Yap";
   nameField.classList.toggle("hidden", !isRegister);
   phoneField.classList.toggle("hidden", !isRegister);
-  authStepEntry.classList.toggle("hidden", !(!isRegister && state.authStep === "entry"));
-  authStepForm.classList.toggle("hidden", !isRegister && state.authStep === "entry");
-  authStepRole.classList.add("hidden");
-  authEntryBack.classList.toggle("hidden", isRegister || state.authStep === "entry");
+  authStepEntry.classList.remove("hidden");
+  authStepForm.classList.add("hidden");
+  authEntryBack.classList.add("hidden");
+  authTermsPanel?.classList.add("hidden");
+  authDialog?.classList.add("is-choice-step");
+  authDialog?.classList.remove("is-form-step");
+  authModal.dataset.mode = mode;
   authFeedback.textContent = "";
   authFeedback.classList.remove("is-success");
-  if (authRoleFeedback) authRoleFeedback.textContent = "";
   if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
+  updateAuthChoiceCards();
+  updateAuthSubmitState();
 }
 
 function openAuthModal(mode = "login") {
@@ -1242,15 +1366,35 @@ function openVenueLoginModal(message = "") {
 function closeAuthModal() {
   authModal.classList.add("hidden");
   authModal.setAttribute("aria-hidden", "true");
-  state.authStep = "form";
-  state.pendingRegistration = null;
+  state.authStep = "entry";
+  authForm.reset();
+  if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
+  updateAuthSubmitState();
 }
 
 function showAuthFormStep() {
+  state.authStep = "form";
+  const role = getAuthEntryType();
+  const isRegister = state.authMode === "register";
   authStepEntry.classList.add("hidden");
-  authStepRole.classList.add("hidden");
   authStepForm.classList.remove("hidden");
-  authEntryBack.classList.toggle("hidden", state.authMode !== "login");
+  authEntryBack.classList.remove("hidden");
+  authDialog?.classList.remove("is-choice-step");
+  authDialog?.classList.add("is-form-step");
+  authTitle.textContent = isRegister ? `${getAuthEntryLabel(role)} kayıt` : `${getAuthEntryLabel(role)} giriş`;
+  authSubmit.textContent = isRegister ? getAuthRegisterButtonLabel(role) : "Giriş Yap";
+  nameField.classList.toggle("hidden", !isRegister);
+  phoneField.classList.toggle("hidden", !isRegister);
+  authTermsPanel?.classList.toggle("hidden", !isRegister);
+  authFeedback.textContent = "";
+  authFeedback.classList.remove("is-success");
+  if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
+  updateAuthSubmitState();
+  if (isRegister) {
+    loadTermsForRole(role).catch(() => {
+      if (authCustomerTermsText) authCustomerTermsText.innerHTML = "<p>Sözleşme metni şu anda yüklenemedi.</p>";
+    });
+  }
 }
 
 function closeAccountMenu() {
@@ -1500,23 +1644,56 @@ async function loadCurrentUser() {
   }
 }
 
+function getCategoryLabel(categoryId = "all") {
+  if (categoryId === "all") return "";
+  return state.categories.find((item) => item.id === categoryId)?.label || "";
+}
+
+function openSearchCategoryPopover() {
+  if (!searchCategoryPopover) return;
+  searchCategoryPopover.classList.remove("hidden");
+  searchCategoryPopover.setAttribute("aria-hidden", "false");
+}
+
+function closeSearchCategoryPopover() {
+  if (!searchCategoryPopover) return;
+  searchCategoryPopover.classList.add("hidden");
+  searchCategoryPopover.setAttribute("aria-hidden", "true");
+}
+
 function handleCategoryClick(event) {
   const button = event.target.closest("[data-filter]");
   if (!button) return;
 
-  state.category = button.dataset.filter;
+  state.category = button.dataset.filter || "all";
   setActiveCategory(state.category);
+  loadListings();
+}
+
+function handleSearchCategoryClick(event) {
+  const button = event.target.closest("[data-filter]");
+  if (!button) return;
+
+  state.category = button.dataset.filter || "all";
+  state.query = "";
+  queryInput.value = button.dataset.categoryLabel || "";
+  setActiveCategory(state.category);
+  closeSearchCategoryPopover();
   loadListings();
 }
 
 filterPillsContainer.addEventListener("click", handleCategoryClick);
 categoryRail.addEventListener("click", handleCategoryClick);
+searchCategoryList?.addEventListener("click", handleSearchCategoryClick);
 categoryNext?.addEventListener("click", () => {
   categoryRail.scrollBy({
     left: Math.max(320, categoryRail.clientWidth * 0.72),
     behavior: "smooth",
   });
 });
+
+searchFieldMain?.addEventListener("click", openSearchCategoryPopover);
+queryInput.addEventListener("focus", openSearchCategoryPopover);
 
 popularSearches.addEventListener("click", (event) => {
   const button = event.target.closest("[data-search]");
@@ -1526,26 +1703,46 @@ popularSearches.addEventListener("click", (event) => {
   state.query = queryInput.value.trim();
   state.category = "all";
   setActiveCategory("all");
+  closeSearchCategoryPopover();
   loadListings();
 });
 
 searchPanel.addEventListener("submit", (event) => {
   event.preventDefault();
-  state.query = queryInput.value.trim();
+  const activeCategory = getActiveCategory();
+  const queryValue = queryInput.value.trim();
+  const activeCategoryLabel = getCategoryLabel(activeCategory);
+  state.query = activeCategory !== "all" && queryValue === activeCategoryLabel ? "" : queryValue;
   state.city = citySelect.value;
-  state.category = getActiveCategory();
+  state.category = activeCategory;
+  closeSearchCategoryPopover();
   loadListings();
   listingGrid.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 queryInput.addEventListener("input", () => {
   state.query = queryInput.value.trim();
+  state.category = "all";
+  setActiveCategory("all");
+  openSearchCategoryPopover();
   loadListings();
 });
 
 citySelect.addEventListener("change", () => {
   state.city = citySelect.value;
+  closeSearchCategoryPopover();
   loadListings();
+});
+
+citySelect.addEventListener("focus", closeSearchCategoryPopover);
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".search-shell")) return;
+  closeSearchCategoryPopover();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeSearchCategoryPopover();
 });
 
 nearbyMapTrigger?.addEventListener("click", openNearbyMap);
@@ -1771,83 +1968,29 @@ authTabs.forEach((tab) => {
   tab.addEventListener("click", () => setAuthMode(tab.dataset.mode));
 });
 
-authBackToForm.addEventListener("click", () => {
-  state.authStep = "form";
-  authStepRole.classList.add("hidden");
-  authStepForm.classList.remove("hidden");
-  if (authRoleFeedback) authRoleFeedback.textContent = "";
-});
-
 authEntryBack.addEventListener("click", () => {
   state.authStep = "entry";
   authFeedback.textContent = "";
   authFeedback.classList.remove("is-success");
   authStepForm.classList.add("hidden");
-  authStepRole.classList.add("hidden");
   authStepEntry.classList.remove("hidden");
   authEntryBack.classList.add("hidden");
+  authTermsPanel?.classList.add("hidden");
+  authDialog?.classList.add("is-choice-step");
+  authDialog?.classList.remove("is-form-step");
+  if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
+  updateAuthSubmitState();
 });
 
 authEntryChoices.forEach((button) => {
   button.addEventListener("click", () => {
-    state.authEntry = button.dataset.entryChoice;
-    state.authStep = "form";
-    authTitle.textContent = state.authEntry === "venue" ? "İşletme girişi" : "Bireysel giriş";
+    state.authEntry = button.dataset.entryChoice === "venue" ? "venue" : "customer";
+    updateAuthChoiceCards();
     showAuthFormStep();
   });
 });
 
-authRoleChoices.forEach((button) => {
-  button.addEventListener("click", async () => {
-    if (!state.pendingRegistration) return;
-
-    authFeedback.textContent = "";
-    authFeedback.classList.remove("is-success");
-    if (authRoleFeedback) {
-      authRoleFeedback.textContent = "";
-      authRoleFeedback.classList.remove("is-success");
-    }
-
-    const selectedRole = button.dataset.roleChoice;
-    if (selectedRole === "customer" && !authCustomerTermsAccept?.checked) {
-      if (authRoleFeedback) {
-        authRoleFeedback.textContent = "Bireysel kullanıcı sözleşmesini okuyup kabul etmelisin.";
-      }
-      return;
-    }
-
-    try {
-      const response = await apiRequest("/api/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-          ...state.pendingRegistration,
-          role: selectedRole,
-        }),
-      });
-
-      state.token = response.token;
-      state.user = response.user;
-      localStorage.setItem("tyee_token", response.token);
-      updateAuthUi();
-      const emailWasSent = response.emailDelivery?.status === "sent";
-      authFeedback.textContent = response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.";
-      authFeedback.classList.toggle("is-success", emailWasSent);
-      if (authRoleFeedback) {
-        authRoleFeedback.textContent = authFeedback.textContent;
-        authRoleFeedback.classList.toggle("is-success", emailWasSent);
-      }
-      authForm.reset();
-      if (emailWasSent) {
-        setTimeout(closeAuthModal, 900);
-      }
-    } catch (error) {
-      authStepRole.classList.add("hidden");
-      authStepForm.classList.remove("hidden");
-      authFeedback.textContent = error.message;
-      authFeedback.classList.remove("is-success");
-    }
-  });
-});
+authCustomerTermsAccept?.addEventListener("change", updateAuthSubmitState);
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1864,12 +2007,46 @@ authForm.addEventListener("submit", async (event) => {
   if (isRegister) {
     payload.name = authName.value.trim();
     payload.phone = authPhone.value.trim();
-    state.pendingRegistration = payload;
-    state.authStep = "role";
-    authStepForm.classList.add("hidden");
-    authStepRole.classList.remove("hidden");
-    if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
-    if (authRoleFeedback) authRoleFeedback.textContent = "";
+    payload.role = getAuthEntryType();
+
+    if (!authCustomerTermsAccept?.checked) {
+      authFeedback.textContent =
+        payload.role === "venue"
+          ? "İşletme sözleşmesini okuyup kabul etmelisin."
+          : "Bireysel kullanıcı sözleşmesini okuyup kabul etmelisin.";
+      updateAuthSubmitState();
+      return;
+    }
+
+    try {
+      const response = await apiRequest("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      state.token = response.token;
+      state.user = response.user;
+      localStorage.setItem("tyee_token", response.token);
+      updateAuthUi();
+      const emailWasSent = response.emailDelivery?.status === "sent";
+      authFeedback.textContent = response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.";
+      authFeedback.classList.toggle("is-success", emailWasSent);
+      authForm.reset();
+      if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
+      updateAuthSubmitState();
+      setTimeout(() => {
+        if (response.user?.canManageVenue) {
+          closeAuthModal();
+          window.location.href = "/venue.html";
+          return;
+        }
+        closeAuthModal();
+      }, 900);
+    } catch (error) {
+      authFeedback.textContent = error.message;
+      authFeedback.classList.remove("is-success");
+      updateAuthSubmitState();
+    }
     return;
   }
 
@@ -1924,7 +2101,7 @@ Promise.all([loadBootstrap(), loadCurrentUser()]).catch((error) => {
   `;
 });
 
-loadCustomerTerms().catch(() => {
+loadTermsForRole("customer").catch(() => {
   if (authCustomerTermsText) authCustomerTermsText.innerHTML = "<p>Sözleşme metni şu anda yüklenemedi.</p>";
 });
 
