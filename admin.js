@@ -38,7 +38,8 @@ const accessList = document.querySelector("#access-list");
 const accessCurrentIp = document.querySelector("#access-current-ip");
 const adminLogout = document.querySelector("#admin-logout");
 
-let token = localStorage.getItem("tyee_token") || "";
+const adminTokenStorageKey = "tyee_admin_token";
+let token = localStorage.getItem(adminTokenStorageKey) || "";
 
 const state = {
   data: null,
@@ -81,11 +82,20 @@ async function apiRequest(url, options = {}) {
 function showAuthWall(message = "Bu alan yalnızca admin kullanıcısı ile açılır.") {
   authWall.classList.remove("hidden");
   authWall.querySelector("p").textContent = message;
+  hydrateAdminLoginDefaults();
   if (adminLoginFeedback) {
     adminLoginFeedback.textContent = "";
     adminLoginFeedback.classList.remove("is-success");
   }
   window.setTimeout(() => adminLoginEmail?.focus(), 40);
+}
+
+function hydrateAdminLoginDefaults() {
+  if (!isLocalDemoHost() || !adminLoginEmail) return;
+  const currentEmail = adminLoginEmail.value.trim().toLowerCase();
+  if (!currentEmail || currentEmail === "demo@tyee.app") {
+    adminLoginEmail.value = "admin@tyee.app";
+  }
 }
 
 function hideAuthWall() {
@@ -619,11 +629,14 @@ if (adminLoginForm) {
         }),
       });
       token = payload.token;
-      localStorage.setItem("tyee_token", token);
+      localStorage.setItem(adminTokenStorageKey, token);
       hideAuthWall();
       await loadAdmin();
     } catch (error) {
-      adminLoginFeedback.textContent = error.message;
+      adminLoginFeedback.textContent =
+        error.message === "Bu kullanıcı admin paneli için yetkili değil."
+          ? "Bu hesap işletme paneli için. Admin için admin@tyee.app veya admin kullan."
+          : error.message;
       adminLoginFeedback.classList.remove("is-success");
     }
   });
@@ -632,14 +645,14 @@ if (adminLoginForm) {
 if (adminLogout) {
   adminLogout.addEventListener("click", () => {
     token = "";
-    localStorage.removeItem("tyee_token");
+    localStorage.removeItem(adminTokenStorageKey);
     showAuthWall("Admin oturumu kapatıldı.");
   });
 }
 
 loadAdmin().catch((error) => {
   if (error.status === 401 || error.status === 403) {
-    localStorage.removeItem("tyee_token");
+    localStorage.removeItem(adminTokenStorageKey);
     token = "";
   }
   showAuthWall(error.message);
