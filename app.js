@@ -7,6 +7,7 @@ const searchShell = document.querySelector(".search-shell");
 const searchFieldMain = document.querySelector(".search-field-main");
 const searchCategoryPopover = document.querySelector("#search-category-popover");
 const searchCategoryList = document.querySelector("#search-category-list");
+const searchCategoryTabs = document.querySelectorAll("[data-search-type]");
 const queryInput = document.querySelector("#search-query");
 const citySelect = document.querySelector("#search-city");
 const heroMetrics = document.querySelector("#hero-metrics");
@@ -113,6 +114,7 @@ const state = {
   category: "all",
   city: "all",
   query: "",
+  searchType: "all",
   categories: [],
   featuredListings: [],
   authMode: "login",
@@ -835,16 +837,105 @@ function getPopularCategoryItems(items = [], featuredByCategory = new Map()) {
     );
 }
 
-function renderCategories(items = []) {
-  const safeItems = items.length ? items : fallbackCategories;
-  state.categories = safeItems;
-  const filterItems = [{ id: "all", label: "Hepsi" }, ...safeItems];
+function getFeaturedByCategoryMap() {
   const featuredByCategory = new Map();
 
   (state.featuredListings || []).forEach((listing) => {
     if (!listing?.category || featuredByCategory.has(listing.category)) return;
     featuredByCategory.set(listing.category, listing);
   });
+
+  return featuredByCategory;
+}
+
+function getSearchBusinessItems() {
+  const byId = new Map();
+
+  [...(state.featuredListings || []), ...(state.nearbyItems || [])].forEach((item) => {
+    if (!item?.id || byId.has(item.id)) return;
+    byId.set(item.id, item);
+  });
+
+  return [...byId.values()]
+    .sort(
+      (a, b) =>
+        Number(b.reviews || 0) - Number(a.reviews || 0) ||
+        Number(a.distanceKm ?? Number.MAX_SAFE_INTEGER) - Number(b.distanceKm ?? Number.MAX_SAFE_INTEGER) ||
+        String(a.name || "").localeCompare(String(b.name || ""), "tr"),
+    )
+    .slice(0, 18);
+}
+
+function syncSearchCategoryTabs() {
+  searchCategoryTabs.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.searchType === state.searchType);
+  });
+}
+
+function renderSearchCategoryOption(item) {
+  return `
+    <button class="search-category-option${item.id === state.category ? " is-active" : ""}" data-filter="${escapeHtml(item.id)}" data-category-label="${escapeHtml(item.id === "all" ? "" : item.label)}" type="button">
+      <span>${escapeHtml(item.icon || "✦")}</span>
+      <strong>${escapeHtml(item.label)}</strong>
+      <small>${formatCountLabel(item.businessCount, "işletme")} · ${formatCountLabel(item.orderCount, "sipariş")}</small>
+    </button>
+  `;
+}
+
+function renderSearchBusinessOption(item) {
+  const details = [item.categoryLabel, item.cityLabel, item.distanceLabel || item.distance].filter(Boolean).join(" · ");
+
+  return `
+    <button class="search-category-option search-business-option" data-business-id="${escapeHtml(item.id)}" data-business-category="${escapeHtml(item.category || "all")}" data-business-name="${escapeHtml(item.name || "İşletme")}" type="button">
+      <span>${escapeHtml(item.icon || "⌁")}</span>
+      <strong>${escapeHtml(item.name || "İşletme")}</strong>
+      <small>${escapeHtml(details || "İşletme")}</small>
+    </button>
+  `;
+}
+
+function renderSearchCategoryPopover() {
+  if (!searchCategoryList) return;
+
+  const safeItems = state.categories.length ? state.categories : fallbackCategories;
+  const allSearchItems = getPopularCategoryItems(safeItems, getFeaturedByCategoryMap());
+  const allBusinessCount = allSearchItems.reduce((total, item) => total + Number(item.businessCount || 0), 0);
+  const allOrderCount = allSearchItems.reduce((total, item) => total + Number(item.orderCount || 0), 0);
+  const businessItems = getSearchBusinessItems();
+
+  syncSearchCategoryTabs();
+
+  if (state.searchType === "business") {
+    searchCategoryList.innerHTML = businessItems.length
+      ? businessItems.map(renderSearchBusinessOption).join("")
+      : `<p class="search-category-empty">İşletme bulunamadı.</p>`;
+    return;
+  }
+
+  const categoryItems =
+    state.searchType === "category"
+      ? allSearchItems
+      : [
+          {
+            id: "all",
+            label: "Tüm hizmetler",
+            icon: "⌕",
+            businessCount: allBusinessCount,
+            orderCount: allOrderCount,
+          },
+          ...allSearchItems,
+        ];
+
+  searchCategoryList.innerHTML = categoryItems.length
+    ? categoryItems.map(renderSearchCategoryOption).join("")
+    : `<p class="search-category-empty">Kategori bulunamadı.</p>`;
+}
+
+function renderCategories(items = []) {
+  const safeItems = items.length ? items : fallbackCategories;
+  state.categories = safeItems;
+  const filterItems = [{ id: "all", label: "Hepsi" }, ...safeItems];
+  const featuredByCategory = getFeaturedByCategoryMap();
 
   filterPillsContainer.innerHTML = filterItems
     .map(
@@ -873,33 +964,7 @@ function renderCategories(items = []) {
     })
     .join("");
 
-  if (searchCategoryList) {
-    const allSearchItems = getPopularCategoryItems(safeItems, featuredByCategory);
-    const allBusinessCount = allSearchItems.reduce((total, item) => total + Number(item.businessCount || 0), 0);
-    const allOrderCount = allSearchItems.reduce((total, item) => total + Number(item.orderCount || 0), 0);
-    const searchItems = [
-      {
-        id: "all",
-        label: "Tüm hizmetler",
-        icon: "⌕",
-        businessCount: allBusinessCount,
-        orderCount: allOrderCount,
-      },
-      ...allSearchItems,
-    ];
-
-    searchCategoryList.innerHTML = searchItems
-      .map(
-        (item) => `
-          <button class="search-category-option${item.id === state.category ? " is-active" : ""}" data-filter="${escapeHtml(item.id)}" data-category-label="${escapeHtml(item.id === "all" ? "" : item.label)}" type="button">
-            <span>${escapeHtml(item.icon || "✦")}</span>
-            <strong>${escapeHtml(item.label)}</strong>
-            <small>${formatCountLabel(item.businessCount, "işletme")} · ${formatCountLabel(item.orderCount, "sipariş")}</small>
-          </button>
-        `,
-      )
-      .join("");
-  }
+  renderSearchCategoryPopover();
 }
 
 function renderMosaicCounts(items = []) {
@@ -1742,6 +1807,7 @@ function getCategoryLabel(categoryId = "all") {
 
 function openSearchCategoryPopover() {
   if (!searchCategoryPopover) return;
+  renderSearchCategoryPopover();
   searchCategoryPopover.classList.remove("hidden");
   searchCategoryPopover.setAttribute("aria-hidden", "false");
 }
@@ -1762,6 +1828,17 @@ function handleCategoryClick(event) {
 }
 
 function handleSearchCategoryClick(event) {
+  const businessButton = event.target.closest("[data-business-id]");
+  if (businessButton) {
+    state.category = businessButton.dataset.businessCategory || "all";
+    state.query = businessButton.dataset.businessName || "";
+    queryInput.value = state.query;
+    setActiveCategory(state.category);
+    closeSearchCategoryPopover();
+    loadListings();
+    return;
+  }
+
   const button = event.target.closest("[data-filter]");
   if (!button) return;
 
@@ -1776,6 +1853,13 @@ function handleSearchCategoryClick(event) {
 filterPillsContainer.addEventListener("click", handleCategoryClick);
 categoryRail.addEventListener("click", handleCategoryClick);
 searchCategoryList?.addEventListener("click", handleSearchCategoryClick);
+searchCategoryTabs.forEach((button) => {
+  button.addEventListener("click", () => {
+    state.searchType = button.dataset.searchType || "all";
+    renderSearchCategoryPopover();
+    openSearchCategoryPopover();
+  });
+});
 categoryNext?.addEventListener("click", () => {
   categoryRail.scrollBy({
     left: Math.max(320, categoryRail.clientWidth * 0.72),
