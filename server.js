@@ -296,7 +296,9 @@ function sendVerificationEmail(req, user) {
 function describeEmailDelivery(emailDelivery, sentMessage, devMessage) {
   if (emailDelivery?.status === "sent") return sentMessage;
   if (emailDelivery?.status === "dev-queued") return devMessage;
-  if (emailDelivery?.status === "failed") return "E-posta hazırlandı ancak gönderim sağlayıcısında hata oluştu.";
+  if (emailDelivery?.status === "failed") {
+    return "E-posta sağlayıcısına bağlanılamadı; doğrulama gönderimi admin posta kutusuna hata olarak kaydedildi.";
+  }
   return "E-posta gönderim durumu kaydedildi.";
 }
 
@@ -310,6 +312,19 @@ function summarizeNotificationDelivery(delivery) {
     template: delivery.template || "notification",
     error: delivery.error || "",
   };
+}
+
+function describeSmsDelivery(smsDelivery, phone) {
+  if (!phone) return "";
+  if (!smsDelivery) return " SMS gönderimi atlandı.";
+  if (smsDelivery.provider === "twilio" && smsDelivery.status !== "failed") return " SMS doğrulama kodu gönderildi.";
+  if (smsDelivery.status === "dev-queued") {
+    return " SMS sağlayıcısı tanımlı olmadığı için doğrulama kodu admin SMS kutusuna kaydedildi.";
+  }
+  if (smsDelivery.status === "failed") {
+    return " SMS hazırlandı ancak gönderim sağlayıcısında hata oluştu.";
+  }
+  return " SMS doğrulama durumu kaydedildi.";
 }
 
 async function sendPhoneVerification(user) {
@@ -3132,7 +3147,7 @@ app.post("/api/auth/register", async (req, res) => {
       emailDelivery,
       "E-posta doğrulama linki gönderildi.",
       "E-posta sağlayıcısı tanımlı olmadığı için doğrulama linki admin posta kutusuna kaydedildi.",
-    )}${phone ? " SMS doğrulama kodu hazırlandı." : ""}`,
+    )}${describeSmsDelivery(smsDelivery, phone)}`,
     emailDelivery: {
       provider: emailDelivery.provider,
       status: emailDelivery.status,

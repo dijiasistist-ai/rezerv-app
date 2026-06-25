@@ -62,9 +62,9 @@ async function getSmtpTransporter() {
     port: Number(process.env.SMTP_PORT || 587),
     secure: String(process.env.SMTP_SECURE || "").toLowerCase() === "true",
     family: Number(process.env.SMTP_FAMILY || 4),
-    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000),
-    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000),
-    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000),
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 5000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 5000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 8000),
     tls: target.servername ? { servername: target.servername } : undefined,
     auth: {
       user: process.env.SMTP_USER,

@@ -120,6 +120,7 @@ const state = {
   authMode: "login",
   authEntry: "customer",
   authStep: "entry",
+  authRequestInFlight: false,
   authTerms: {
     customer: null,
     venue: null,
@@ -1201,6 +1202,28 @@ function getAuthRegisterButtonLabel(role = getAuthEntryType()) {
   return role === "venue" ? "İşletme hesabı oluştur" : "Bireysel hesap oluştur";
 }
 
+function getAuthSubmitLabel() {
+  if (state.authMode === "register") return getAuthRegisterButtonLabel();
+  if (state.authMode === "reset") return "Şifreyi yenile";
+  return "Giriş Yap";
+}
+
+function setAuthFeedback(message = "", tone = "error") {
+  if (!authFeedback) return;
+  authFeedback.textContent = message;
+  authFeedback.classList.toggle("is-success", tone === "success");
+  authFeedback.classList.toggle("is-info", tone === "info");
+}
+
+function setAuthSubmitLoading(isLoading, label = "") {
+  state.authRequestInFlight = Boolean(isLoading);
+  if (authSubmit) {
+    authSubmit.textContent = isLoading ? label || "İşlem yapılıyor..." : getAuthSubmitLabel();
+    authSubmit.classList.toggle("is-loading", Boolean(isLoading));
+  }
+  updateAuthSubmitState();
+}
+
 function updateAuthChoiceCards() {
   authEntryChoices.forEach((button) => {
     const isSelected = button.dataset.entryChoice === getAuthEntryType();
@@ -1212,7 +1235,7 @@ function updateAuthChoiceCards() {
 function updateAuthSubmitState() {
   if (!authSubmit) return;
   const needsTerms = state.authMode === "register" && state.authStep === "form";
-  authSubmit.disabled = needsTerms && !authCustomerTermsAccept?.checked;
+  authSubmit.disabled = state.authRequestInFlight || (needsTerms && !authCustomerTermsAccept?.checked);
   if (authRoleHelper) {
     authRoleHelper.textContent = needsTerms && !authCustomerTermsAccept?.checked
       ? "Sözleşmeyi onaylayınca kayıt butonu aktif olur."
@@ -1451,8 +1474,8 @@ function setAuthMode(mode) {
   authDialog?.classList.add("is-choice-step");
   authDialog?.classList.remove("is-form-step");
   authModal.dataset.mode = mode;
-  authFeedback.textContent = "";
-  authFeedback.classList.remove("is-success");
+  setAuthSubmitLoading(false);
+  setAuthFeedback("");
   if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
   updateAuthChoiceCards();
   updateAuthSubmitState();
@@ -1491,8 +1514,8 @@ function openPasswordResetStep({ email = "", token = "" } = {}) {
   if (authResetEmail) authResetEmail.value = email || authEmail.value.trim();
   if (authResetCode) authResetCode.value = token;
   if (authResetPassword) authResetPassword.value = "";
-  authFeedback.textContent = "";
-  authFeedback.classList.remove("is-success");
+  setAuthSubmitLoading(false);
+  setAuthFeedback("");
   setResetFeedback(
     token ? "Kod e-postadan alındı. Yeni şifreni yazıp işlemi tamamlayabilirsin." : "",
     Boolean(token),
@@ -1505,8 +1528,7 @@ function returnToLoginFromReset(message = "") {
   state.authStep = "form";
   showAuthFormStep();
   if (message) {
-    authFeedback.textContent = message;
-    authFeedback.classList.add("is-success");
+    setAuthFeedback(message, "success");
   }
 }
 
@@ -1516,8 +1538,7 @@ function openVenueLoginModal(message = "") {
   state.authStep = "form";
   authTitle.textContent = "İşletme girişi";
   showAuthFormStep();
-  authFeedback.textContent = message;
-  authFeedback.classList.remove("is-success");
+  setAuthFeedback(message);
 }
 
 function closeAuthModal() {
@@ -1527,6 +1548,7 @@ function closeAuthModal() {
   authForm.reset();
   authStepReset?.classList.add("hidden");
   if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
+  setAuthSubmitLoading(false);
   updateAuthSubmitState();
 }
 
@@ -1554,8 +1576,8 @@ function showAuthFormStep() {
   phoneField.classList.toggle("hidden", !isRegister);
   authForgotPassword?.classList.toggle("hidden", isRegister);
   authTermsPanel?.classList.toggle("hidden", !isRegister);
-  authFeedback.textContent = "";
-  authFeedback.classList.remove("is-success");
+  setAuthSubmitLoading(false);
+  setAuthFeedback("");
   if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
   updateAuthSubmitState();
   if (isRegister) {
@@ -2178,8 +2200,8 @@ authTabs.forEach((tab) => {
 
 authEntryBack.addEventListener("click", () => {
   state.authStep = "entry";
-  authFeedback.textContent = "";
-  authFeedback.classList.remove("is-success");
+  setAuthSubmitLoading(false);
+  setAuthFeedback("");
   authStepForm.classList.add("hidden");
   authStepEntry.classList.remove("hidden");
   authEntryBack.classList.add("hidden");
@@ -2265,8 +2287,8 @@ authResetConfirm?.addEventListener("click", async () => {
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (state.authMode === "reset") return;
-  authFeedback.textContent = "";
-  authFeedback.classList.remove("is-success");
+  if (state.authRequestInFlight) return;
+  setAuthFeedback("");
 
   const isRegister = state.authMode === "register";
   const payload = {
@@ -2281,13 +2303,17 @@ authForm.addEventListener("submit", async (event) => {
     payload.role = getAuthEntryType();
 
     if (!authCustomerTermsAccept?.checked) {
-      authFeedback.textContent =
+      setAuthFeedback(
         payload.role === "venue"
           ? "İşletme sözleşmesini okuyup kabul etmelisin."
-          : "Bireysel kullanıcı sözleşmesini okuyup kabul etmelisin.";
+          : "Bireysel kullanıcı sözleşmesini okuyup kabul etmelisin.",
+      );
       updateAuthSubmitState();
       return;
     }
+
+    setAuthSubmitLoading(true, "Hesap oluşturuluyor...");
+    setAuthFeedback("Hesap oluşturuluyor. Mail ve SMS durumu kontrol ediliyor...", "info");
 
     try {
       const response = await apiRequest("/api/auth/register", {
@@ -2300,12 +2326,15 @@ authForm.addEventListener("submit", async (event) => {
       localStorage.setItem("tyee_token", response.token);
       updateAuthUi();
       const emailWasSent = response.emailDelivery?.status === "sent";
-      authFeedback.textContent = response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.";
-      authFeedback.classList.toggle("is-success", emailWasSent);
+      const smsWasLive = !payload.phone || response.smsDelivery?.provider === "twilio";
+      setAuthFeedback(
+        response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.",
+        emailWasSent && smsWasLive ? "success" : "info",
+      );
       authForm.reset();
       if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
       updateAuthSubmitState();
-      if (emailWasSent) {
+      if (emailWasSent && smsWasLive) {
         setTimeout(() => {
           if (response.user?.canManageVenue) {
             closeAuthModal();
@@ -2325,17 +2354,20 @@ authForm.addEventListener("submit", async (event) => {
         showAuthFormStep();
         if (authEmail) authEmail.value = existingEmail;
         if (authPassword) authPassword.value = payload.password;
-        authFeedback.textContent = error.message;
-        authFeedback.classList.remove("is-success");
+        setAuthFeedback(error.message);
         updateAuthSubmitState();
         return;
       }
-      authFeedback.textContent = error.message;
-      authFeedback.classList.remove("is-success");
+      setAuthFeedback(error.message);
       updateAuthSubmitState();
+    } finally {
+      setAuthSubmitLoading(false);
     }
     return;
   }
+
+  setAuthSubmitLoading(true, "Giriş yapılıyor...");
+  setAuthFeedback("Giriş yapılıyor...", "info");
 
   try {
     const response = await apiRequest("/api/auth/login", {
@@ -2347,8 +2379,7 @@ authForm.addEventListener("submit", async (event) => {
     state.user = response.user;
     localStorage.setItem("tyee_token", response.token);
     updateAuthUi();
-    authFeedback.textContent = "Giriş başarılı.";
-    authFeedback.classList.add("is-success");
+    setAuthFeedback("Giriş başarılı.", "success");
     authForm.reset();
     setTimeout(() => {
       if (response.user.canAccessAdmin) {
@@ -2364,17 +2395,16 @@ authForm.addEventListener("submit", async (event) => {
           return;
         }
 
-        authFeedback.textContent =
-          "Bu hesap bireysel müşteri hesabı. İşletme paneli için işletme hesabı ile giriş yapmalısın.";
-        authFeedback.classList.remove("is-success");
+        setAuthFeedback("Bu hesap bireysel müşteri hesabı. İşletme paneli için işletme hesabı ile giriş yapmalısın.");
         return;
       }
 
       closeAuthModal();
     }, 500);
   } catch (error) {
-    authFeedback.textContent = error.message;
-    authFeedback.classList.remove("is-success");
+    setAuthFeedback(error.message);
+  } finally {
+    setAuthSubmitLoading(false);
   }
 });
 
@@ -2412,10 +2442,11 @@ if (resetEmailParam || resetTokenParam) {
   window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
 } else if (verifiedState) {
   openAuthModal("login");
-  authFeedback.textContent =
+  setAuthFeedback(
     verifiedState === "success"
       ? "E-posta doğrulandı. Artık hesabına giriş yapabilirsin."
-      : "Doğrulama bağlantısı geçersiz veya süresi dolmuş.";
-  authFeedback.classList.toggle("is-success", verifiedState === "success");
+      : "Doğrulama bağlantısı geçersiz veya süresi dolmuş.",
+    verifiedState === "success" ? "success" : "error",
+  );
   window.history.replaceState({}, "", window.location.pathname);
 }
