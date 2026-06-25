@@ -2313,7 +2313,7 @@ authForm.addEventListener("submit", async (event) => {
     }
 
     setAuthSubmitLoading(true, "Hesap oluşturuluyor...");
-    setAuthFeedback("Hesap oluşturuluyor. Mail ve SMS durumu kontrol ediliyor...", "info");
+    setAuthFeedback("Hesap oluşturuluyor...", "info");
 
     try {
       const response = await apiRequest("/api/auth/register", {
@@ -2325,16 +2325,18 @@ authForm.addEventListener("submit", async (event) => {
       state.user = response.user;
       localStorage.setItem("tyee_token", response.token);
       updateAuthUi();
-      const emailWasSent = response.emailDelivery?.status === "sent";
-      const smsWasLive = !payload.phone || response.smsDelivery?.provider === "twilio";
+      const emailStatus = response.emailDelivery?.status || "";
+      const smsStatus = response.smsDelivery?.status || "";
+      const emailAccepted = ["sent", "queued", "dev-queued"].includes(emailStatus);
+      const smsAccepted = !payload.phone || ["sent", "queued", "dev-queued"].includes(smsStatus) || response.smsDelivery?.provider === "twilio";
       setAuthFeedback(
         response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.",
-        emailWasSent && smsWasLive ? "success" : "info",
+        emailAccepted && smsAccepted ? "success" : "info",
       );
       authForm.reset();
       if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
       updateAuthSubmitState();
-      if (emailWasSent && smsWasLive) {
+      if (emailAccepted && smsAccepted) {
         setTimeout(() => {
           if (response.user?.canManageVenue) {
             closeAuthModal();

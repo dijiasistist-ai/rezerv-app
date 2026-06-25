@@ -270,8 +270,8 @@ function passwordResetEmailTemplate({ name, resetToken, resetUrl }) {
   };
 }
 
-function sendVerificationEmail(req, user) {
-  const verifyUrl = `${publicBaseUrl(req)}/verify-email?token=${encodeURIComponent(
+function sendVerificationEmailForBaseUrl(baseUrl, user) {
+  const verifyUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(
     user.emailVerificationToken,
   )}`;
   const email = verificationEmailTemplate({
@@ -291,6 +291,10 @@ function sendVerificationEmail(req, user) {
     ],
     ...email,
   });
+}
+
+function sendVerificationEmail(req, user) {
+  return sendVerificationEmailForBaseUrl(publicBaseUrl(req), user);
 }
 
 function describeEmailDelivery(emailDelivery, sentMessage, devMessage) {
@@ -335,6 +339,23 @@ async function sendPhoneVerification(user) {
     template: "phone-verification",
     body: `tyee doğrulama kodun: ${user.phoneVerificationCode}`,
   });
+}
+
+function queueRegistrationVerification(baseUrl, user) {
+  setTimeout(() => {
+    Promise.allSettled([
+      sendVerificationEmailForBaseUrl(baseUrl, user),
+      sendPhoneVerification(user),
+    ]).then((results) => {
+      const rejected = results.filter((result) => result.status === "rejected");
+      if (rejected.length) {
+        console.warn(
+          "Registration verification delivery failed",
+          rejected.map((result) => result.reason?.message || result.reason).join(" | "),
+        );
+      }
+    });
+  }, 0);
 }
 
 function getVenueOwnerContact(venueId = "") {
@@ -3134,27 +3155,39 @@ app.post("/api/auth/register", async (req, res) => {
     passwordResetToken: "",
   });
 
-  const [emailDelivery, smsDelivery] = await Promise.all([
-    sendVerificationEmail(req, user),
-    sendPhoneVerification(user),
-  ]);
-
+  const baseUrl = publicBaseUrl(req);
   const token = createSession(user);
+  const emailStatus = getEmailStatus();
+  const messagingStatus = getMessagingStatus();
+  const emailDelivery = {
+    provider: emailStatus.provider,
+    channel: "email",
+    status: "queued",
+    to: user.email,
+    template: "email-verification",
+    error: "",
+  };
+  const smsDelivery = phone
+    ? {
+        provider: messagingStatus.sms,
+        channel: "sms",
+        status: "queued",
+        to: user.phone,
+        template: "phone-verification",
+        error: "",
+      }
+    : { status: "skipped" };
+
   res.status(201).json({
     token,
     user: normalizeUser(user),
-    nextStep: `${describeEmailDelivery(
-      emailDelivery,
-      "E-posta doğrulama linki gönderildi.",
-      "E-posta sağlayıcısı tanımlı olmadığı için doğrulama linki admin posta kutusuna kaydedildi.",
-    )}${describeSmsDelivery(smsDelivery, phone)}`,
-    emailDelivery: {
-      provider: emailDelivery.provider,
-      status: emailDelivery.status,
-      error: emailDelivery.error || "",
-    },
-    smsDelivery: summarizeNotificationDelivery(smsDelivery),
+    nextStep: phone
+      ? "Hesap oluşturuldu. E-posta ve SMS doğrulaması arka planda gönderiliyor."
+      : "Hesap oluşturuldu. E-posta doğrulaması arka planda gönderiliyor.",
+    emailDelivery,
+    smsDelivery,
   });
+  queueRegistrationVerification(baseUrl, user);
 });
 
 app.post("/api/auth/login", (req, res) => {

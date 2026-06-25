@@ -424,7 +424,7 @@ function renderDangerActions(item) {
     return `
       <div class="danger-zone">
         <strong>Tehlikeli işlem</strong>
-        <span>Bu işletme kaydı platform dizininden kaldırılır. Bağlı kullanıcı hesabı ayrıca silinir.</span>
+        <span>Bu işletme kaydı platform dizininden kaldırılır. Bağlı kullanıcı hesabı otomatik silinmez; gerekiyorsa kullanıcı kaydını ayrıca silmelisin.</span>
         <button class="danger-button" type="button" data-delete-business-id="${escapeHtml(item.id)}">İşletmeyi sil</button>
         <p class="form-feedback" id="delete-feedback"></p>
       </div>
@@ -722,10 +722,16 @@ detailBody.addEventListener("click", async (event) => {
   }
 
   const isBusiness = Boolean(businessButton);
+  const actionButton = isBusiness ? businessButton : userButton;
   const id = isBusiness ? businessButton.dataset.deleteBusinessId : userButton.dataset.deleteUserId;
   const label = resultTitle(state.selected || {});
   const confirmed = window.confirm(`${label} kaydı silinsin mi? Bu işlem geri alınamaz.`);
   if (!confirmed) return;
+
+  actionButton.disabled = true;
+  const originalButtonText = actionButton.textContent;
+  actionButton.textContent = "Siliniyor...";
+  if (feedback) feedback.textContent = "Silme isteği gönderildi...";
 
   try {
     const payload = await apiRequest(
@@ -738,9 +744,24 @@ detailBody.addEventListener("click", async (event) => {
       feedback.textContent = payload.message;
       feedback.classList.add("is-success");
     }
+    state.selected = null;
     await loadAdmin();
   } catch (error) {
-    if (feedback) feedback.textContent = error.message;
+    if (feedback) {
+      feedback.textContent =
+        error.status === 401 || error.status === 403
+          ? `${error.message} Silme yapılmadı; admin oturumunu yenileyip tekrar dene.`
+          : error.message;
+      feedback.classList.remove("is-success");
+      feedback.classList.add("is-danger");
+    }
+    if (error.status === 401 || error.status === 403) {
+      token = "";
+      localStorage.removeItem(adminTokenStorageKey);
+      showAuthWall(error.message);
+    }
+    actionButton.disabled = false;
+    actionButton.textContent = originalButtonText;
   }
 });
 
