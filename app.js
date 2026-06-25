@@ -1152,7 +1152,11 @@ async function apiRequest(url, options = {}) {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload.error || "İstek başarısız oldu.");
+    const error = new Error(payload.error || "İstek başarısız oldu.");
+    error.status = response.status;
+    error.code = payload.code || "";
+    error.payload = payload;
+    throw error;
   }
 
   return payload;
@@ -1524,6 +1528,14 @@ function closeAuthModal() {
   authStepReset?.classList.add("hidden");
   if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
   updateAuthSubmitState();
+}
+
+function clearAuthSession() {
+  localStorage.removeItem("tyee_token");
+  state.token = "";
+  state.user = null;
+  state.customerDashboard = null;
+  updateAuthUi();
 }
 
 function showAuthFormStep() {
@@ -2130,14 +2142,10 @@ customerPanelClose?.addEventListener("click", closeCustomerPanel);
 customerPanelDismiss?.addEventListener("click", closeCustomerPanel);
 
 accountLogout.addEventListener("click", () => {
-  localStorage.removeItem("tyee_token");
-  state.token = "";
-  state.user = null;
-  state.customerDashboard = null;
+  clearAuthSession();
   authForm.reset();
   closeAccountMenu();
   closeCustomerPanel();
-  updateAuthUi();
 });
 
 businessNavLinks.forEach((link) => {
@@ -2308,6 +2316,20 @@ authForm.addEventListener("submit", async (event) => {
         }, 900);
       }
     } catch (error) {
+      if (error.code === "EMAIL_EXISTS" || error.status === 409) {
+        const existingEmail = payload.email;
+        clearAuthSession();
+        setAuthMode("login");
+        state.authEntry = payload.role === "venue" ? "venue" : "customer";
+        updateAuthChoiceCards();
+        showAuthFormStep();
+        if (authEmail) authEmail.value = existingEmail;
+        if (authPassword) authPassword.value = payload.password;
+        authFeedback.textContent = error.message;
+        authFeedback.classList.remove("is-success");
+        updateAuthSubmitState();
+        return;
+      }
       authFeedback.textContent = error.message;
       authFeedback.classList.remove("is-success");
       updateAuthSubmitState();

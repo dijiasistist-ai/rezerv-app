@@ -3091,7 +3091,10 @@ app.post("/api/auth/register", async (req, res) => {
   }
 
   if (findUserByEmail(email)) {
-    res.status(409).json({ error: "Bu e-posta ile kayıtlı hesap var." });
+    res.status(409).json({
+      code: "EMAIL_EXISTS",
+      error: "Bu e-posta ile kayıtlı hesap var. Kayıt yerine giriş yapabilir veya şifreni yenileyebilirsin.",
+    });
     return;
   }
 
