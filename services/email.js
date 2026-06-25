@@ -1,7 +1,10 @@
 const nodemailer = require("nodemailer");
+const dns = require("dns").promises;
+const net = require("net");
 const { appendDevEmail } = require("../data/runtime-store");
 
 let smtpTransporter = null;
+let smtpTransporterKey = "";
 
 function firstEnv(...keys) {
   return keys.map((key) => process.env[key]).find((value) => String(value || "").trim()) || "";
@@ -19,23 +22,56 @@ function hasSmtpConfig() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
-function getSmtpTransporter() {
-  if (smtpTransporter) return smtpTransporter;
+function shouldForceSmtpIpv4() {
+  return String(process.env.SMTP_FORCE_IPV4 || "true").toLowerCase() !== "false";
+}
+
+async function getSmtpConnectionTarget() {
+  const host = String(process.env.SMTP_HOST || "").trim();
+  if (!host || net.isIP(host) || !shouldForceSmtpIpv4()) {
+    return { host, servername: process.env.SMTP_SERVERNAME || (net.isIP(host) ? "" : host) };
+  }
+
+  try {
+    const addresses = await dns.resolve4(host);
+    const ipv4Address = addresses.find(Boolean);
+    if (ipv4Address) return { host: ipv4Address, servername: process.env.SMTP_SERVERNAME || host };
+  } catch (error) {
+    throw new Error(`SMTP IPv4 çözümleme hatası: ${error.message}`);
+  }
+
+  throw new Error(`SMTP için IPv4 adresi bulunamadı: ${host}`);
+}
+
+async function getSmtpTransporter() {
   if (!hasSmtpConfig()) return null;
 
+  const target = await getSmtpConnectionTarget();
+  const connectionKey = JSON.stringify({
+    host: target.host,
+    port: process.env.SMTP_PORT || "587",
+    secure: process.env.SMTP_SECURE || "",
+    user: process.env.SMTP_USER || "",
+    servername: target.servername || "",
+  });
+
+  if (smtpTransporter && smtpTransporterKey === connectionKey) return smtpTransporter;
+
   smtpTransporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: target.host,
     port: Number(process.env.SMTP_PORT || 587),
     secure: String(process.env.SMTP_SECURE || "").toLowerCase() === "true",
     family: Number(process.env.SMTP_FAMILY || 4),
     connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000),
     greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000),
     socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000),
+    tls: target.servername ? { servername: target.servername } : undefined,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
   });
+  smtpTransporterKey = connectionKey;
 
   return smtpTransporter;
 }
@@ -110,7 +146,7 @@ function parseEmailAddress(value = "") {
 }
 
 async function sendSmtpEmail(message) {
-  const transporter = getSmtpTransporter();
+  const transporter = await getSmtpTransporter();
   if (!transporter) throw new Error("SMTP ayarı eksik.");
 
   const result = await transporter.sendMail({

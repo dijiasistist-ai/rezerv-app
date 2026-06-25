@@ -2272,14 +2272,16 @@ authForm.addEventListener("submit", async (event) => {
       authForm.reset();
       if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
       updateAuthSubmitState();
-      setTimeout(() => {
-        if (response.user?.canManageVenue) {
+      if (emailWasSent) {
+        setTimeout(() => {
+          if (response.user?.canManageVenue) {
+            closeAuthModal();
+            window.location.href = "/venue.html";
+            return;
+          }
           closeAuthModal();
-          window.location.href = "/venue.html";
-          return;
-        }
-        closeAuthModal();
-      }, 900);
+        }, 900);
+      }
     } catch (error) {
       authFeedback.textContent = error.message;
       authFeedback.classList.remove("is-success");
