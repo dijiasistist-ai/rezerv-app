@@ -492,6 +492,27 @@ button {
   color: #067647;
 }
 
+.account-inline-action {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 8px;
+  border: 1px solid rgba(36, 139, 232, 0.28);
+  border-radius: 10px;
+  background: #f4f9ff;
+  color: #0758ad;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.account-inline-action:hover:not(:disabled) {
+  background: #eaf4ff;
+}
+
+.account-inline-action:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .account-menu-item {
   width: 100%;
   border: 0;

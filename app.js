@@ -1757,7 +1757,11 @@ function updateAuthUi() {
               !state.user.emailVerified ? "e-posta" : ""
             }${!state.user.emailVerified && state.user.phone && !state.user.phoneVerified ? " + " : ""}${
               state.user.phone && !state.user.phoneVerified ? "SMS" : ""
-            }</em>`
+            }</em>${
+              !state.user.emailVerified
+                ? `<button class="account-inline-action" data-resend-verification type="button">Doğrulama e-postasını tekrar gönder</button>`
+                : ""
+            }`
           : `<em class="account-verify-note is-ok">Hesap doğrulandı</em>`
       }
     `;
@@ -2088,6 +2092,27 @@ accountDashboard.addEventListener("click", () => {
 accountAdmin.addEventListener("click", () => {
   closeAccountMenu();
   window.location.href = "/admin.html";
+});
+
+accountMenu.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-resend-verification]");
+  if (!button) return;
+
+  const note = accountMenuCopy.querySelector(".account-verify-note");
+  button.disabled = true;
+  button.textContent = "Gönderiliyor...";
+  if (note) note.textContent = "Doğrulama e-postası hazırlanıyor.";
+
+  try {
+    const payload = await apiRequest("/api/auth/resend-verification", { method: "POST" });
+    if (note) note.textContent = payload.message || "Doğrulama e-postası tekrar gönderildi.";
+    button.textContent = "Tekrar gönder";
+  } catch (error) {
+    if (note) note.textContent = error.message || "Doğrulama e-postası gönderilemedi.";
+    button.textContent = "Tekrar dene";
+  } finally {
+    button.disabled = false;
+  }
 });
 
 customerPanelTriggers.forEach((button) => {
