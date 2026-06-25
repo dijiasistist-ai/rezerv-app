@@ -73,6 +73,8 @@ Ilk canli erisim icin Render Environment Variables:
 - `ADMIN_MOBILE_ACCESS_TOKEN` veya `ADMIN_MOBILE_ACCESS_TOKENS`: Mobil app icin gizli erisim anahtari.
 
 Panelde `Yetkililer` bolumunden yeni ad, e-posta, IP ve mobil anahtar kayitlari eklenebilir.
+Erisim listesi tamamen bos ise ilk kurulum kilitlenmesin diye admin sifresiyle girise izin verilir;
+ilk giristen sonra `Yetkililer` bolumunden IP veya mobil anahtar eklenmelidir.
 
 ## SMS ve WhatsApp
 

@@ -918,6 +918,10 @@ function getAllAdminAccessRules() {
   return [...getEnvAdminAccessRules(), ...getAdminAccessRules()];
 }
 
+function hasConfiguredAdminAccessRules() {
+  return getAllAdminAccessRules().some((rule) => rule?.isActive);
+}
+
 function safeAdminAccessRule(rule) {
   return {
     ...rule,
@@ -995,7 +999,7 @@ function requireAdmin(req, res, next) {
     res.status(403).json({ error: "Yönetici yetkin yok." });
     return;
   }
-  if (!isLocalDemoRequest(req) && !hasAdminNetworkAccess(req, user)) {
+  if (!isLocalDemoRequest(req) && hasConfiguredAdminAccessRules() && !hasAdminNetworkAccess(req, user)) {
     res.status(403).json({
       error: "Bu IP veya mobil cihaz admin erişim listesinde değil.",
       ipAddress: getClientIp(req),
@@ -3182,7 +3186,7 @@ app.post("/api/auth/admin-login", (req, res) => {
     return;
   }
 
-  if (!isLocalDemoRequest(req) && !hasAdminNetworkAccess(req, user)) {
+  if (!isLocalDemoRequest(req) && hasConfiguredAdminAccessRules() && !hasAdminNetworkAccess(req, user)) {
     res.status(403).json({
       error: "Bu IP veya mobil cihaz admin erişim listesinde değil.",
       ipAddress: getClientIp(req),
