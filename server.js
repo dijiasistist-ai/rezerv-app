@@ -3185,7 +3185,7 @@ app.post("/api/auth/login", (req, res) => {
   const user = findUserByEmail(email);
 
   if (!user || !verifyPassword(password, user.passwordHash || user.password)) {
-    res.status(401).json({ error: "E-posta veya şifre hatalı." });
+    res.status(401).json({ error: "Kullanıcı bulunamadı veya şifre hatalı." });
     return;
   }
 

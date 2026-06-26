@@ -1163,6 +1163,27 @@ async function apiRequest(url, options = {}) {
   return payload;
 }
 
+function getFriendlyErrorMessage(error, fallback = "İşlem tamamlanamadı.") {
+  const rawMessage = String(error?.message || "").trim();
+  const isNetworkError =
+    !error?.status &&
+    (/failed to fetch/i.test(rawMessage) ||
+      /networkerror/i.test(rawMessage) ||
+      /load failed/i.test(rawMessage) ||
+      /internet connection/i.test(rawMessage));
+
+  if (isNetworkError) {
+    return "Sunucuya bağlanılamadı. Lütfen birkaç saniye sonra tekrar dene.";
+  }
+
+  return rawMessage || fallback;
+}
+
+function getLoginErrorMessage(error) {
+  if (error?.status === 401) return "Kullanıcı bulunamadı veya şifre hatalı.";
+  return getFriendlyErrorMessage(error, "Giriş yapılamadı. Lütfen bilgilerini kontrol et.");
+}
+
 function escapeHtml(value = "") {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -2361,11 +2382,11 @@ authForm.addEventListener("submit", async (event) => {
         showAuthFormStep();
         if (authEmail) authEmail.value = existingEmail;
         if (authPassword) authPassword.value = payload.password;
-        setAuthFeedback(error.message);
+        setAuthFeedback(getFriendlyErrorMessage(error, "Bu e-posta ile kayıt bulunuyor."));
         updateAuthSubmitState();
         return;
       }
-      setAuthFeedback(error.message);
+      setAuthFeedback(getFriendlyErrorMessage(error, "Hesap oluşturulamadı."));
       updateAuthSubmitState();
     } finally {
       setAuthSubmitLoading(false);
@@ -2409,7 +2430,7 @@ authForm.addEventListener("submit", async (event) => {
       closeAuthModal();
     }, 500);
   } catch (error) {
-    setAuthFeedback(error.message);
+    setAuthFeedback(getLoginErrorMessage(error));
   } finally {
     setAuthSubmitLoading(false);
   }
