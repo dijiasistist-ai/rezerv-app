@@ -227,7 +227,7 @@ function renderAccountState() {
   }
 
   const isVenueUser = Boolean(state.user.canManageVenue);
-  const needsVerification = !state.user.emailVerified || (state.user.phone && !state.user.phoneVerified);
+  const needsVerification = !state.user.emailVerified;
   loginTrigger.classList.add("is-authenticated");
   accountAvatar.classList.remove("hidden");
   accountAvatar.textContent = getInitials(state.user.name);
@@ -246,11 +246,7 @@ function renderAccountState() {
       }</span>
       ${
         needsVerification
-          ? `<em class="account-verify-note">Doğrulama bekliyor: ${
-              !state.user.emailVerified ? "e-posta" : ""
-            }${!state.user.emailVerified && state.user.phone && !state.user.phoneVerified ? " + " : ""}${
-              state.user.phone && !state.user.phoneVerified ? "SMS" : ""
-            }</em>`
+          ? `<em class="account-verify-note">Doğrulama bekliyor: e-posta</em>`
           : `<em class="account-verify-note is-ok">Hesap doğrulandı</em>`
       }
     `;

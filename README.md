@@ -101,6 +101,10 @@ Kullanici ve isletme kayitlarinda dogrulama/hos geldin e-postasi gonderilir. E-p
 saglayici ayari yoksa mesajlar `data/runtime/dev-mailbox.json` icine `dev-queued`
 olarak kaydedilir; canli e-posta gitmez.
 
+Canli ortamda dogrulama ve sifre yenileme linkleri icin:
+
+- `PUBLIC_BASE_URL=https://tyee.app`
+
 Desteklenen canli ayarlar:
 
 SMTP:
@@ -119,6 +123,10 @@ GoDaddy/Titan uzerindeki `info@tyee.app` hesabi icin local testlerde calisan SMT
 sunucusu `smtpout.secureserver.net`, port `465`, `SMTP_SECURE=true` olarak
 dogrulandi.
 
+Render Free web servislerinde SMTP portlari disariya kapali oldugu icin prod ortamda
+SMTP yerine HTTPS tabanli Resend veya SendGrid kullanilmalidir. SMTP yalnizca local,
+VPS veya SMTP cikisi acik bir hosting ortaminda uygundur.
+
 Resend:
 
 - `EMAIL_PROVIDER=resend`
@@ -130,6 +138,12 @@ SendGrid:
 - `EMAIL_PROVIDER=sendgrid`
 - `SENDGRID_API_KEY`
 - `EMAIL_FROM` veya `SENDGRID_FROM`
+
+Admin test endpoint'i:
+
+- `POST /api/admin/email-test`
+- Body: `{ "to": "info@tyee.app" }`
+- Admin token gerekir; sonuc `delivery.status` alaninda `sent` veya hata detayini doner.
 
 ## Rezervasyon odeme modeli
 

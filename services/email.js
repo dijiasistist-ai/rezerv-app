@@ -22,6 +22,23 @@ function hasSmtpConfig() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
+function hasResendConfig() {
+  return Boolean(process.env.RESEND_API_KEY);
+}
+
+function hasSendgridConfig() {
+  return Boolean(process.env.SENDGRID_API_KEY);
+}
+
+function getProviderConfigError(provider) {
+  if (provider === "dev-log") return "";
+  if (provider === "smtp" && !hasSmtpConfig()) return "SMTP_HOST, SMTP_USER veya SMTP_PASS eksik.";
+  if (provider === "resend" && !hasResendConfig()) return "RESEND_API_KEY eksik.";
+  if (provider === "sendgrid" && !hasSendgridConfig()) return "SENDGRID_API_KEY eksik.";
+  if (!["smtp", "resend", "sendgrid"].includes(provider)) return `Desteklenmeyen e-posta sağlayıcısı: ${provider}`;
+  return "";
+}
+
 function shouldForceSmtpIpv4() {
   return String(process.env.SMTP_FORCE_IPV4 || "true").toLowerCase() !== "false";
 }
@@ -186,6 +203,15 @@ async function sendEmail(message) {
     return appendDevEmail({ ...baseMessage, status: "dev-queued" });
   }
 
+  const configError = getProviderConfigError(provider);
+  if (configError) {
+    return appendDevEmail({
+      ...baseMessage,
+      status: "failed",
+      error: configError,
+    });
+  }
+
   try {
     const providerMessageId =
       provider === "resend"
@@ -210,10 +236,13 @@ async function sendEmail(message) {
 }
 
 function getEmailStatus() {
+  const provider = resolveEmailProvider();
+  const configError = getProviderConfigError(provider);
   return {
-    provider: resolveEmailProvider(),
+    provider,
     from: getEmailFrom(),
-    configured: resolveEmailProvider() !== "dev-log",
+    configured: provider !== "dev-log" && !configError,
+    error: configError,
   };
 }
 
@@ -255,8 +284,32 @@ async function diagnoseEmailTransport() {
     provider,
     from: status.from,
     configured: status.configured,
+    error: status.error || "",
+    http: null,
     smtp: null,
   };
+
+  if (provider === "resend") {
+    diagnostics.http = {
+      endpoint: "https://api.resend.com/emails",
+      hasApiKey: hasResendConfig(),
+      from: getEmailFrom(),
+      replyTo: getReplyTo() || "",
+      note: "Resend HTTPS API kullanir; SMTP port bloklarindan etkilenmez.",
+    };
+    return diagnostics;
+  }
+
+  if (provider === "sendgrid") {
+    diagnostics.http = {
+      endpoint: "https://api.sendgrid.com/v3/mail/send",
+      hasApiKey: hasSendgridConfig(),
+      from: getEmailFrom(),
+      replyTo: getReplyTo() || "",
+      note: "SendGrid HTTPS API kullanir; SMTP port bloklarindan etkilenmez.",
+    };
+    return diagnostics;
+  }
 
   if (provider !== "smtp") return diagnostics;
 

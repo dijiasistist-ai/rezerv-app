@@ -186,9 +186,12 @@ function getInitials(value = "") {
 }
 
 function publicBaseUrl(req) {
-  const configured = process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL;
+  const configured = process.env.PUBLIC_BASE_URL || process.env.PUBLIC_URL;
   if (configured) return configured.replace(/\/$/, "");
-  return `${req.protocol}://${req.get("host")}`;
+  const requestHost = req.get("x-forwarded-host") || req.get("host");
+  if (requestHost) return `${req.protocol}://${requestHost}`;
+  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, "");
+  return "";
 }
 
 function escapeHtml(value = "") {
@@ -321,41 +324,43 @@ function summarizeNotificationDelivery(delivery) {
 function describeSmsDelivery(smsDelivery, phone) {
   if (!phone) return "";
   if (!smsDelivery) return " SMS gönderimi atlandı.";
-  if (smsDelivery.provider === "twilio" && smsDelivery.status !== "failed") return " SMS doğrulama kodu gönderildi.";
+  if (smsDelivery.provider === "twilio" && smsDelivery.status !== "failed") return " Hoş geldin SMS'i gönderildi.";
   if (smsDelivery.status === "dev-queued") {
-    return " SMS sağlayıcısı tanımlı olmadığı için doğrulama kodu admin SMS kutusuna kaydedildi.";
+    return " SMS sağlayıcısı tanımlı olmadığı için hoş geldin mesajı admin SMS kutusuna kaydedildi.";
   }
   if (smsDelivery.status === "failed") {
     return " SMS hazırlandı ancak gönderim sağlayıcısında hata oluştu.";
   }
-  return " SMS doğrulama durumu kaydedildi.";
+  return " SMS gönderim durumu kaydedildi.";
 }
 
-async function sendPhoneVerification(user) {
-  if (!user.phone || !user.phoneVerificationCode) return null;
+function describeRegistrationDelivery(emailDelivery, smsDelivery, phone) {
+  const parts = [
+    "Hesap oluşturuldu.",
+    describeEmailDelivery(
+      emailDelivery,
+      "E-posta doğrulama linki gönderildi.",
+      "E-posta sağlayıcısı dev modda olduğu için doğrulama admin posta kutusuna kaydedildi.",
+    ),
+    describeSmsDelivery(smsDelivery, phone).trim(),
+  ].filter(Boolean);
+
+  return parts.join(" ");
+}
+
+async function sendRegistrationWelcomeSms(user) {
+  if (!user.phone) return null;
+  const firstName = String(user.name || "").trim().split(/\s+/)[0] || "Merhaba";
+  const body = user.canManageVenue
+    ? `Merhaba ${firstName}, tyee işletme hesabın oluşturuldu. Profilini, hizmetlerini ve çalışma saatlerini tamamlayarak satışa başlayabilirsin.`
+    : `Merhaba ${firstName}, tyee hesabın oluşturuldu. Yakınındaki işletmeleri keşfedebilir, rezervasyonlarını kolayca takip edebilirsin.`;
+
   return sendMessage({
     channel: "sms",
     to: user.phone,
-    template: "phone-verification",
-    body: `tyee doğrulama kodun: ${user.phoneVerificationCode}`,
+    template: "registration-welcome",
+    body,
   });
-}
-
-function queueRegistrationVerification(baseUrl, user) {
-  setTimeout(() => {
-    Promise.allSettled([
-      sendVerificationEmailForBaseUrl(baseUrl, user),
-      sendPhoneVerification(user),
-    ]).then((results) => {
-      const rejected = results.filter((result) => result.status === "rejected");
-      if (rejected.length) {
-        console.warn(
-          "Registration verification delivery failed",
-          rejected.map((result) => result.reason?.message || result.reason).join(" | "),
-        );
-      }
-    });
-  }, 0);
 }
 
 function getVenueOwnerContact(venueId = "") {
@@ -2144,7 +2149,7 @@ function buildAdminOwnerDashboard({ users = [], businesses = [], reservations = 
         email: user.email,
         type: user.type,
         phone: user.phone || "-",
-        verified: `${user.emailVerified ? "E-posta tamam" : "E-posta bekliyor"} · ${user.phoneVerified ? "SMS tamam" : "SMS bekliyor"}`,
+        verified: `${user.emailVerified ? "E-posta tamam" : "E-posta bekliyor"} · ${user.phone ? "Telefon kayıtlı" : "Telefon yok"}`,
         createdAt: formatDateTimeTr(user.createdAt),
       })),
     businessHealth: businesses.slice(0, 12).map((business) => ({
@@ -2237,13 +2242,13 @@ function getAdminSearchResults({ type = "all", query = "" } = {}) {
     });
   }
 
-  if (type === "customer") {
+  if (type === "all" || type === "customer") {
     payload.customers.filter((item) => matchesQuery(item, normalizedQuery)).forEach((item) => {
       pushUnique({ resultType: "customer", ...item });
     });
   }
 
-  if (type === "all" || type === "user") {
+  if (type === "user") {
     payload.users.filter((item) => matchesQuery(item, normalizedQuery)).forEach((item) => {
       pushUnique({ resultType: "user", ...item });
     });
@@ -3149,45 +3154,27 @@ app.post("/api/auth/register", async (req, res) => {
     isAdmin: false,
     venueId: role === "venue" ? createVenueIdFromUser({ id: userId, email }) : "",
     emailVerified: false,
-    phoneVerified: !phone,
+    phoneVerified: Boolean(phone),
     emailVerificationToken: createToken(18),
-    phoneVerificationCode: phone ? createSmsCode() : "",
+    phoneVerificationCode: "",
     passwordResetToken: "",
   });
 
   const baseUrl = publicBaseUrl(req);
   const token = createSession(user);
-  const emailStatus = getEmailStatus();
-  const messagingStatus = getMessagingStatus();
-  const emailDelivery = {
-    provider: emailStatus.provider,
-    channel: "email",
-    status: "queued",
-    to: user.email,
-    template: "email-verification",
-    error: "",
-  };
-  const smsDelivery = phone
-    ? {
-        provider: messagingStatus.sms,
-        channel: "sms",
-        status: "queued",
-        to: user.phone,
-        template: "phone-verification",
-        error: "",
-      }
-    : { status: "skipped" };
+  const [emailDelivery, smsDeliveryResult] = await Promise.all([
+    sendVerificationEmailForBaseUrl(baseUrl, user),
+    sendRegistrationWelcomeSms(user),
+  ]);
+  const smsDelivery = smsDeliveryResult || { status: "skipped" };
 
   res.status(201).json({
     token,
     user: normalizeUser(user),
-    nextStep: phone
-      ? "Hesap oluşturuldu. E-posta ve SMS doğrulaması arka planda gönderiliyor."
-      : "Hesap oluşturuldu. E-posta doğrulaması arka planda gönderiliyor.",
+    nextStep: describeRegistrationDelivery(emailDelivery, smsDelivery, phone),
     emailDelivery,
     smsDelivery,
   });
-  queueRegistrationVerification(baseUrl, user);
 });
 
 app.post("/api/auth/login", (req, res) => {
@@ -3307,21 +3294,6 @@ app.post("/api/auth/resend-verification", requireAuth, async (req, res) => {
       error: emailDelivery.error || "",
     },
   });
-});
-
-app.post("/api/auth/verify-phone", requireAuth, (req, res) => {
-  const code = String(req.body.code || "").trim();
-  if (!req.user.phone || !req.user.phoneVerificationCode || req.user.phoneVerificationCode !== code) {
-    res.status(400).json({ error: "SMS doğrulama kodu hatalı." });
-    return;
-  }
-
-  const user = upsertUser({
-    ...req.user,
-    phoneVerified: true,
-    phoneVerificationCode: "",
-  });
-  res.json({ user: normalizeUser(user), message: "Telefon doğrulandı." });
 });
 
 app.post("/api/auth/password-reset/request", async (req, res) => {
@@ -3907,6 +3879,49 @@ app.get("/api/admin/dev-outbox", requireAdmin, (_req, res) => {
 
 app.get("/api/admin/email-diagnostics", requireAdmin, async (_req, res) => {
   res.json(await diagnoseEmailTransport());
+});
+
+app.post("/api/admin/email-test", requireAdmin, async (req, res) => {
+  const to = normalizeEmail(req.body.to || "info@tyee.app");
+  if (!to) {
+    res.status(400).json({ error: "Test e-postasi icin alici adres gerekli." });
+    return;
+  }
+
+  const sentAt = new Date().toISOString();
+  const emailDelivery = await sendEmail({
+    to,
+    template: "admin-email-test",
+    subject: "tyee mail gonderim testi",
+    text: `tyee mail gonderim testi basarili.\n\nAlici: ${to}\nZaman: ${sentAt}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#101828">
+        <img src="https://tyee.app/assets/tyee.png" alt="tyee" style="height:34px;margin-bottom:24px" />
+        <h1 style="margin:0 0 12px;font-size:24px">tyee mail gönderim testi</h1>
+        <p>Bu e-posta, admin panelinden canlı gönderim kanalını doğrulamak için oluşturuldu.</p>
+        <p><strong>Alıcı:</strong> ${to}</p>
+        <p><strong>Zaman:</strong> ${sentAt}</p>
+      </div>
+    `,
+  });
+
+  const sent = emailDelivery.status === "sent";
+  const queued = emailDelivery.status === "dev-queued";
+  res.status(sent ? 201 : queued ? 202 : 502).json({
+    message: sent
+      ? "Test e-postasi gonderildi."
+      : queued
+        ? "Test e-postasi gelistirme posta kutusuna kaydedildi."
+        : "Test e-postasi gonderilemedi.",
+    delivery: {
+      provider: emailDelivery.provider,
+      status: emailDelivery.status,
+      to: emailDelivery.to,
+      template: emailDelivery.template,
+      error: emailDelivery.error || "",
+      sentAt: emailDelivery.sentAt || "",
+    },
+  });
 });
 
 app.use((req, res, next) => {

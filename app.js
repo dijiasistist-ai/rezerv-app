@@ -1772,7 +1772,7 @@ function toggleAccountMenu() {
 
 function updateAuthUi() {
   if (state.user) {
-    const needsVerification = !state.user.emailVerified || (state.user.phone && !state.user.phoneVerified);
+    const needsVerification = !state.user.emailVerified;
     const isVenueUser = Boolean(state.user.canManageVenue);
     accountLabel.textContent = state.user.name;
     avatarMini.textContent = getInitials(state.user.name);
@@ -1787,11 +1787,7 @@ function updateAuthUi() {
       }</span>
       ${
         needsVerification
-          ? `<em class="account-verify-note">Doğrulama bekliyor: ${
-              !state.user.emailVerified ? "e-posta" : ""
-            }${!state.user.emailVerified && state.user.phone && !state.user.phoneVerified ? " + " : ""}${
-              state.user.phone && !state.user.phoneVerified ? "SMS" : ""
-            }</em>${
+          ? `<em class="account-verify-note">Doğrulama bekliyor: e-posta</em>${
               !state.user.emailVerified
                 ? `<button class="account-inline-action" data-resend-verification type="button">Doğrulama e-postasını tekrar gönder</button>`
                 : ""
@@ -2328,15 +2324,16 @@ authForm.addEventListener("submit", async (event) => {
       const emailStatus = response.emailDelivery?.status || "";
       const smsStatus = response.smsDelivery?.status || "";
       const emailAccepted = ["sent", "queued", "dev-queued"].includes(emailStatus);
-      const smsAccepted = !payload.phone || ["sent", "queued", "dev-queued"].includes(smsStatus) || response.smsDelivery?.provider === "twilio";
+      const smsAccepted = !payload.phone || ["sent", "queued", "accepted", "sending", "dev-queued"].includes(smsStatus);
+      const deliveryAccepted = emailAccepted && smsAccepted;
       setAuthFeedback(
         response.nextStep || "Hesap oluşturuldu. Giriş yapıldı.",
-        emailAccepted && smsAccepted ? "success" : "info",
+        deliveryAccepted ? "success" : "error",
       );
       authForm.reset();
       if (authCustomerTermsAccept) authCustomerTermsAccept.checked = false;
       updateAuthSubmitState();
-      if (emailAccepted && smsAccepted) {
+      if (deliveryAccepted) {
         setTimeout(() => {
           if (response.user?.canManageVenue) {
             closeAuthModal();

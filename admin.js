@@ -21,6 +21,9 @@ const notificationChannel = document.querySelector("#notification-channel");
 const notificationSubject = document.querySelector("#notification-subject");
 const notificationMessage = document.querySelector("#notification-message");
 const notificationFeedback = document.querySelector("#notification-feedback");
+const emailTestForm = document.querySelector("#email-test-form");
+const emailTestTo = document.querySelector("#email-test-to");
+const emailTestFeedback = document.querySelector("#email-test-feedback");
 const reportForm = document.querySelector("#report-form");
 const reportVenue = document.querySelector("#report-venue");
 const reportPeriod = document.querySelector("#report-period");
@@ -61,6 +64,18 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#039;");
 }
 
+function normalizeSearchText(value = "") {
+  return String(value)
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function matchesSearchQuery(record, query = "") {
+  if (!query) return true;
+  return normalizeSearchText(Object.values(record).join(" ")).includes(query);
+}
+
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, {
     ...options,
@@ -78,6 +93,20 @@ async function apiRequest(url, options = {}) {
     throw error;
   }
   return payload;
+}
+
+function handleAuthError(error) {
+  if (!error || (error.status !== 401 && error.status !== 403)) return false;
+  token = "";
+  localStorage.removeItem(adminTokenStorageKey);
+  showAuthWall(error.message || "Yönetici girişi gerekli.");
+  return true;
+}
+
+function renderDirectoryError(message) {
+  directoryCount.textContent = "0 kayıt";
+  directoryResults.innerHTML = `<div class="empty-copy">${escapeHtml(message)}</div>`;
+  renderDetail(null);
 }
 
 function showAuthWall(message = "Bu alan yalnızca admin kullanıcısı ile açılır.") {
@@ -479,7 +508,7 @@ function renderDetail(item) {
           ["Telefon", item.phone],
           ["Tip", item.type],
           ["E-posta doğrulama", item.emailVerified ? "Doğrulandı" : "Bekliyor"],
-          ["SMS doğrulama", item.phoneVerified ? "Doğrulandı" : "Bekliyor"],
+          ["Telefon bildirimi", item.phone ? "Numara kayıtlı" : "Telefon yok"],
           ["İşletme yetkisi", item.canManageVenue ? "Var" : "Yok"],
           ["Admin", item.isAdmin ? "Evet" : "Hayır"],
         ];
@@ -542,14 +571,49 @@ function renderAccessRules(access = {}) {
     : `<div class="empty-copy">Henüz admin erişim yetkilisi yok. Canlı ortamda en az bir IP veya mobil anahtar tanımlanmalı.</div>`;
 }
 
+function getDirectoryItems(type = "all") {
+  if (!state.data) return [];
+  if (type === "business") {
+    return (state.data.businesses || []).map((item) => ({ ...item, resultType: "business" }));
+  }
+  if (type === "customer") {
+    return (state.data.customers || []).map((item) => ({ ...item, resultType: "customer" }));
+  }
+  if (type === "user") {
+    return (state.data.users || []).map((item) => ({ ...item, resultType: "user" }));
+  }
+
+  return [
+    ...(state.data.businesses || []).map((item) => ({ ...item, resultType: "business" })),
+    ...(state.data.customers || []).map((item) => ({ ...item, resultType: "customer" })),
+  ];
+}
+
+function renderDirectoryItems(items = []) {
+  renderResults(items);
+  renderDetail(items[0] || null);
+}
+
 async function runSearch() {
+  if (!token) {
+    renderDirectoryError("Admin oturumunu yenilemen gerekiyor.");
+    showAuthWall("Yönetici girişi gerekli.");
+    return;
+  }
+
   const params = new URLSearchParams({
     q: searchQuery.value.trim(),
     type: searchType.value,
   });
+  const query = normalizeSearchText(searchQuery.value.trim());
+
+  if (state.data) {
+    renderDirectoryItems(getDirectoryItems(searchType.value).filter((item) => matchesSearchQuery(item, query)));
+    return;
+  }
+
   const payload = await apiRequest(`/api/admin/search?${params.toString()}`);
-  renderResults(payload.items || []);
-  if (payload.items?.length) renderDetail(payload.items[0]);
+  renderDirectoryItems(payload.items || []);
 }
 
 function renderReportOptions(defaults = {}) {
@@ -659,8 +723,7 @@ async function loadAdmin() {
   renderOwnerDashboard(data.ownerDashboard || {});
   renderReportOptions(data.reportDefaults || {});
   renderAccessRules(data.access || {});
-  renderResults([...(data.businesses || []).map((item) => ({ ...item, resultType: "business" })), ...(data.customers || []).map((item) => ({ ...item, resultType: "customer" }))]);
-  if (state.results.length) renderDetail(state.results[0]);
+  renderDirectoryItems(getDirectoryItems(searchType.value));
   await loadReport();
 }
 
@@ -755,11 +818,7 @@ detailBody.addEventListener("click", async (event) => {
       feedback.classList.remove("is-success");
       feedback.classList.add("is-danger");
     }
-    if (error.status === 401 || error.status === 403) {
-      token = "";
-      localStorage.removeItem(adminTokenStorageKey);
-      showAuthWall(error.message);
-    }
+    handleAuthError(error);
     actionButton.disabled = false;
     actionButton.textContent = originalButtonText;
   }
@@ -768,7 +827,11 @@ detailBody.addEventListener("click", async (event) => {
 searchForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await runSearch().catch((error) => {
-    directoryResults.innerHTML = `<div class="empty-copy">${escapeHtml(error.message)}</div>`;
+    if (handleAuthError(error)) {
+      renderDirectoryError("Yönetici oturumu yenilenmeli.");
+      return;
+    }
+    renderDirectoryError(error.message);
   });
 });
 
@@ -813,6 +876,30 @@ notificationForm.addEventListener("submit", async (event) => {
     notificationFeedback.classList.remove("is-success");
   }
 });
+
+if (emailTestForm) {
+  emailTestForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    emailTestFeedback.textContent = "";
+    emailTestFeedback.classList.remove("is-success");
+    try {
+      const payload = await apiRequest("/api/admin/email-test", {
+        method: "POST",
+        body: JSON.stringify({
+          to: emailTestTo.value.trim(),
+        }),
+      });
+      const status = payload.delivery?.status ? ` Durum: ${payload.delivery.status}.` : "";
+      emailTestFeedback.textContent = `${payload.message}${status}`;
+      emailTestFeedback.classList.toggle("is-success", payload.delivery?.status === "sent" || payload.delivery?.status === "dev-queued");
+    } catch (error) {
+      const status = error.payload?.delivery?.status ? ` Durum: ${error.payload.delivery.status}.` : "";
+      const providerError = error.payload?.delivery?.error ? ` ${error.payload.delivery.error}` : "";
+      emailTestFeedback.textContent = `${error.message}${status}${providerError}`;
+      emailTestFeedback.classList.remove("is-success");
+    }
+  });
+}
 
 if (accessRuleForm) {
   accessRuleForm.addEventListener("submit", async (event) => {
@@ -907,9 +994,5 @@ if (adminLogout) {
 }
 
 loadAdmin().catch((error) => {
-  if (error.status === 401 || error.status === 403) {
-    localStorage.removeItem(adminTokenStorageKey);
-    token = "";
-  }
-  showAuthWall(error.message);
+  if (!handleAuthError(error)) showAuthWall(error.message);
 });

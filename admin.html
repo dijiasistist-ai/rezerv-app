@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tyee Admin</title>
-    <link rel="stylesheet" href="/admin.css?v=20260625-admin-delete-feedback-1" />
+    <link rel="stylesheet" href="/admin.css?v=20260626-welcome-sms-1" />
   </head>
   <body>
     <div class="admin-auth-wall hidden" id="admin-auth-wall">
@@ -159,6 +159,16 @@
               <button type="submit">Bildirimi hazırla</button>
               <p class="form-feedback" id="notification-feedback"></p>
             </form>
+
+            <form class="admin-form" id="email-test-form">
+              <h3>Mail testi</h3>
+              <label>
+                Alıcı e-postası
+                <input id="email-test-to" type="email" value="info@tyee.app" />
+              </label>
+              <button type="submit">Test maili gönder</button>
+              <p class="form-feedback" id="email-test-feedback"></p>
+            </form>
           </div>
         </section>
 
@@ -237,6 +247,6 @@
       </section>
     </main>
 
-    <script src="/admin.js?v=20260625-admin-delete-feedback-1"></script>
+    <script src="/admin.js?v=20260626-welcome-sms-1"></script>
   </body>
 </html>
