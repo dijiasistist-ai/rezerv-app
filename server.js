@@ -257,15 +257,16 @@ function passwordResetEmailTemplate({ name, resetToken, resetUrl }) {
   const safeResetUrl = escapeHtml(resetUrl);
   return {
     subject: "tyee şifre sıfırlama",
-    text: `Merhaba ${name},\n\ntyee şifreni yenilemek için bu kodu kullanabilirsin: ${resetToken}\n\nŞifre yenileme bağlantısı: ${resetUrl}\n\nBu işlem sana ait değilse bu e-postayı yok sayabilirsin.\n\nTyee Ekibi`,
+    text: `Merhaba ${name},\n\ntyee şifreni yenilemek için aşağıdaki bağlantıyı kullanabilirsin. Bağlantı 30 dakika geçerlidir.\n\nŞifre yenileme bağlantısı: ${resetUrl}\n\nBağlantı açılmazsa bu tek kullanımlık kodu forma yapıştırabilirsin: ${resetToken}\n\nBu işlem sana ait değilse bu e-postayı yok sayabilirsin.\n\nTyee Ekibi`,
     html: `
       <div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:auto;padding:32px;color:#101828;background:#ffffff">
         <div style="border:1px solid #e7edf5;border-radius:18px;padding:30px;background:#fbfdff">
           <h1 style="margin:0 0 12px;font-size:24px;color:#07123d">Şifreni yenile</h1>
           <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#344054">Merhaba ${safeName}, tyee hesabın için şifre yenileme isteği aldık.</p>
+          <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#344054">Aşağıdaki bağlantı 30 dakika geçerlidir ve yalnızca bir kez kullanılabilir.</p>
           <a href="${safeResetUrl}" target="_blank" rel="noopener" style="display:inline-block;margin:0 0 22px;padding:13px 20px;border-radius:12px;background:#248be8;color:#fff;text-decoration:none;font-weight:800">Şifremi yenile</a>
-          <p style="margin:0 0 10px;font-size:14px;line-height:1.55;color:#667085">Bağlantı açılmazsa bu kodu kullan:</p>
-          <strong style="display:inline-block;margin:0 0 20px;font-size:24px;letter-spacing:3px;color:#07123d">${safeResetToken}</strong>
+          <p style="margin:0 0 10px;font-size:14px;line-height:1.55;color:#667085">Bağlantı açılmazsa bu tek kullanımlık kodu forma yapıştırabilirsin:</p>
+          <code style="display:block;word-break:break-all;margin:0 0 20px;padding:12px 14px;border-radius:12px;background:#eef5ff;color:#07123d;font-size:13px;line-height:1.45">${safeResetToken}</code>
           <p style="margin:0;font-size:13px;line-height:1.55;color:#667085">Bu işlem sana ait değilse bu e-postayı yok sayabilirsin.</p>
         </div>
       </div>
@@ -3300,7 +3301,7 @@ app.post("/api/auth/password-reset/request", async (req, res) => {
   const email = normalizeEmail(req.body.email || "");
   const user = findUserByEmail(email);
   if (user) {
-    const resetToken = createSmsCode();
+    const resetToken = createToken(24);
     const resetUrl = `${publicBaseUrl(req)}/index.html?resetEmail=${encodeURIComponent(email)}&resetToken=${encodeURIComponent(resetToken)}`;
     const updated = upsertUser({
       ...user,

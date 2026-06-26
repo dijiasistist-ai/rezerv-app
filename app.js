@@ -1517,7 +1517,7 @@ function openPasswordResetStep({ email = "", token = "" } = {}) {
   setAuthSubmitLoading(false);
   setAuthFeedback("");
   setResetFeedback(
-    token ? "Kod e-postadan alındı. Yeni şifreni yazıp işlemi tamamlayabilirsin." : "",
+    token ? "Şifre yenileme bağlantısı doğrulandı. Yeni şifreni yazıp işlemi tamamlayabilirsin." : "",
     Boolean(token),
   );
   window.setTimeout(() => (token ? authResetPassword : authResetEmail)?.focus(), 40);
@@ -2241,13 +2241,13 @@ authResetRequest?.addEventListener("click", async () => {
       method: "POST",
       body: JSON.stringify({ email }),
     });
-    setResetFeedback(payload.message || "Şifre yenileme kodu gönderildi.", true);
+    setResetFeedback(payload.message || "Şifre yenileme bağlantısı gönderildi.", true);
     authResetCode?.focus();
   } catch (error) {
     setResetFeedback(error.message || "Şifre yenileme isteği gönderilemedi.");
   } finally {
     authResetRequest.disabled = false;
-    authResetRequest.textContent = "Kod gönder";
+    authResetRequest.textContent = "Reset linki gönder";
   }
 });
 
