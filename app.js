@@ -1779,19 +1779,22 @@ function updateAuthUi() {
     avatarMini.classList.remove("hidden");
     loginTrigger.classList.add("is-authenticated");
     accountMenuCopy.innerHTML = `
-      <strong>${state.user.name}</strong>
-      <span>${
-        isVenueUser
-          ? "İşletme operasyonunu, satış hizmetlerini ve rezervasyon akışını panelden yönetebilirsin."
-          : "Hesabın bireysel kullanım için hazır. İşletme paneli için ayrı bir işletme hesabı gerekir."
-      }</span>
+      <div class="account-menu-profile">
+        <span class="account-menu-avatar">${getInitials(state.user.name)}</span>
+        <div>
+          <strong>${state.user.name}</strong>
+          <span>${isVenueUser ? "İşletme hesabı" : "Bireysel hesap"}</span>
+        </div>
+      </div>
       ${
         needsVerification
-          ? `<em class="account-verify-note">Doğrulama bekliyor: e-posta</em>${
+          ? `<div class="account-verification-card">
+              <em class="account-verify-note">E-posta doğrulaması bekliyor</em>${
               !state.user.emailVerified
-                ? `<button class="account-inline-action" data-resend-verification type="button">Doğrulama e-postasını tekrar gönder</button>`
+                ? `<button class="account-inline-action" data-resend-verification type="button">Tekrar gönder</button>`
                 : ""
-            }`
+            }
+            </div>`
           : `<em class="account-verify-note is-ok">Hesap doğrulandı</em>`
       }
     `;
@@ -1809,8 +1812,13 @@ function updateAuthUi() {
     customerHeaderOnlyItems.forEach((item) => item.classList.remove("hidden"));
     customerAccountOnlyItems.forEach((item) => item.classList.remove("hidden"));
     accountMenuCopy.innerHTML = `
-      <strong>Hesap</strong>
-      <span>Rezervasyonlarını ve oturumunu yönet.</span>
+      <div class="account-menu-profile">
+        <span class="account-menu-avatar">TY</span>
+        <div>
+          <strong>Hesap</strong>
+          <span>Rezervasyonlarını ve oturumunu yönet.</span>
+        </div>
+      </div>
     `;
     closeAccountMenu();
   }
@@ -2131,14 +2139,14 @@ accountMenu.addEventListener("click", async (event) => {
   const note = accountMenuCopy.querySelector(".account-verify-note");
   button.disabled = true;
   button.textContent = "Gönderiliyor...";
-  if (note) note.textContent = "Doğrulama e-postası hazırlanıyor.";
+  if (note) note.textContent = "E-posta hazırlanıyor";
 
   try {
-    const payload = await apiRequest("/api/auth/resend-verification", { method: "POST" });
-    if (note) note.textContent = payload.message || "Doğrulama e-postası tekrar gönderildi.";
+    await apiRequest("/api/auth/resend-verification", { method: "POST" });
+    if (note) note.textContent = "Doğrulama e-postası gönderildi";
     button.textContent = "Tekrar gönder";
   } catch (error) {
-    if (note) note.textContent = error.message || "Doğrulama e-postası gönderilemedi.";
+    if (note) note.textContent = "E-posta gönderilemedi";
     button.textContent = "Tekrar dene";
   } finally {
     button.disabled = false;
