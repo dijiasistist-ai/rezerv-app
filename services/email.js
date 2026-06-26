@@ -217,7 +217,107 @@ function getEmailStatus() {
   };
 }
 
+function redactSecret(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (raw.includes("@")) return raw;
+  if (raw.length <= 6) return "******";
+  return `${raw.slice(0, 3)}...${raw.slice(-3)}`;
+}
+
+function probeTcpConnection(host, port, timeoutMs = 7000) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const socket = net.createConnection({ host, port: Number(port) });
+    let settled = false;
+
+    const finish = (payload) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve({
+        ...payload,
+        durationMs: Date.now() - startedAt,
+      });
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => finish({ ok: true }));
+    socket.once("timeout", () => finish({ ok: false, error: "Connection timeout" }));
+    socket.once("error", (error) => finish({ ok: false, error: error.message }));
+  });
+}
+
+async function diagnoseEmailTransport() {
+  const provider = resolveEmailProvider();
+  const status = getEmailStatus();
+  const diagnostics = {
+    provider,
+    from: status.from,
+    configured: status.configured,
+    smtp: null,
+  };
+
+  if (provider !== "smtp") return diagnostics;
+
+  const host = String(process.env.SMTP_HOST || "").trim();
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = String(process.env.SMTP_SECURE || "").toLowerCase() === "true";
+  const servername = process.env.SMTP_SERVERNAME || "";
+
+  diagnostics.smtp = {
+    host,
+    port,
+    secure,
+    user: redactSecret(process.env.SMTP_USER || ""),
+    from: getEmailFrom(),
+    replyTo: getReplyTo() || "",
+    forceIpv4: shouldForceSmtpIpv4(),
+    family: Number(process.env.SMTP_FAMILY || 4),
+    servername,
+    hasPassword: Boolean(process.env.SMTP_PASS),
+    dns4: [],
+    target: null,
+    tcp: null,
+    verify: null,
+  };
+
+  if (host && !net.isIP(host)) {
+    try {
+      diagnostics.smtp.dns4 = await dns.resolve4(host);
+    } catch (error) {
+      diagnostics.smtp.dns4Error = error.message;
+    }
+  }
+
+  try {
+    const target = await getSmtpConnectionTarget();
+    diagnostics.smtp.target = target;
+    diagnostics.smtp.tcp = await probeTcpConnection(target.host, port);
+
+    if (diagnostics.smtp.tcp.ok) {
+      const startedAt = Date.now();
+      try {
+        const transporter = await getSmtpTransporter();
+        await transporter.verify();
+        diagnostics.smtp.verify = { ok: true, durationMs: Date.now() - startedAt };
+      } catch (error) {
+        diagnostics.smtp.verify = {
+          ok: false,
+          error: error.message,
+          durationMs: Date.now() - startedAt,
+        };
+      }
+    }
+  } catch (error) {
+    diagnostics.smtp.targetError = error.message;
+  }
+
+  return diagnostics;
+}
+
 module.exports = {
+  diagnoseEmailTransport,
   getEmailStatus,
   sendEmail,
 };

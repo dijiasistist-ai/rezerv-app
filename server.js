@@ -38,7 +38,7 @@ const {
   verifyPassword,
   ensureSeedUser,
 } = require("./data/runtime-store");
-const { getEmailStatus, sendEmail } = require("./services/email");
+const { diagnoseEmailTransport, getEmailStatus, sendEmail } = require("./services/email");
 const { getMessagingStatus, sendMessage } = require("./services/messaging");
 const {
   PAYMENT_MODES,
@@ -3903,6 +3903,10 @@ app.get("/api/admin/reports", requireAdmin, (req, res) => {
 
 app.get("/api/admin/dev-outbox", requireAdmin, (_req, res) => {
   res.json(getDevOutbox());
+});
+
+app.get("/api/admin/email-diagnostics", requireAdmin, async (_req, res) => {
+  res.json(await diagnoseEmailTransport());
 });
 
 app.use((req, res, next) => {
