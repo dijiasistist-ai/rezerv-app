@@ -1482,7 +1482,7 @@ function setAuthMode(mode) {
   state.authStep = "entry";
   authTabs.forEach((tab) => tab.classList.toggle("is-active", tab.dataset.mode === mode));
   const isRegister = mode === "register";
-  authTitle.textContent = isRegister ? "Kayıt ol" : "Giriş yap";
+  authTitle.textContent = isRegister ? "Kayıt Ol" : "Giriş yap";
   authSubmit.textContent = isRegister ? "Kayıt Ol" : "Giriş Yap";
   nameField.classList.toggle("hidden", !isRegister);
   phoneField.classList.toggle("hidden", !isRegister);
