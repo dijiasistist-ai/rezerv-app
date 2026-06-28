@@ -1391,7 +1391,7 @@ function AuthCard({
         style={styles.input}
       />
       <Pressable style={styles.primaryButton} onPress={onSubmit} disabled={loading}>
-        <Text style={styles.primaryButtonText}>{loading ? "Bekle..." : mode === "login" ? "Giriş yap" : "Kayıt ol"}</Text>
+        <Text style={styles.primaryButtonText}>{loading ? "Bekle..." : mode === "login" ? "Giriş Yap" : "Kayıt Ol"}</Text>
       </Pressable>
       <Pressable onPress={() => onModeChange(mode === "login" ? "register" : "login")}>
         <Text style={styles.authToggle}>{mode === "login" ? "Yeni hesap oluştur" : "Zaten hesabım var"}</Text>
@@ -1514,7 +1514,7 @@ function ProfileScreen({
         <>
           <Pressable style={styles.logoutCard} onPress={() => setShowAuth((current) => !current)}>
             <Text style={styles.profileMenuIcon}>↪</Text>
-            <Text style={styles.profileMenuLabel}>Giriş yap / Kayıt ol</Text>
+            <Text style={styles.profileMenuLabel}>Giriş Yap / Kayıt Ol</Text>
           </Pressable>
           {showAuth ? (
             <AuthCard

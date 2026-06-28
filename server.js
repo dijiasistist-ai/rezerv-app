@@ -2099,30 +2099,36 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         color: #fff;
         font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
-      video, audio {
+      .avatar-shell {
         position: fixed;
-        left: 50%;
         top: 0;
+        left: 50%;
+        width: min(280px, 100vw);
+        height: calc(100% - 58px);
+        transform: translateX(-50%);
+        filter: drop-shadow(0 26px 38px rgba(3, 15, 38, 0.24));
+        pointer-events: none;
+      }
+      video, audio {
+        position: absolute;
+        inset: 0;
         width: 100%;
-        height: calc(100% - 64px);
+        height: 100%;
         object-fit: cover;
         object-position: center top;
         background: transparent;
-        transform: translateX(-50%);
         clip-path: ellipse(47% 50% at 50% 50%);
-        filter: drop-shadow(0 24px 42px rgba(3, 15, 38, 0.2));
       }
       audio {
         opacity: 0;
         pointer-events: none;
         clip-path: none;
-        filter: none;
       }
       .status {
         position: fixed;
         left: 14px;
         right: 14px;
-        bottom: 72px;
+        bottom: 64px;
         border: 1px solid rgba(255,255,255,.14);
         border-radius: 999px;
         padding: 11px 13px;
@@ -2131,12 +2137,17 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         text-align: center;
         font-size: 12px;
         backdrop-filter: blur(18px);
+        transition: opacity .2s ease, transform .2s ease;
       }
-      .status.ready { opacity: .18; }
+      .status.ready {
+        opacity: 0;
+        transform: translateY(8px);
+        pointer-events: none;
+      }
       .mic {
         position: fixed;
         left: 50%;
-        bottom: 14px;
+        bottom: 8px;
         width: auto;
         min-width: 178px;
         height: 44px;
@@ -2178,14 +2189,17 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         place-items: center;
         padding: 24px;
         text-align: center;
+        background: transparent;
       }
       .fallback strong { display: block; margin-bottom: 8px; font-size: 20px; }
       .fallback span { color: rgba(255,255,255,.72); font-size: 13px; line-height: 1.45; }
     </style>
   </head>
   <body>
-    <video id="simli-video" autoplay playsinline></video>
-    <audio id="simli-audio" autoplay></audio>
+    <div class="avatar-shell">
+      <video id="simli-video" autoplay playsinline></video>
+      <audio id="simli-audio" autoplay></audio>
+    </div>
     <div id="fallback" class="fallback">
       <div><strong>${safeAvatarName} bağlanıyor</strong><span>Canlı yüz ve ses sahnesi hazırlanıyor.</span></div>
     </div>
@@ -2209,6 +2223,7 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
       let voiceLoopActive = false;
       let recognitionSupported = false;
       let recognitionRestartTimer = null;
+      let simliStarted = false;
 
       function setStatus(message, ready = false) {
         statusEl.textContent = message;
@@ -2222,6 +2237,19 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
 
       function sleep(ms) {
         return new Promise((resolve) => window.setTimeout(resolve, ms));
+      }
+
+      function waitUntilSimliStarted() {
+        if (simliStarted) return Promise.resolve();
+        return new Promise((resolve) => {
+          const startedAt = Date.now();
+          const timer = window.setInterval(() => {
+            if (simliStarted || Date.now() - startedAt > 5000) {
+              window.clearInterval(timer);
+              resolve();
+            }
+          }, 80);
+        });
       }
 
       function downsamplePcm16(input, inputRate, outputRate) {
@@ -2259,6 +2287,7 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         speaking = true;
         setStatus(avatarName + " konuşuyor...");
         try {
+          await waitUntilSimliStarted();
           const response = await fetch("/api/ada/live/speech", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2274,11 +2303,13 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
           for (let offset = 0; offset < pcm16k.length; offset += chunkSize) {
             const chunk = pcm16k.slice(offset, offset + chunkSize);
             simliClient.sendAudioData(new Uint8Array(chunk.buffer));
-            await sleep(Math.max(80, Math.round((chunk.length / sampleRate) * 1000)));
+            await sleep(Math.max(120, Math.round((chunk.length / sampleRate) * 1000)));
           }
-          await sleep(800);
+          await sleep(1000);
         } catch (error) {
-          await speakWithDeviceVoice(normalizedText);
+          console.error("[ada-live-speech]", error);
+          setStatus("Ada sesi üretilemedi; dudak senkronu için tekrar dene.");
+          await sleep(900);
         } finally {
           speaking = false;
           if (voiceLoopActive) {
@@ -2407,6 +2438,7 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         try {
           simliClient = new SimliClient(sessionToken, videoEl, audioEl, null, LogLevel.INFO, "livekit");
           simliClient.on("start", () => {
+            simliStarted = true;
             fallbackEl.style.display = "none";
             setStatus(avatarName + " hazır.", true);
           });

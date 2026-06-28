@@ -10263,7 +10263,7 @@ body[data-venue-view="overview"] #venue-branch {
 }
 
 .ada-assistant.is-live {
-  width: min(310px, calc(100vw - 28px));
+  width: min(280px, calc(100vw - 28px));
 }
 
 .ada-assistant.is-live .ada-launcher {
@@ -10306,7 +10306,7 @@ body[data-venue-view="overview"] #venue-branch {
   border-color: rgba(255, 255, 255, 0.38);
   background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
-  box-shadow: 0 14px 34px rgba(3, 15, 38, 0.22);
+  box-shadow: 0 12px 28px rgba(3, 15, 38, 0.18);
   backdrop-filter: blur(14px);
 }
 
@@ -10323,10 +10323,11 @@ body[data-venue-view="overview"] #venue-branch {
 
 .ada-assistant.is-live .ada-stage iframe {
   min-height: 390px;
-  height: min(58vh, 500px);
-  border-radius: 34px;
-  box-shadow: 0 28px 72px rgba(7, 52, 95, 0.26);
+  height: min(54vh, 470px);
+  border-radius: 0;
+  box-shadow: none;
   background: transparent;
+  filter: drop-shadow(0 26px 54px rgba(7, 52, 95, 0.24));
 }
 
 @media (max-width: 760px) {
