@@ -107,6 +107,20 @@ const reservationPolicy = document.querySelector("#reservation-policy");
 const reservationPreview = document.querySelector("#reservation-preview");
 const reservationNote = document.querySelector("#reservation-note");
 const reservationFeedback = document.querySelector("#reservation-feedback");
+const customerAda = document.querySelector("#customer-ada");
+const customerAdaLauncher = document.querySelector("#customer-ada-launcher");
+const customerAdaHint = document.querySelector("#customer-ada-hint");
+const customerAdaPanel = document.querySelector("#customer-ada-panel");
+const customerAdaClose = document.querySelector("#customer-ada-close");
+const customerAdaStatusTitle = document.querySelector("#customer-ada-status-title");
+const customerAdaStatus = document.querySelector("#customer-ada-status");
+const customerAdaStage = document.querySelector("#customer-ada-stage");
+const customerAdaSpeech = document.querySelector("#customer-ada-speech");
+const customerAdaActions = document.querySelector("#customer-ada-actions");
+const customerAdaChatLog = document.querySelector("#customer-ada-chat-log");
+const customerAdaForm = document.querySelector("#customer-ada-form");
+const customerAdaInput = document.querySelector("#customer-ada-input");
+const customerAdaLive = document.querySelector("#customer-ada-live");
 const notificationStorageKey = "tyee_read_notifications_v1";
 let notificationReadTimer = null;
 
@@ -144,6 +158,8 @@ const state = {
   reservationPolicy: null,
   reservationPolicyRequest: 0,
   heroMetrics: [],
+  customerAdaOpen: false,
+  customerAdaActions: [],
 };
 
 const fallbackCategories = [
@@ -1070,6 +1086,7 @@ function renderListings(items = []) {
         <p>Filtreleri biraz genişletip tekrar deneyin.</p>
       </article>
     `;
+    renderCustomerAda();
     return;
   }
 
@@ -1111,6 +1128,269 @@ function renderListings(items = []) {
       },
     )
     .join("");
+  renderCustomerAda();
+}
+
+function getVisibleListingItems() {
+  const normalizedQuery = normalizeSearchQuery(state.query);
+  return (state.featuredListings || []).filter((item) => {
+    const matchesCategory = state.category === "all" || item.category === state.category;
+    const matchesCity = state.city === "all" || item.city === state.city;
+    const haystack = normalizeSearchQuery(`${item.name} ${item.categoryLabel} ${item.cityLabel} ${(item.tags || []).join(" ")}`);
+    const matchesQuery = !normalizedQuery || haystack.includes(normalizedQuery);
+    return matchesCategory && matchesCity && matchesQuery;
+  });
+}
+
+function buildCustomerAdaActions() {
+  const visibleItems = getVisibleListingItems();
+  const bestItem = [...visibleItems].sort(
+    (a, b) =>
+      Number(b.rating || 0) - Number(a.rating || 0) ||
+      Number(a.distanceKm ?? Number.MAX_SAFE_INTEGER) - Number(b.distanceKm ?? Number.MAX_SAFE_INTEGER),
+  )[0];
+  const categoryLabel =
+    state.categories.find((item) => item.id === state.category)?.label ||
+    (state.category === "all" ? "Tüm kategoriler" : "Seçili kategori");
+  const actions = [];
+
+  if (bestItem) {
+    actions.push({
+      id: "best-match",
+      icon: "EN",
+      title: "En uygun işletmeyi aç",
+      detail: `${bestItem.name} · ${bestItem.rating?.toFixed ? bestItem.rating.toFixed(1) : bestItem.rating}`,
+      message: `${bestItem.name} şu an listendeki en güçlü eşleşme görünüyor.`,
+      type: "reservation",
+      listingId: bestItem.id,
+    });
+  }
+
+  actions.push({
+    id: "nearby",
+    icon: "YK",
+    title: "Yakınımdaki işletmeler",
+    detail: `${visibleItems.length || state.featuredListings.length} seçenek hazır`,
+    message: "Yakınındaki işletmeleri harita ve liste olarak açıyorum.",
+    type: "nearby",
+  });
+
+  actions.push({
+    id: "categories",
+    icon: "KT",
+    title: "Kategori seç",
+    detail: categoryLabel,
+    message: "Arama alanındaki kategori listesini açtım. İstersen hizmet tipini seç.",
+    type: "categories",
+  });
+
+  if (state.user) {
+    actions.push({
+      id: "reservations",
+      icon: "R",
+      title: "Rezervasyonlarım",
+      detail: "Yaklaşan ve geçmiş randevular",
+      message: "Rezervasyonlarını açıyorum.",
+      type: "customer-panel",
+      tab: "reservations",
+    });
+    actions.push({
+      id: "favorites",
+      icon: "F",
+      title: "Favorilerim",
+      detail: "Kaydettiğin işletmeler",
+      message: "Favorilerini açıyorum.",
+      type: "customer-panel",
+      tab: "favorites",
+    });
+  } else {
+    actions.push({
+      id: "login",
+      icon: "G",
+      title: "Giriş yap",
+      detail: "Rezervasyonlarını takip et",
+      message: "Bireysel giriş ekranını açıyorum.",
+      type: "login",
+    });
+  }
+
+  return actions.slice(0, 5);
+}
+
+function renderCustomerAda() {
+  if (!customerAda) return;
+  const actions = buildCustomerAdaActions();
+  const visibleCount = getVisibleListingItems().length;
+  const primary = actions[0];
+  state.customerAdaActions = actions;
+
+  if (customerAdaHint) customerAdaHint.textContent = primary?.title || "Rezervasyon asistanın";
+  if (customerAdaStatusTitle) {
+    customerAdaStatusTitle.textContent = state.user ? "Hesabını ve seçenekleri okuyorum" : "Yakınındaki seçenekleri okuyorum";
+  }
+  if (customerAdaStatus) {
+    customerAdaStatus.textContent = `${visibleCount || state.featuredListings.length || 0} işletme, kategori ve konum bilgisine göre öneri hazırladım.`;
+  }
+  if (customerAdaSpeech) {
+    customerAdaSpeech.textContent =
+      primary?.message ||
+      "Yakınında uygun işletme bulabilir, rezervasyonlarını açabilir veya favorilerini gösterebilirim.";
+  }
+  if (customerAdaActions) {
+    customerAdaActions.innerHTML = actions
+      .map(
+        (item) => `
+          <button class="customer-ada-action" type="button" data-customer-ada-action="${escapeHtml(item.id)}">
+            <em>${escapeHtml(item.icon)}</em>
+            <span>
+              <strong>${escapeHtml(item.title)}</strong>
+              <span>${escapeHtml(item.detail)}</span>
+            </span>
+            <span>›</span>
+          </button>
+        `,
+      )
+      .join("");
+  }
+}
+
+function openCustomerAda() {
+  state.customerAdaOpen = true;
+  customerAdaPanel?.classList.remove("hidden");
+  customerAdaLauncher?.setAttribute("aria-expanded", "true");
+  if (customerAdaChatLog && !customerAdaChatLog.dataset.ready) {
+    appendCustomerAdaMessage("ada", "Ben Ada. Sana uygun işletme bulabilir, rezervasyonlarını açabilir ve arama seçimlerini hızlandırabilirim.");
+    customerAdaChatLog.dataset.ready = "true";
+  }
+}
+
+function closeCustomerAda() {
+  state.customerAdaOpen = false;
+  customerAdaPanel?.classList.add("hidden");
+  customerAdaLauncher?.setAttribute("aria-expanded", "false");
+}
+
+function toggleCustomerAda() {
+  if (state.customerAdaOpen) closeCustomerAda();
+  else openCustomerAda();
+}
+
+function appendCustomerAdaMessage(role = "ada", message = "") {
+  if (!customerAdaChatLog || !message) return;
+  const node = document.createElement("div");
+  node.className = `customer-ada-message ${role === "user" ? "is-user" : "is-ada"}`;
+  node.textContent = message;
+  customerAdaChatLog.appendChild(node);
+  customerAdaChatLog.scrollTo({ top: customerAdaChatLog.scrollHeight, behavior: "smooth" });
+}
+
+function runCustomerAdaAction(actionId = "") {
+  const action = (state.customerAdaActions || []).find((item) => item.id === actionId);
+  if (!action) return;
+
+  if (action.type === "reservation" && action.listingId) {
+    const listing = state.featuredListings.find((item) => String(item.id) === String(action.listingId));
+    if (listing) openReservationPage(listing);
+  } else if (action.type === "nearby") {
+    document.querySelector("#featured")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    loadInlineNearbyMap().catch(() => null);
+  } else if (action.type === "categories") {
+    searchCategoryPopover?.classList.remove("hidden");
+    searchCategoryPopover?.setAttribute("aria-hidden", "false");
+    queryInput?.focus();
+  } else if (action.type === "customer-panel") {
+    openCustomerPanel(action.tab || "reservations").catch(() => openAuthModal("login"));
+  } else if (action.type === "login") {
+    openAuthModal("login");
+  }
+
+  appendCustomerAdaMessage("ada", action.message);
+}
+
+function answerCustomerAda(question = "") {
+  const normalized = normalizeSearchQuery(question);
+  const visibleItems = getVisibleListingItems();
+  const bestItem = visibleItems[0] || state.featuredListings[0];
+
+  if (normalized.includes("rezervasyonlar") || normalized.includes("randevular")) {
+    if (state.user) {
+      openCustomerPanel("reservations").catch(() => null);
+      return "Rezervasyonlarını açıyorum. Yaklaşan ve geçmiş randevularını buradan takip edebilirsin.";
+    }
+    openAuthModal("login");
+    return "Rezervasyonlarını görmek için önce bireysel hesabına giriş yapmalısın.";
+  }
+
+  if (normalized.includes("favori") || normalized.includes("kaydedilen")) {
+    if (state.user) {
+      openCustomerPanel("favorites").catch(() => null);
+      return "Favorilerini açıyorum. Kaydettiğin işletmeler burada görünecek.";
+    }
+    return "Favorilerini hesapla eşleştirmek için giriş yapman gerekiyor.";
+  }
+
+  const matchedCategory = (state.categories.length ? state.categories : fallbackCategories).find((item) =>
+    normalized.includes(normalizeSearchQuery(item.label)),
+  );
+  if (matchedCategory) {
+    state.category = matchedCategory.id;
+    if (queryInput) queryInput.value = matchedCategory.label;
+    setActiveCategory(state.category);
+    loadListings();
+    document.querySelector("#featured")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return `${matchedCategory.label} için sonuçları listeledim. İstersen en yüksek puanlı işletmeye birlikte gidelim.`;
+  }
+
+  if (normalized.includes("yakın") || normalized.includes("harita") || normalized.includes("konum")) {
+    loadInlineNearbyMap().catch(() => null);
+    document.querySelector("#featured")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return "Yakınındaki işletmeleri harita üzerinde yeniliyorum.";
+  }
+
+  if (bestItem) {
+    return `${bestItem.name} iyi bir başlangıç olabilir. Kategori, puan ve mesafeye göre listeyi daraltabilirim.`;
+  }
+
+  return "Kategori, konum veya işletme adı yazarsan sana en uygun seçenekleri listelerim.";
+}
+
+async function connectCustomerAdaLive() {
+  if (!customerAdaLive) return;
+  customerAdaLive.disabled = true;
+  customerAdaLive.classList.add("is-waiting");
+  customerAdaLive.textContent = "Ada bağlantısı kontrol ediliyor...";
+  if (customerAdaStatus) customerAdaStatus.textContent = "Simli canlı avatar sahnesi hazırlanıyor.";
+
+  try {
+    const payload = await apiRequest("/api/customer/avatar/session", {
+      method: "POST",
+      body: JSON.stringify({
+        avatarName: "Ada",
+        query: state.query,
+        category: state.category,
+        city: state.city,
+      }),
+    });
+    const sessionUrl = String(payload.sessionUrl || payload.stageUrl || "").trim();
+
+    if (sessionUrl && customerAdaStage) {
+      customerAdaStage.innerHTML = `<iframe title="Ada canlı avatar" src="${escapeHtml(sessionUrl)}" allow="camera; microphone; autoplay; clipboard-write"></iframe>`;
+      customerAdaLive.textContent = "Ada canlı bağlantıda";
+      appendCustomerAdaMessage("ada", "Canlı avatar sahnesini açtım. Simli bağlantısı burada çalışacak.");
+      return;
+    }
+
+    if (customerAdaStatusTitle) customerAdaStatusTitle.textContent = "Canlı avatar hazır değil";
+    if (customerAdaStatus) customerAdaStatus.textContent = payload.message || "Simli ortam bilgileri tamamlanınca Ada burada canlı açılacak.";
+    customerAdaLive.textContent = "Simli yapılandırması bekleniyor";
+    appendCustomerAdaMessage("ada", payload.message || "Simli bağlantısı henüz hazır değil. Yine de arama ve rezervasyon yönlendirmesi yapabilirim.");
+  } catch (error) {
+    if (customerAdaStatusTitle) customerAdaStatusTitle.textContent = "Bağlantı kurulamadı";
+    if (customerAdaStatus) customerAdaStatus.textContent = error.message || "Canlı avatar bağlantısı şu an hazır değil.";
+    customerAdaLive.textContent = "Tekrar dene";
+    customerAdaLive.disabled = false;
+    appendCustomerAdaMessage("ada", error.message || "Canlı avatar bağlantısı şu an kurulamadı.");
+  }
 }
 
 function highlightNearbyMarker(markerId, group = "modal") {
@@ -1932,6 +2212,36 @@ categoryNext?.addEventListener("click", () => {
 
 searchFieldMain?.addEventListener("click", openSearchCategoryPopover);
 queryInput.addEventListener("focus", openSearchCategoryPopover);
+
+customerAdaLauncher?.addEventListener("click", toggleCustomerAda);
+customerAdaClose?.addEventListener("click", closeCustomerAda);
+customerAdaActions?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-customer-ada-action]");
+  if (!button) return;
+  runCustomerAdaAction(button.dataset.customerAdaAction);
+});
+customerAdaForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = customerAdaInput?.value.trim() || "";
+  if (!question) return;
+  appendCustomerAdaMessage("user", question);
+  customerAdaInput.value = "";
+  try {
+    const payload = await apiRequest("/api/customer/assistant/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        question,
+        query: state.query,
+        category: state.category,
+        city: state.city,
+      }),
+    });
+    appendCustomerAdaMessage("ada", payload.answer || answerCustomerAda(question));
+  } catch (error) {
+    appendCustomerAdaMessage("ada", answerCustomerAda(question));
+  }
+});
+customerAdaLive?.addEventListener("click", connectCustomerAdaLive);
 
 popularSearches.addEventListener("click", (event) => {
   const button = event.target.closest("[data-search]");

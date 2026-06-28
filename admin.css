@@ -411,6 +411,7 @@ button {
   font-size: 24px;
 }
 
+.admin-directory-workspace,
 .admin-workspace {
   display: grid;
   grid-template-columns: minmax(360px, 1.2fr) minmax(320px, 0.8fr);
@@ -1045,6 +1046,7 @@ button {
 
   .summary-grid,
   .admin-priority-strip,
+  .admin-directory-workspace,
   .admin-workspace,
   .action-grid,
   .report-metric-grid,
@@ -1083,6 +1085,7 @@ button {
   .summary-grid,
   .admin-priority-strip,
   .owner-dashboard,
+  .admin-directory-workspace,
   .admin-workspace,
   .action-grid,
   .owner-metric-grid,
@@ -1116,6 +1119,7 @@ button {
   .admin-hero,
   .summary-grid,
   .owner-dashboard,
+  .admin-directory-workspace,
   .directory-panel,
   .detail-panel,
   .action-panel,

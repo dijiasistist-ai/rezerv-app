@@ -50,7 +50,9 @@ const { customerReservationTerms, venuePartnerTerms } = require("./data/legal-te
 const app = express();
 const port = Number(process.env.PORT || 8091);
 const sessions = new Map();
+const adaLiveSessions = new Map();
 const SESSION_TTL_MS = 30 * 60 * 1000;
+const ADA_LIVE_SESSION_TTL_MS = 20 * 60 * 1000;
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
 const HIDE_PUBLIC_VENUES = process.env.HIDE_PUBLIC_VENUES === "1";
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
@@ -1113,11 +1115,11 @@ function mergeVenuePayload(venueId, user = null) {
   }
 
   const venueReviews = getReviewsForVenue(venueId);
-  const existingReviews = payload.reviews || [];
+  const existingReviews = (payload.reviews || []).map(formatVenueReview);
   const formattedRuntimeReviews = venueReviews.map(formatVenueReview);
   const reviewSummary = buildReviewSummary([...venueReviews, ...existingReviews], venueReservations);
   payload.reviewSummary = reviewSummary;
-  payload.reviews = [...formattedRuntimeReviews, ...existingReviews];
+  payload.reviews = applyVenueReviewNotes([...formattedRuntimeReviews, ...existingReviews], overlay);
 
   payload.slotState = {
     slotModes: overlay.slotModes || {},
@@ -1131,6 +1133,11 @@ function mergeVenuePayload(venueId, user = null) {
     weekDays: payload.weekDays || [],
   });
   payload.calendarOps = buildVenueCalendarOpsPayload({
+    payload,
+    overlay,
+    reservations: venueReservations,
+  });
+  payload.finance = buildVenueFinancePayload({
     payload,
     overlay,
     reservations: venueReservations,
@@ -1650,6 +1657,819 @@ function buildReservationSummary(reservations = []) {
   ];
 }
 
+function getMonthKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  return `${safeDate.getFullYear()}-${String(safeDate.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function normalizeExpenseMonth(value = "") {
+  const month = String(value || "").trim();
+  return /^\d{4}-\d{2}$/.test(month) ? month : getMonthKey();
+}
+
+function normalizeVenueExpense(item = {}) {
+  const amount = Math.max(0, parseMoney(item.amount));
+  return {
+    id: String(item.id || crypto.randomUUID()),
+    title: String(item.title || item.label || "Gider").trim(),
+    category: String(item.category || "Genel").trim(),
+    amount,
+    amountLabel: formatCurrency(amount),
+    month: normalizeExpenseMonth(item.month),
+    createdAt: item.createdAt || new Date().toISOString(),
+  };
+}
+
+function getVenueExpenseItems(overlay = {}) {
+  return Array.isArray(overlay.expenses) ? overlay.expenses.map(normalizeVenueExpense) : [];
+}
+
+function buildVenueFinancePayload({ payload = {}, overlay = {}, reservations = [] } = {}) {
+  const month = getMonthKey();
+  const expenses = getVenueExpenseItems(overlay);
+  const monthlyExpenses = expenses.filter((expense) => expense.month === month);
+  const reservationIncome = reservations.reduce((total, reservation) => {
+    const billing = reservation.billing || calculateReservationBilling(reservation);
+    return total + Number(billing.totalAmount || 0);
+  }, 0);
+  const transactionIncome = reservations.length
+    ? reservationIncome
+    : (payload.transactions || []).reduce((total, transaction) => total + parseMoney(transaction.amount), 0);
+  const expenseTotal = monthlyExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0);
+  const netTotal = transactionIncome - expenseTotal;
+  const margin = transactionIncome > 0 ? Math.round((netTotal / transactionIncome) * 100) : 0;
+
+  return {
+    month,
+    kpis: [
+      { label: "Bu ay gelir", value: formatCurrency(transactionIncome), meta: `${reservations.length || (payload.transactions || []).length} işlem` },
+      { label: "Bu ay gider", value: formatCurrency(expenseTotal), meta: `${monthlyExpenses.length} gider` },
+      { label: "Net kalan", value: formatCurrency(netTotal), meta: "Gelir - gider" },
+      { label: "Kar marjı", value: `%${margin}`, meta: "Bu ay" },
+    ],
+    rows: [
+      { label: "Rezervasyon geliri", value: formatCurrency(transactionIncome), type: "income" },
+      { label: "Aylık gider", value: formatCurrency(expenseTotal), type: "expense" },
+      { label: "Net kalan", value: formatCurrency(netTotal), type: "net" },
+    ],
+    expenses: monthlyExpenses,
+    allExpenses: expenses,
+  };
+}
+
+function countVenueOpenSlots(payload = {}) {
+  return Object.values(payload?.slotState?.slotModes || {}).filter((state) => state === "rezerv").length;
+}
+
+function countVenueManualSlots(payload = {}) {
+  return Object.keys(payload?.slotState?.manualEntries || {}).length;
+}
+
+function buildVenueAssistantPayload(payload = {}) {
+  const settings = payload.settings || {};
+  const activeAreas = getActiveVenueAreas(settings);
+  const pricedAreas = activeAreas.filter((area) => Number(area.numericPrice || 0) > 0);
+  const openSlots = countVenueOpenSlots(payload);
+  const manualSlots = countVenueManualSlots(payload);
+  const transactions = Array.isArray(payload.transactions) ? payload.transactions : [];
+  const expenseCount = Array.isArray(payload.finance?.expenses) ? payload.finance.expenses.length : 0;
+  const waitingReviews = Number(payload.reviewSummary?.waitingRequests || 0);
+  const waitlistCount = Number(payload.calendarOps?.waitlist?.summary?.waiting || 0);
+  const galleryCount = getVenueGallery(settings).length;
+  const insights = [];
+
+  if (!activeAreas.length || !pricedAreas.length) {
+    insights.push({
+      id: "services",
+      icon: "₺",
+      title: "Hizmet menüsünü tamamla",
+      detail: pricedAreas.length ? `${activeAreas.length} aktif hizmet var.` : "Fiyatı girilmemiş hizmetler var.",
+      message: "Satışa çıkmadan önce hizmet adı, süre, fiyat ve ödeme modelini netleştirelim.",
+      actionLabel: "Hizmetlere git",
+      view: "sales-products",
+      focus: "#sales-products-layout",
+    });
+  }
+
+  if (!openSlots) {
+    insights.push({
+      id: "calendar-open",
+      icon: "SA",
+      title: "Takvim satışa kapalı",
+      detail: "Satışa açık slot yok.",
+      message: "Takvimde müşterinin rezerve edebileceği saat açarsan marketplace görünürlüğü anlam kazanır.",
+      actionLabel: "Takvimi aç",
+      view: "calendar",
+      focus: "#calendar-board-secondary",
+    });
+  } else if (!transactions.length) {
+    insights.push({
+      id: "campaign-empty-slots",
+      icon: "SMS",
+      title: "Boş saatlerin var",
+      detail: `${openSlots} satışa açık slot bekliyor.`,
+      message: "Boş saatler görünüyor. İstersen yakın müşterilere kısa bir reklam SMS akışı hazırlayalım.",
+      actionLabel: "SMS kampanyası",
+      view: "campaigns",
+      focus: "#campaigns-board",
+    });
+  }
+
+  if (waitlistCount > 0) {
+    insights.push({
+      id: "waitlist",
+      icon: "BL",
+      title: "Bekleyen talep var",
+      detail: `${waitlistCount} müşteri uygun saat bekliyor.`,
+      message: "Bekleme listesindeki müşterileri açık saatlerle eşleştirirsek hızlı rezervasyon kazanabiliriz.",
+      actionLabel: "Beklemeyi aç",
+      view: "calendar",
+      focus: "#venue-waitlist",
+    });
+  }
+
+  if (!expenseCount) {
+    insights.push({
+      id: "expenses",
+      icon: "₺",
+      title: "Bu ay gider girilmemiş",
+      detail: "Kar zarar gerçek görünmeyebilir.",
+      message: "Kira, personel ve sarf giderlerini girersek işletmenin net performansı temiz görünür.",
+      actionLabel: "Gider ekle",
+      view: "finance",
+      focus: '[data-finance-expense-field="title"]',
+    });
+  }
+
+  if (waitingReviews > 0) {
+    insights.push({
+      id: "reviews",
+      icon: "Y",
+      title: "Yorum takibi bekliyor",
+      detail: `${waitingReviews} değerlendirme isteği açık.`,
+      message: "Bekleyen yorumları takip edelim. Güçlü yorumlar marketplace sıralamasında kritik sinyal olur.",
+      actionLabel: "Yorumları aç",
+      view: "reviews",
+      focus: "#reviews-shell",
+    });
+  }
+
+  if (galleryCount < 3) {
+    insights.push({
+      id: "media",
+      icon: "G",
+      title: "Galeri güçlendirilmeli",
+      detail: `${galleryCount}/6 görsel hazır.`,
+      message: "Dış görünüş, iç mekan ve çalışan görselleri eklenirse rezervasyon sayfası daha güven verir.",
+      actionLabel: "Görsel ekle",
+      view: "settings",
+      focus: ".settings-media-grid",
+    });
+  }
+
+  if (manualSlots > 0) {
+    insights.push({
+      id: "manual",
+      icon: "M",
+      title: "Manuel kayıtlar aktif",
+      detail: `${manualSlots} manuel rezervasyon var.`,
+      message: "Manuel kayıtları checkout ile kapatırsan satış ve performans raporu temiz kalır.",
+      actionLabel: "Checkout aç",
+      view: "transactions",
+      focus: "#transactions-body",
+    });
+  }
+
+  if (!insights.length) {
+    insights.push({
+      id: "healthy",
+      icon: "OK",
+      title: "Operasyon sağlıklı",
+      detail: "Temel kurulum tamam görünüyor.",
+      message: "Panel iyi durumda. Şimdi tekrar müşteri kampanyası veya doluluk artırma akışı planlayabiliriz.",
+      actionLabel: "Pazarlamaya git",
+      view: "campaigns",
+      focus: "#campaigns-board",
+    });
+  }
+
+  return {
+    assistant: {
+      name: "Ada",
+      role: "Operasyon koçu",
+      provider: "tyee-rules",
+    },
+    summary: {
+      title: "İşletmeni izliyorum",
+      detail: `${insights.length} aksiyon önerisi hazır. Takvim, gider, yorum ve kampanya sinyallerini takip ediyorum.`,
+    },
+    insights: insights.slice(0, 6),
+  };
+}
+
+function buildVenueAssistantAnswer(question = "", payload = {}) {
+  const normalized = String(question || "").toLocaleLowerCase("tr-TR");
+  const openSlots = countVenueOpenSlots(payload);
+  const activeAreas = getActiveVenueAreas(payload.settings || {});
+  const expenseCount = Array.isArray(payload.finance?.expenses) ? payload.finance.expenses.length : 0;
+  const waitingReviews = Number(payload.reviewSummary?.waitingRequests || 0);
+  const galleryCount = getVenueGallery(payload.settings || {}).length;
+  const venueName = payload.venue?.name || payload.settings?.businessName || "işletmen";
+
+  if (normalized.includes("boş") || normalized.includes("slot") || normalized.includes("takvim")) {
+    return openSlots
+      ? `${venueName} için ${openSlots} satışa açık slot görünüyor. Doluluk düşükse Pazarlama ekranından boş saat SMS akışı hazırlayabiliriz.`
+      : `${venueName} için satışa açık slot görünmüyor. Takvim ekranında uygun saatleri Tyee olarak satışa açmalısın.`;
+  }
+
+  if (normalized.includes("sms") || normalized.includes("reklam") || normalized.includes("kampanya")) {
+    if (normalized.includes("toplu") || normalized.includes("müşterilere") || normalized.includes("son mesaj")) {
+      return "Toplu SMS için Pazarlama ekranında izinli müşteri segmenti, mesaj metni ve son onay adımı gerekir. Ada mesajı taslak olarak hazırlar; işletme sahibi onaylamadan gönderim yapılmaz.";
+    }
+    return "Pazarlama ekranında geri çağırma, boş saat ve tekrar müşteri kampanyalarını yönetebiliriz. Açık slot varsa yakın müşterilere kısa SMS iyi çalışır.";
+  }
+
+  if (normalized.includes("gider") || normalized.includes("gelir") || normalized.includes("performans")) {
+    return expenseCount
+      ? `Bu ay ${expenseCount} gider kaydı var. Performans ekranı gelir, gider ve net kalan hesabını bu kayıtlarla çıkarıyor.`
+      : "Bu ay gider kaydı yok. Performans ekranında Gider ekle ile kira, personel ve sarf giderlerini girmelisin.";
+  }
+
+  if (normalized.includes("hizmet") || normalized.includes("fiyat") || normalized.includes("kapora") || normalized.includes("ödeme")) {
+    return `${activeAreas.length} aktif hizmet görünüyor. Her hizmet için süre, fiyat ve ödeme modelini Hizmet Menüsü veya İşletme Ayarları ekranından tamamlayabilirsin.`;
+  }
+
+  if (normalized.includes("yorum") || normalized.includes("değerlendirme") || normalized.includes("puan")) {
+    return waitingReviews
+      ? `${waitingReviews} değerlendirme isteği bekliyor. Değerlendirmeler ekranında yorumları ve işletme iç notlarını takip edebilirsin.`
+      : "Bekleyen değerlendirme görünmüyor. Rezervasyon tamamlanınca yorum isteği akışı buraya düşer.";
+  }
+
+  if (normalized.includes("resim") || normalized.includes("foto") || normalized.includes("görsel")) {
+    return `Şu anda ${galleryCount}/6 görsel hazır. İşletme Ayarları içinde dış görünüş, dükkan içi ve çalışan görsellerini ekleyebilirsin.`;
+  }
+
+  if (normalized.includes("mağaza") || normalized.includes("işletme") || normalized.includes("nerede tanıml")) {
+    return "Mağaza bilgisi İşletme Ayarları ekranında tanımlanır. Ada bu kayıtla birlikte hizmetleri, takvimi, fotoğrafları, yorumları ve performans verilerini okur.";
+  }
+
+  return "Takvim, hizmet menüsü, gider, yorum, müşteri ve kampanya tarafını okuyabiliyorum. Bana belirli bir ekranı sorabilir veya öneri kartlarından birini açabilirsin.";
+}
+
+function getVenueSmsRecipients(payload = {}, segment = "all") {
+  const clients = Array.isArray(payload.clients?.items) ? payload.clients.items : [];
+  const seen = new Set();
+  return clients
+    .filter((client) => {
+      const phone = String(client.phone || "");
+      if (!/\d{10,}/.test(phone.replace(/\D/g, ""))) return false;
+      if (segment === "lost" && !(Number(client.daysSinceLastVisit) > 30)) return false;
+      if (segment === "loyal" && !(Number(client.visitCount) >= 2)) return false;
+      if (segment === "new" && !(Number(client.visitCount) <= 1)) return false;
+      return true;
+    })
+    .map((client) => ({
+      id: client.id,
+      name: client.name || "Müşteri",
+      phone: client.phone,
+      segment: client.segment || "Müşteri",
+      lastVisit: client.lastVisit || "-",
+    }))
+    .filter((client) => {
+      const key = String(client.phone || "").replace(/\D/g, "");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 50);
+}
+
+function buildVenueSmsDraft(payload = {}, options = {}) {
+  const settings = payload.settings || {};
+  const venueName = settings.businessName || payload.venue?.name || "Tyee işletmen";
+  const segment = String(options.segment || "all");
+  const openSlots = countVenueOpenSlots(payload);
+  const recipients = getVenueSmsRecipients(payload, segment);
+  const defaultMessage =
+    openSlots > 0
+      ? `Merhaba, ${venueName} için bu hafta sınırlı uygun saatler açıldı. Uygun zamanı seçip rezervasyonunu Tyee üzerinden kolayca oluşturabilirsin.`
+      : `Merhaba, ${venueName} yeni randevu taleplerini Tyee üzerinden almaya başladı. Uygun hizmet ve saatleri görmek için profilimizi ziyaret edebilirsin.`;
+  const message = String(options.message || defaultMessage).trim().slice(0, 320);
+  const segmentLabels = {
+    all: "Telefonu kayıtlı tüm müşteriler",
+    lost: "30+ gündür gelmeyen müşteriler",
+    loyal: "Sadık müşteriler",
+    new: "Yeni müşteriler",
+  };
+
+  return {
+    id: crypto.randomUUID(),
+    channel: "sms",
+    segment,
+    segmentLabel: segmentLabels[segment] || segmentLabels.all,
+    message,
+    recipientCount: recipients.length,
+    recipients: recipients.slice(0, 8),
+    totalRecipients: recipients.length,
+    requiresApproval: true,
+    canSend: recipients.length > 0 && message.length >= 10,
+    consentNote: "Gönderim, yalnızca işletmenin ticari ileti izni olduğunu kabul ettiği telefonlu müşteri kayıtlarına yapılmalıdır.",
+  };
+}
+
+function purgeExpiredAdaLiveSessions() {
+  const now = Date.now();
+  for (const [id, session] of adaLiveSessions.entries()) {
+    if (Number(session.expiresAt || 0) <= now) adaLiveSessions.delete(id);
+  }
+}
+
+function createAdaLiveSession({ scope, assistantContext, greetingText, avatarName = "Ada" }) {
+  purgeExpiredAdaLiveSessions();
+  const id = crypto.randomUUID();
+  const session = {
+    id,
+    scope,
+    avatarName,
+    assistantContext,
+    greetingText,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + ADA_LIVE_SESSION_TTL_MS,
+  };
+  adaLiveSessions.set(id, session);
+  return session;
+}
+
+function getAdaLiveSession(id = "") {
+  purgeExpiredAdaLiveSessions();
+  const session = adaLiveSessions.get(String(id || ""));
+  if (!session) return null;
+  session.expiresAt = Date.now() + ADA_LIVE_SESSION_TTL_MS;
+  return session;
+}
+
+async function readProviderError(response) {
+  try {
+    return await response.text();
+  } catch (_error) {
+    return response.statusText || "";
+  }
+}
+
+async function requestOpenAiSpeechPcm(text = "") {
+  const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+  if (!apiKey) throw new Error("OPENAI_API_KEY missing");
+
+  const response = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: String(process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts").trim(),
+      voice: String(process.env.OPENAI_TTS_VOICE || "nova").trim(),
+      input: String(text || "").slice(0, 900),
+      response_format: "pcm",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI speech request failed: ${response.status} ${await readProviderError(response)}`);
+  }
+
+  return Buffer.from(await response.arrayBuffer());
+}
+
+async function requestSimliSessionToken(simliFaceId = "") {
+  const apiKey = String(process.env.SIMLI_API_KEY || "").trim();
+  const faceId = String(simliFaceId || process.env.SIMLI_FACE_ID_ADA || process.env.SIMLI_FACE_ID || "").trim();
+  if (!apiKey) throw new Error("SIMLI_API_KEY missing");
+  if (!faceId) throw new Error("SIMLI_FACE_ID missing");
+
+  const baseUrl = String(process.env.SIMLI_BASE_URL || "https://api.simli.ai").trim().replace(/\/$/, "");
+  const response = await fetch(`${baseUrl}/compose/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-simli-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      faceId,
+      handleSilence: true,
+      maxSessionLength: Number(process.env.SIMLI_MAX_SESSION_SECONDS || 900),
+      maxIdleTime: Number(process.env.SIMLI_MAX_IDLE_SECONDS || 180),
+      model: process.env.SIMLI_MODEL || "fasttalk",
+    }),
+  });
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Simli session token request failed: ${response.status} ${text || response.statusText}`);
+  }
+
+  let parsed = {};
+  try {
+    parsed = JSON.parse(text);
+  } catch (_error) {
+    throw new Error("Simli session token response is not JSON");
+  }
+  const token = parsed.session_token || parsed.sessionToken || parsed.token;
+  if (!String(token || "").trim()) throw new Error("Simli session token response did not include a token");
+  return String(token).trim();
+}
+
+function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada", greetingText = "" }) {
+  const safeAvatarName = String(avatarName || "Ada").replace(/\s+/g, " ").trim().slice(0, 24) || "Ada";
+  return `<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tyee ${safeAvatarName}</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 72% 16%, rgba(47,126,230,.32), transparent 32%),
+          linear-gradient(145deg, #061a42, #082b5d);
+        color: #fff;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      video, audio {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: #061a42;
+      }
+      audio { opacity: 0; pointer-events: none; }
+      .status {
+        position: fixed;
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 999px;
+        padding: 11px 13px;
+        background: rgba(3,15,38,.62);
+        color: rgba(255,255,255,.82);
+        text-align: center;
+        font-size: 12px;
+        backdrop-filter: blur(18px);
+      }
+      .status.ready { opacity: .18; }
+      .mic {
+        position: fixed;
+        right: 14px;
+        top: 14px;
+        width: 44px;
+        height: 44px;
+        border: 1px solid rgba(255,255,255,.18);
+        border-radius: 999px;
+        background: rgba(255,255,255,.14);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        backdrop-filter: blur(18px);
+      }
+      .mic.listening { background: #2f7ee6; }
+      .fallback {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        text-align: center;
+      }
+      .fallback strong { display: block; margin-bottom: 8px; font-size: 20px; }
+      .fallback span { color: rgba(255,255,255,.72); font-size: 13px; line-height: 1.45; }
+    </style>
+  </head>
+  <body>
+    <video id="simli-video" autoplay playsinline></video>
+    <audio id="simli-audio" autoplay></audio>
+    <div id="fallback" class="fallback">
+      <div><strong>${safeAvatarName} bağlanıyor</strong><span>Canlı yüz ve ses sahnesi hazırlanıyor.</span></div>
+    </div>
+    <button id="mic" class="mic" type="button" aria-label="Konuş">●</button>
+    <div id="status" class="status">${safeAvatarName} bağlanıyor...</div>
+    <script type="module">
+      import { SimliClient, LogLevel } from "https://esm.sh/simli-client@3.0.1?bundle";
+      const sessionToken = ${JSON.stringify(sessionToken)};
+      const adaSessionId = ${JSON.stringify(adaSessionId)};
+      const avatarName = ${JSON.stringify(safeAvatarName)};
+      const greetingText = ${JSON.stringify(greetingText || `Merhaba, ben ${safeAvatarName}. Buradayım.`)};
+      const videoEl = document.getElementById("simli-video");
+      const audioEl = document.getElementById("simli-audio");
+      const statusEl = document.getElementById("status");
+      const fallbackEl = document.getElementById("fallback");
+      const micEl = document.getElementById("mic");
+      let simliClient = null;
+      let recognition = null;
+      let speaking = false;
+      let listening = false;
+
+      function setStatus(message, ready = false) {
+        statusEl.textContent = message;
+        statusEl.classList.toggle("ready", ready);
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
+      }
+
+      function downsamplePcm16(input, inputRate, outputRate) {
+        if (inputRate === outputRate) return input;
+        const ratio = inputRate / outputRate;
+        const outputLength = Math.floor(input.length / ratio);
+        const output = new Int16Array(outputLength);
+        for (let i = 0; i < outputLength; i += 1) {
+          const sourceIndex = i * ratio;
+          const lower = Math.floor(sourceIndex);
+          const upper = Math.min(input.length - 1, lower + 1);
+          const weight = sourceIndex - lower;
+          output[i] = Math.round(input[lower] * (1 - weight) + input[upper] * weight);
+        }
+        return output;
+      }
+
+      async function speakWithDeviceVoice(text) {
+        if (!("speechSynthesis" in window)) return;
+        await new Promise((resolve) => {
+          const utterance = new SpeechSynthesisUtterance(String(text || ""));
+          utterance.lang = "tr-TR";
+          utterance.rate = 0.96;
+          utterance.pitch = 1.02;
+          utterance.onend = resolve;
+          utterance.onerror = resolve;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+        });
+      }
+
+      async function speakAda(text) {
+        const normalizedText = String(text || "").trim();
+        if (!normalizedText) return;
+        speaking = true;
+        setStatus(avatarName + " konuşuyor...");
+        try {
+          const response = await fetch("/api/ada/live/speech", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ adaSessionId, text: normalizedText }),
+          });
+          if (!response.ok) throw new Error("speech failed");
+          const audioBuffer = await response.arrayBuffer();
+          const pcm24k = new Int16Array(audioBuffer);
+          const pcm16k = downsamplePcm16(pcm24k, 24000, 16000);
+          const sampleRate = 16000;
+          const chunkSize = 3000;
+          simliClient?.ClearBuffer?.();
+          for (let offset = 0; offset < pcm16k.length; offset += chunkSize) {
+            const chunk = pcm16k.slice(offset, offset + chunkSize);
+            simliClient.sendAudioData(new Uint8Array(chunk.buffer));
+            await sleep(Math.max(80, Math.round((chunk.length / sampleRate) * 1000)));
+          }
+          await sleep(800);
+        } catch (error) {
+          await speakWithDeviceVoice(normalizedText);
+        } finally {
+          speaking = false;
+          setStatus(avatarName + " seni dinliyor", true);
+        }
+      }
+
+      async function askAda(message) {
+        const cleanMessage = String(message || "").trim();
+        if (!cleanMessage || speaking) return;
+        setStatus(avatarName + " düşünüyor...");
+        try {
+          const response = await fetch("/api/ada/live/reply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ adaSessionId, message: cleanMessage }),
+          });
+          if (!response.ok) throw new Error("reply failed");
+          const payload = await response.json();
+          await speakAda(payload.replyText || "Buradayım, dinliyorum.");
+        } catch (error) {
+          await speakAda("Bağlantı zorlandı. Bir kez daha söyler misin?");
+        }
+      }
+
+      function setupSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          setStatus("Bu tarayıcıda sesli dinleme desteklenmiyor.");
+          return;
+        }
+        recognition = new SpeechRecognition();
+        recognition.lang = "tr-TR";
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.onstart = () => {
+          listening = true;
+          micEl.classList.add("listening");
+          setStatus("Seni dinliyorum...");
+        };
+        recognition.onend = () => {
+          listening = false;
+          micEl.classList.remove("listening");
+          if (!speaking) setStatus("Konuşmak için butona dokun.", true);
+        };
+        recognition.onerror = () => {
+          listening = false;
+          micEl.classList.remove("listening");
+          if (!speaking) setStatus("Tekrar dokunup konuşabilirsin.");
+        };
+        recognition.onresult = (event) => {
+          const transcript = Array.from(event.results || [])
+            .map((result) => result[0]?.transcript || "")
+            .join(" ")
+            .trim();
+          if (transcript) askAda(transcript);
+        };
+      }
+
+      function toggleListening() {
+        if (!recognition || speaking) return;
+        if (listening) recognition.stop();
+        else recognition.start();
+      }
+
+      async function start() {
+        try {
+          simliClient = new SimliClient(sessionToken, videoEl, audioEl, null, LogLevel.INFO, "livekit");
+          simliClient.on("start", () => {
+            fallbackEl.style.display = "none";
+            setStatus(avatarName + " hazır.", true);
+          });
+          simliClient.on("error", () => setStatus(avatarName + " bağlantısı hata verdi."));
+          await simliClient.start();
+          fallbackEl.style.display = "none";
+          setupSpeechRecognition();
+          await speakAda(greetingText);
+        } catch (error) {
+          console.error("[ada-live]", error);
+          setStatus(avatarName + " bağlantısı başlatılamadı.");
+        }
+      }
+
+      micEl.addEventListener("click", toggleListening);
+      window.addEventListener("pagehide", () => simliClient?.stop?.());
+      start();
+    </script>
+  </body>
+</html>`;
+}
+
+async function buildDirectSimliSessionResponse({ scope, assistantContext, sourcePayload = null, greetingText, avatarName = "Ada", simliFaceId = "" }) {
+  const sessionToken = await requestSimliSessionToken(simliFaceId);
+  const liveSession = createAdaLiveSession({ scope, assistantContext: sourcePayload || assistantContext, greetingText, avatarName });
+  const stageUrl = `/ada-live.html?${new URLSearchParams({
+    sessionToken,
+    adaSessionId: liveSession.id,
+    avatarName,
+  }).toString()}`;
+  return {
+    provider: "simli",
+    status: "ready",
+    mode: "direct-simli",
+    assistantName: avatarName,
+    sessionToken,
+    stageUrl,
+    sessionUrl: stageUrl,
+    contextEndpoint: scope === "venue" ? "/api/venue/assistant" : "/api/customer/assistant",
+    chatEndpoint: scope === "venue" ? "/api/venue/assistant/chat" : "/api/customer/assistant/chat",
+    assistantContext,
+    message: "Ada canlı avatar oturumu hazır.",
+  };
+}
+
+function getCustomerAssistantListings({ category = "all", city = "istanbul", query = "" } = {}) {
+  if (HIDE_PUBLIC_VENUES) return [];
+  return mergeListingItems(
+    getRuntimeVenueListingsForSearch({ category, city, query }),
+    filterListings({ category, city, query }),
+  ).slice(0, 12);
+}
+
+function buildCustomerAssistantPayload({ user = null, category = "all", city = "istanbul", query = "" } = {}) {
+  const listings = getCustomerAssistantListings({ category, city, query });
+  const reservations = user
+    ? getReservations()
+        .filter(
+          (reservation) =>
+            reservation.customerId === user.id ||
+            normalizeEmail(reservation.customerEmail) === normalizeEmail(user.email),
+        )
+        .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    : [];
+  const upcoming = reservations.filter((reservation) => reservation.status !== "completed" && reservation.status !== "cancelled");
+  const bestListing = listings
+    .slice()
+    .sort(
+      (a, b) =>
+        Number(b.rating || 0) - Number(a.rating || 0) ||
+        Number(b.reviews || 0) - Number(a.reviews || 0),
+    )[0];
+
+  const insights = [
+    bestListing
+      ? {
+          id: "best-match",
+          title: "En uygun işletmeyi aç",
+          detail: `${bestListing.name} · ${bestListing.categoryLabel}`,
+          listingId: bestListing.id,
+        }
+      : {
+          id: "search",
+          title: "Aramayı genişlet",
+          detail: "Kategori veya konum seçerek başlayabilirsin.",
+        },
+    {
+      id: "nearby",
+      title: "Yakınımdaki işletmeler",
+      detail: `${listings.length} seçenek bulundu`,
+    },
+    user
+      ? {
+          id: "reservations",
+          title: "Rezervasyonlarım",
+          detail: `${upcoming.length} yaklaşan rezervasyon`,
+        }
+      : {
+          id: "login",
+          title: "Giriş yap",
+          detail: "Rezervasyonlarını takip et",
+        },
+  ];
+
+  return {
+    assistant: {
+      name: "Ada",
+      role: "Rezervasyon asistanı",
+      provider: "tyee-rules",
+    },
+    user: user ? normalizeUser(user) : null,
+    summary: {
+      title: user ? "Hesabını ve seçenekleri okuyorum" : "Yakınındaki seçenekleri okuyorum",
+      detail: `${listings.length} işletme ve ${upcoming.length} yaklaşan rezervasyon bağlamı hazır.`,
+    },
+    listings: listings.map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      categoryLabel: item.categoryLabel,
+      cityLabel: item.cityLabel,
+      rating: item.rating,
+      reviews: item.reviews,
+      priceLabel: item.priceLabel,
+      nextSlot: item.availability?.nextSlot || item.eveningTime || "",
+    })),
+    reservations: {
+      upcoming: upcoming.map(formatCustomerReservation),
+      total: reservations.length,
+    },
+    insights,
+  };
+}
+
+function buildCustomerAssistantAnswer(question = "", context = {}) {
+  const normalized = normalizeSearchText(question);
+  const listings = context.listings || [];
+  const bestListing = listings[0];
+
+  if (normalized.includes("rezervasyon") || normalized.includes("randevu")) {
+    return context.user
+      ? `Hesabında ${context.reservations?.upcoming?.length || 0} yaklaşan rezervasyon görünüyor. Rezervasyonlarım alanından takip edebilirsin.`
+      : "Rezervasyonlarını görmek için bireysel hesabına giriş yapmalısın.";
+  }
+
+  if (normalized.includes("yakın") || normalized.includes("harita") || normalized.includes("konum")) {
+    return `${listings.length} yakın seçenek hazırlanmış görünüyor. Harita alanından mesafeye göre karşılaştırabilirsin.`;
+  }
+
+  if (normalized.includes("favori") || normalized.includes("kaydedilen")) {
+    return context.user
+      ? "Favorilerim alanında kalp ile kaydettiğin işletmeleri takip edebilirsin."
+      : "Favorilerini saklamak için bireysel hesabına giriş yapmalısın.";
+  }
+
+  if (bestListing) {
+    return `${bestListing.name} iyi bir başlangıç olabilir. Kategori, puan, mesafe ve uygun saate göre daha da daraltabilirim.`;
+  }
+
+  return "Kategori, konum veya işletme adı yazarsan sana en uygun seçenekleri listeleyebilirim.";
+}
+
 function getReservationsForVenue(venueId) {
   return getReservations().filter((reservation) => reservation.venueId === venueId);
 }
@@ -1661,14 +2481,23 @@ function getReviewsForVenue(venueId) {
 function formatVenueReview(review) {
   return {
     id: review.id,
-    author: review.customerName || "Müşteri",
+    author: review.customerName || review.author || "Müşteri",
     rating: Number(review.rating || 0),
     comment: review.comment || "Yorum bırakılmadı.",
-    date: formatDateTimeTr(review.createdAt),
-    service: review.serviceLabel || review.categoryLabel || "Rezervasyon",
+    date: review.createdAt ? formatDateTimeTr(review.createdAt) : review.date || "",
+    service: review.serviceLabel || review.categoryLabel || review.service || "Rezervasyon",
     reservationId: review.reservationId || "",
     status: review.status || "Yayınlandı",
+    businessNote: review.businessNote || "",
   };
+}
+
+function applyVenueReviewNotes(reviews = [], overlay = {}) {
+  const notes = overlay.reviewNotes && typeof overlay.reviewNotes === "object" ? overlay.reviewNotes : {};
+  return reviews.map((review) => ({
+    ...review,
+    businessNote: notes[review.id]?.note || review.businessNote || "",
+  }));
 }
 
 function buildReviewSummary(reviews = [], reservations = []) {
@@ -3352,6 +4181,410 @@ app.get("/api/venue/bootstrap", requireVenueAccess, (req, res) => {
   res.json(mergeVenuePayload(venueId, req.user));
 });
 
+app.get("/api/venue/assistant", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.query.venueId || req.query.venue);
+  const payload = mergeVenuePayload(venueId, req.user);
+  res.json(buildVenueAssistantPayload(payload));
+});
+
+app.post("/api/venue/assistant/chat", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId || req.query.venueId);
+  const payload = mergeVenuePayload(venueId, req.user);
+  const question = String(req.body?.question || "").trim();
+  res.json({
+    answer: buildVenueAssistantAnswer(question, payload),
+    context: buildVenueAssistantPayload(payload),
+  });
+});
+
+app.post("/api/venue/assistant/sms-draft", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId || req.query.venueId);
+  const payload = mergeVenuePayload(venueId, req.user);
+  res.json({
+    draft: buildVenueSmsDraft(payload, {
+      segment: req.body?.segment,
+      message: req.body?.message,
+    }),
+  });
+});
+
+app.post("/api/venue/assistant/sms-send", requireVenueAccess, async (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId || req.query.venueId);
+  const payload = mergeVenuePayload(venueId, req.user);
+  const confirm = req.body?.confirm === true;
+  const segment = String(req.body?.segment || "all");
+  const message = String(req.body?.message || "").trim().slice(0, 320);
+  const recipients = getVenueSmsRecipients(payload, segment);
+
+  if (!confirm) {
+    res.status(400).json({ error: "Toplu SMS göndermek için son onay gerekli." });
+    return;
+  }
+
+  if (!message || message.length < 10) {
+    res.status(400).json({ error: "SMS metni en az 10 karakter olmalı." });
+    return;
+  }
+
+  if (!recipients.length) {
+    res.status(400).json({ error: "Telefonu kayıtlı uygun müşteri bulunamadı." });
+    return;
+  }
+
+  const deliveries = (
+    await Promise.all(
+      recipients.map((recipient) =>
+        sendMessage({
+          channel: "sms",
+          to: recipient.phone,
+          template: "venue-bulk-campaign",
+          body: message,
+        }),
+      ),
+    )
+  ).filter(Boolean);
+
+  res.json({
+    message: `${deliveries.length} müşteriye SMS gönderim kaydı oluşturuldu.`,
+    status: getMessagingStatus().sms === "twilio" ? "sent" : "dev-queued",
+    deliveredCount: deliveries.length,
+    recipientCount: recipients.length,
+    deliveries: deliveries.slice(0, 8).map((delivery) => ({
+      id: delivery.id,
+      provider: delivery.provider,
+      status: delivery.status,
+      to: delivery.to,
+      sid: delivery.sid || "",
+      error: delivery.error || "",
+    })),
+  });
+});
+
+app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId || req.query.venueId);
+  const simliFaceId = process.env.SIMLI_FACE_ID_ADA || process.env.SIMLI_FACE_ID || "";
+  const hasDirectSimli = Boolean(String(process.env.SIMLI_API_KEY || "").trim() && String(simliFaceId || "").trim());
+  const simliEnabled =
+    hasDirectSimli || ["1", "true", "yes", "ready"].includes(String(process.env.SIMLI_ENABLED || "").toLowerCase());
+  const sessionEndpoint = String(process.env.SIMLI_SESSION_ENDPOINT || "").trim();
+  const configuredStageUrl = String(process.env.SIMLI_STAGE_URL || "").trim();
+  const payload = mergeVenuePayload(venueId, req.user);
+  const assistantContext = buildVenueAssistantPayload(payload);
+
+  if (!simliEnabled) {
+    res.json({
+      provider: "simli",
+      status: "not_configured",
+      assistantName: "Ada",
+      message: "Simli canlı avatar bağlantısı için ortam yapılandırması bekleniyor. Ada operasyon önerilerini vermeye devam ediyor.",
+      contextEndpoint: "/api/venue/assistant",
+      chatEndpoint: "/api/venue/assistant/chat",
+      assistantContext,
+    });
+    return;
+  }
+
+  if (sessionEndpoint) {
+    try {
+      const response = await fetch(sessionEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(process.env.SIMLI_SERVER_TOKEN ? { Authorization: `Bearer ${process.env.SIMLI_SERVER_TOKEN}` } : {}),
+        },
+        body: JSON.stringify({
+          provider: "simli",
+          avatarName: req.body?.avatarName || "Ada",
+          avatarVoice: req.body?.avatarVoice || "shimmer",
+          simliFaceId,
+          language: "tr",
+          context: assistantContext,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Simli oturumu başlatılamadı.");
+      }
+      res.json({
+        provider: "simli",
+        status: "ready",
+        assistantName: "Ada",
+        sessionUrl: data.sessionUrl || data.stageUrl || data.url || "",
+        message: data.message || "Ada canlı avatar oturumu hazır.",
+        contextEndpoint: "/api/venue/assistant",
+        chatEndpoint: "/api/venue/assistant/chat",
+        assistantContext,
+      });
+      return;
+    } catch (error) {
+      res.status(502).json({
+        error: error.message || "Simli bağlantısı kurulamadı.",
+        provider: "simli",
+        status: "failed",
+      });
+      return;
+    }
+  }
+
+  if (hasDirectSimli) {
+    try {
+      res.json(
+        await buildDirectSimliSessionResponse({
+          scope: "venue",
+          assistantContext,
+          sourcePayload: payload,
+          avatarName: req.body?.avatarName || "Ada",
+          simliFaceId,
+          greetingText: "Merhaba, ben Ada. İşletme panelini okuyorum; boş saat, müşteri ve kampanya tarafında sana yardımcı olacağım.",
+        }),
+      );
+      return;
+    } catch (error) {
+      res.status(502).json({
+        error: error.message || "Simli bağlantısı kurulamadı.",
+        provider: "simli",
+        status: "failed",
+      });
+      return;
+    }
+  }
+
+  if (configuredStageUrl) {
+    res.json({
+      provider: "simli",
+      status: "ready",
+      assistantName: "Ada",
+      stageUrl: configuredStageUrl,
+      message: "Ada canlı avatar sahnesi hazır.",
+      contextEndpoint: "/api/venue/assistant",
+      chatEndpoint: "/api/venue/assistant/chat",
+      assistantContext,
+    });
+    return;
+  }
+
+  res.json({
+    provider: "simli",
+    status: "waiting_for_stage",
+    assistantName: "Ada",
+    message: "Simli açık görünüyor ama oturum sahnesi için SIMLI_SESSION_ENDPOINT veya SIMLI_STAGE_URL eksik.",
+    contextEndpoint: "/api/venue/assistant",
+    chatEndpoint: "/api/venue/assistant/chat",
+    assistantContext,
+  });
+});
+
+app.get("/api/customer/assistant", (req, res) => {
+  const user = getUserFromRequest(req);
+  const category = String(req.query.category || "all");
+  const city = String(req.query.city || "istanbul");
+  const query = String(req.query.query || "");
+  res.json(buildCustomerAssistantPayload({ user, category, city, query }));
+});
+
+app.post("/api/customer/assistant/chat", (req, res) => {
+  const user = getUserFromRequest(req);
+  const category = String(req.body?.category || "all");
+  const city = String(req.body?.city || "istanbul");
+  const query = String(req.body?.query || "");
+  const question = String(req.body?.question || "").trim();
+  const context = buildCustomerAssistantPayload({ user, category, city, query });
+  res.json({
+    answer: buildCustomerAssistantAnswer(question, context),
+    context,
+  });
+});
+
+app.post("/api/customer/avatar/session", async (req, res) => {
+  const user = getUserFromRequest(req);
+  const category = String(req.body?.category || "all");
+  const city = String(req.body?.city || "istanbul");
+  const query = String(req.body?.query || "");
+  const simliFaceId = process.env.SIMLI_FACE_ID_ADA || process.env.SIMLI_FACE_ID || "";
+  const hasDirectSimli = Boolean(String(process.env.SIMLI_API_KEY || "").trim() && String(simliFaceId || "").trim());
+  const simliEnabled =
+    hasDirectSimli || ["1", "true", "yes", "ready"].includes(String(process.env.SIMLI_ENABLED || "").toLowerCase());
+  const sessionEndpoint = String(process.env.SIMLI_SESSION_ENDPOINT || "").trim();
+  const configuredStageUrl = String(process.env.SIMLI_STAGE_URL || "").trim();
+  const assistantContext = buildCustomerAssistantPayload({ user, category, city, query });
+
+  if (!simliEnabled) {
+    res.json({
+      provider: "simli",
+      status: "not_configured",
+      assistantName: "Ada",
+      message: "Simli canlı avatar bağlantısı için ortam yapılandırması bekleniyor. Ada rezervasyon önerilerini vermeye devam ediyor.",
+      contextEndpoint: "/api/customer/assistant",
+      chatEndpoint: "/api/customer/assistant/chat",
+      assistantContext,
+    });
+    return;
+  }
+
+  if (sessionEndpoint) {
+    try {
+      const response = await fetch(sessionEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(process.env.SIMLI_SERVER_TOKEN ? { Authorization: `Bearer ${process.env.SIMLI_SERVER_TOKEN}` } : {}),
+        },
+        body: JSON.stringify({
+          provider: "simli",
+          avatarName: req.body?.avatarName || "Ada",
+          avatarVoice: req.body?.avatarVoice || "shimmer",
+          simliFaceId,
+          language: "tr",
+          context: assistantContext,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Simli oturumu başlatılamadı.");
+      }
+      res.json({
+        provider: "simli",
+        status: "ready",
+        assistantName: "Ada",
+        sessionUrl: data.sessionUrl || data.stageUrl || data.url || "",
+        message: data.message || "Ada canlı avatar oturumu hazır.",
+        contextEndpoint: "/api/customer/assistant",
+        chatEndpoint: "/api/customer/assistant/chat",
+        assistantContext,
+      });
+      return;
+    } catch (error) {
+      res.status(502).json({
+        error: error.message || "Simli bağlantısı kurulamadı.",
+        provider: "simli",
+        status: "failed",
+      });
+      return;
+    }
+  }
+
+  if (hasDirectSimli) {
+    try {
+      res.json(
+        await buildDirectSimliSessionResponse({
+          scope: "customer",
+          assistantContext,
+          avatarName: req.body?.avatarName || "Ada",
+          simliFaceId,
+          greetingText: "Merhaba, ben Ada. Yakınındaki işletmeleri, kategorileri ve rezervasyonlarını birlikte yönetebiliriz.",
+        }),
+      );
+      return;
+    } catch (error) {
+      res.status(502).json({
+        error: error.message || "Simli bağlantısı kurulamadı.",
+        provider: "simli",
+        status: "failed",
+      });
+      return;
+    }
+  }
+
+  if (configuredStageUrl) {
+    res.json({
+      provider: "simli",
+      status: "ready",
+      assistantName: "Ada",
+      stageUrl: configuredStageUrl,
+      message: "Ada canlı avatar sahnesi hazır.",
+      contextEndpoint: "/api/customer/assistant",
+      chatEndpoint: "/api/customer/assistant/chat",
+      assistantContext,
+    });
+    return;
+  }
+
+  res.json({
+    provider: "simli",
+    status: "waiting_for_stage",
+    assistantName: "Ada",
+    message: "Simli açık görünüyor ama oturum sahnesi için SIMLI_SESSION_ENDPOINT veya SIMLI_STAGE_URL eksik.",
+    contextEndpoint: "/api/customer/assistant",
+    chatEndpoint: "/api/customer/assistant/chat",
+    assistantContext,
+  });
+});
+
+app.get("/ada-live.html", (req, res) => {
+  const sessionToken = String(req.query.sessionToken || "").trim();
+  const adaSessionId = String(req.query.adaSessionId || "").trim();
+  const avatarName = String(req.query.avatarName || "Ada").trim() || "Ada";
+  const liveSession = getAdaLiveSession(adaSessionId);
+
+  if (!sessionToken || !liveSession) {
+    res.status(400).type("html").send("<!doctype html><meta charset=\"utf-8\"><body>Ada canlı oturumu bulunamadı.</body>");
+    return;
+  }
+
+  res
+    .set({
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+    })
+    .type("html")
+    .send(
+      buildAdaLiveStagePage({
+        sessionToken,
+        adaSessionId,
+        avatarName,
+        greetingText: liveSession.greetingText,
+      }),
+    );
+});
+
+app.post("/api/ada/live/reply", (req, res) => {
+  const liveSession = getAdaLiveSession(req.body?.adaSessionId);
+  const message = String(req.body?.message || "").trim();
+
+  if (!liveSession) {
+    res.status(404).json({ error: "Ada canlı oturumu bulunamadı." });
+    return;
+  }
+
+  if (!message) {
+    res.status(400).json({ error: "Mesaj gerekli." });
+    return;
+  }
+
+  const context = liveSession.assistantContext || {};
+  const replyText =
+    liveSession.scope === "venue"
+      ? buildVenueAssistantAnswer(message, context.payload || context)
+      : buildCustomerAssistantAnswer(message, context);
+  res.json({ replyText });
+});
+
+app.post("/api/ada/live/speech", async (req, res) => {
+  const liveSession = getAdaLiveSession(req.body?.adaSessionId);
+  const text = String(req.body?.text || "").trim();
+
+  if (!liveSession) {
+    res.status(404).json({ error: "Ada canlı oturumu bulunamadı." });
+    return;
+  }
+
+  if (!text) {
+    res.status(400).json({ error: "Ses için metin gerekli." });
+    return;
+  }
+
+  try {
+    const audio = await requestOpenAiSpeechPcm(text);
+    res.set({
+      "Content-Type": "application/octet-stream",
+      "Cache-Control": "no-store",
+    });
+    res.send(audio);
+  } catch (error) {
+    res.status(503).json({ error: error.message || "Ada sesi üretilemedi." });
+  }
+});
+
 app.get("/api/venue/clients", requireVenueAccess, (req, res) => {
   const venueId = resolveVenueIdForRequest(req, req.query.venueId);
   const payload = mergeVenuePayload(venueId, req.user);
@@ -3430,6 +4663,70 @@ app.get("/api/venue/reports", requireVenueAccess, (req, res) => {
     user: req.user,
     period: String(req.query.period || "Bu ay"),
   }));
+});
+
+app.post("/api/venue/expenses", requireVenueAccess, (req, res) => {
+  const body = req.body || {};
+  const venueId = resolveVenueIdForRequest(req, body.venueId);
+  const title = String(body.title || "").trim();
+  const amount = parseMoney(body.amount);
+
+  if (!title) {
+    res.status(400).json({ error: "Gider adı gerekli." });
+    return;
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    res.status(400).json({ error: "Gider tutarı sıfırdan büyük olmalı." });
+    return;
+  }
+
+  const overlay = getVenueOverlay(venueId);
+  const expenses = getVenueExpenseItems(overlay);
+  const expense = normalizeVenueExpense({
+    id: crypto.randomUUID(),
+    title,
+    amount,
+    category: body.category,
+    month: body.month,
+    createdAt: new Date().toISOString(),
+  });
+
+  saveVenueOverlay(venueId, {
+    expenses: [expense, ...expenses].slice(0, 240),
+  });
+
+  const payload = mergeVenuePayload(venueId, req.user);
+  res.status(201).json({ finance: payload.finance });
+});
+
+app.patch("/api/venue/reviews/:id/note", requireVenueAccess, (req, res) => {
+  const venueId = resolveVenueIdForRequest(req, req.body?.venueId);
+  const reviewId = String(req.params.id || "").trim();
+  const note = String(req.body?.note || "").trim();
+  const currentPayload = mergeVenuePayload(venueId, req.user);
+  const reviewExists = (currentPayload.reviews || []).some((review) => String(review.id) === reviewId);
+
+  if (!reviewId || !reviewExists) {
+    res.status(404).json({ error: "Değerlendirme bulunamadı." });
+    return;
+  }
+
+  const overlay = getVenueOverlay(venueId);
+  const reviewNotes = overlay.reviewNotes && typeof overlay.reviewNotes === "object" ? { ...overlay.reviewNotes } : {};
+  if (note) {
+    reviewNotes[reviewId] = { note, updatedAt: new Date().toISOString() };
+  } else {
+    delete reviewNotes[reviewId];
+  }
+
+  saveVenueOverlay(venueId, { reviewNotes });
+  const payload = mergeVenuePayload(venueId, req.user);
+  res.json({
+    reviews: payload.reviews || [],
+    reviewSummary: payload.reviewSummary || {},
+    message: note ? "Not kaydedildi." : "Not temizlendi.",
+  });
 });
 
 app.post("/api/venue/reservations/:id/complete", requireVenueAccess, async (req, res) => {

@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/styles.css?v=20260626-auth-errors-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260628-ada-live-visibility-1" />
   </head>
   <body>
     <div class="page-shell">
@@ -718,7 +718,46 @@
       </section>
     </div>
 
+    <div class="customer-ada" id="customer-ada" aria-live="polite">
+      <button class="customer-ada-launcher" id="customer-ada-launcher" type="button" aria-expanded="false" aria-controls="customer-ada-panel">
+        <span class="customer-ada-avatar">
+          <img src="/assets/ada-site-avatar.png" alt="" />
+        </span>
+        <span class="customer-ada-launcher-copy">
+          <strong>Ada</strong>
+          <span id="customer-ada-hint">Rezervasyon asistanın</span>
+        </span>
+      </button>
+
+      <section class="customer-ada-panel hidden" id="customer-ada-panel" aria-label="Ada bireysel rezervasyon asistanı">
+        <header class="customer-ada-head">
+          <div>
+            <p class="eyebrow">Ada rezervasyon asistanı</p>
+            <h2>Nasıl yardımcı olayım?</h2>
+          </div>
+          <button class="customer-ada-close" id="customer-ada-close" type="button" aria-label="Ada panelini kapat">×</button>
+        </header>
+
+        <div class="customer-ada-stage" id="customer-ada-stage">
+          <img src="/assets/ada-site-avatar.png" alt="Ada" />
+          <div>
+            <strong id="customer-ada-status-title">Yakınındaki seçenekleri okuyorum</strong>
+            <span id="customer-ada-status">Kategori, konum ve uygun işletme listesine göre yönlendirebilirim.</span>
+          </div>
+        </div>
+
+        <p class="customer-ada-speech" id="customer-ada-speech">Yakınında uygun işletme bulabilir, rezervasyonlarını açabilir veya favorilerini gösterebilirim.</p>
+        <div class="customer-ada-actions" id="customer-ada-actions"></div>
+        <div class="customer-ada-chat-log" id="customer-ada-chat-log"></div>
+        <form class="customer-ada-form" id="customer-ada-form">
+          <input id="customer-ada-input" type="text" autocomplete="off" placeholder="Ada'ya sor: Yakınımda masaj bul" />
+          <button type="submit">Sor</button>
+        </form>
+        <button class="customer-ada-live" id="customer-ada-live" type="button">Canlı konuşan avatarı aç</button>
+      </section>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/app.js?v=20260627-register-title-1"></script>
+    <script src="/app.js?v=20260628-ada-live-visibility-1"></script>
   </body>
 </html>

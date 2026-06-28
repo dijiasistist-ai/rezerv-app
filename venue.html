@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260624-settings-feedback-1" />
+    <link rel="stylesheet" href="/venue.css?v=20260628-ada-live-visibility-1" />
   </head>
   <body>
     <header class="venue-global-header">
@@ -110,7 +110,7 @@
           <div class="venue-nav-group venue-nav-accordion is-collapsed" data-nav-accordion="operations">
             <button class="venue-nav-heading" type="button" aria-expanded="false" aria-controls="venue-operations-menu">
               <span class="venue-nav-heading-label">Operasyon</span>
-              <span class="venue-nav-heading-count">9</span>
+              <span class="venue-nav-heading-count">8</span>
               <span class="venue-nav-chevron" aria-hidden="true">⌄</span>
             </button>
             <div class="venue-nav-group-body" id="venue-operations-menu">
@@ -119,7 +119,6 @@
               <button class="venue-nav-item" data-view="customers">Müşteriler</button>
               <button class="venue-nav-item" data-view="sales-products">Hizmet Menüsü</button>
               <button class="venue-nav-item" data-view="campaigns">Pazarlama</button>
-              <button class="venue-nav-item" data-view="subscriptions">Paketler</button>
               <button class="venue-nav-item" data-view="finance">Performans</button>
               <button class="venue-nav-item" data-view="reviews">Değerlendirmeler</button>
               <button class="venue-nav-item" data-view="reports">Raporlar</button>
@@ -147,6 +146,11 @@
             </div>
 
             <div class="topbar-actions">
+              <button class="ada-topbar-button" id="ada-topbar-button" type="button" aria-controls="ada-panel">
+                <span class="ada-topbar-dot" aria-hidden="true"></span>
+                <span>Ada</span>
+              </button>
+
               <div class="menu-cluster">
                 <a class="menu-chip marketplace-link" href="/index.html">Marketplace</a>
               </div>
@@ -321,7 +325,7 @@
                 <h2>Gelir, gider ve net performans görünümü</h2>
               </div>
               <div class="panel-actions">
-                <button class="ghost-button" type="button">Gider ekle</button>
+                <button class="ghost-button" id="finance-expense-add" type="button">Gider ekle</button>
                 <button class="solid-button" type="button">PDF indir</button>
               </div>
             </div>
@@ -338,11 +342,11 @@
             <div class="panel-head">
               <div>
                 <p class="eyebrow">Memberships</p>
-                <h2>Aktif paketleri ve üyelikleri yönetin</h2>
+                <h2>Aktif üyelikleri yönetin</h2>
               </div>
               <div class="panel-actions">
                 <button class="ghost-button">Filtrele</button>
-                <button class="solid-button" id="new-subscription-button" type="button">Yeni paket</button>
+                <button class="solid-button" id="new-subscription-button" type="button">Yeni üyelik</button>
               </div>
             </div>
             <div class="table-shell">
@@ -617,7 +621,55 @@
       </aside>
     </div>
 
+    <div class="ada-assistant" id="ada-assistant" aria-live="polite">
+      <button class="ada-launcher" id="ada-launcher" type="button" aria-expanded="false" aria-controls="ada-panel">
+        <span class="ada-launcher-avatar">
+          <img src="/assets/ada-site-avatar.png" alt="" />
+        </span>
+        <span class="ada-launcher-copy">
+          <strong>Ada</strong>
+          <span id="ada-launcher-hint">Paneli okuyorum</span>
+        </span>
+        <span class="ada-launcher-dot" aria-hidden="true"></span>
+      </button>
+
+      <section class="ada-panel hidden" id="ada-panel" aria-label="Ada canlı destek ve işletme asistanı">
+        <header class="ada-panel-head">
+          <div>
+            <p class="eyebrow">Ada operasyon koçu</p>
+            <h2>Canlı destek al</h2>
+          </div>
+          <button class="ada-close" id="ada-close" type="button" aria-label="Ada panelini kapat">×</button>
+        </header>
+
+        <div class="ada-stage" id="ada-stage">
+          <div class="ada-avatar-stage">
+            <img src="/assets/ada-site-avatar.png" alt="Ada" />
+          </div>
+          <div class="ada-stage-copy">
+            <strong id="ada-status-title">İşletmeni izliyorum</strong>
+            <span id="ada-status">Boş saat, yorum, gider ve kampanya sinyallerini kontrol ediyorum.</span>
+          </div>
+        </div>
+
+        <div class="ada-speech" id="ada-speech">
+          Kralım, panel verilerini okuyup sana sıradaki en mantıklı adımı söyleyeceğim.
+        </div>
+
+        <div class="ada-actions" id="ada-actions"></div>
+
+        <div class="ada-chat-log" id="ada-chat-log" aria-label="Ada sohbet geçmişi"></div>
+
+        <form class="ada-chat-form" id="ada-chat-form">
+          <input id="ada-chat-input" type="text" autocomplete="off" placeholder="Ada'ya sor: Boş saatleri nasıl doldururum?" />
+          <button type="submit">Sor</button>
+        </form>
+
+        <button class="ada-live-button" id="ada-live-button" type="button">Canlı konuşan avatarı aç</button>
+      </section>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/venue.js?v=20260624-password-reset-1"></script>
+  <script src="/venue.js?v=20260628-ada-live-visibility-1"></script>
   </body>
 </html>

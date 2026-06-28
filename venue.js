@@ -6,6 +6,7 @@ const venueBranch = document.querySelector("#venue-branch");
 const venueGlobalAccount = document.querySelector("#venue-global-account");
 const venueGlobalAvatar = document.querySelector("#venue-global-avatar");
 const venueGlobalAccountLabel = document.querySelector("#venue-global-account-label");
+const adaTopbarButton = document.querySelector("#ada-topbar-button");
 const statGrid = document.querySelector("#stat-grid");
 const quickActions = document.querySelector("#quick-actions");
 const calendarBoardSecondary = document.querySelector("#calendar-board-secondary");
@@ -20,6 +21,7 @@ const campaignsBoard = document.querySelector("#campaigns-board");
 const financeKpiGrid = document.querySelector("#finance-kpi-grid");
 const financeCardStack = document.querySelector("#finance-card-stack");
 const financePnlShell = document.querySelector("#finance-pnl-shell");
+const financeExpenseAdd = document.querySelector("#finance-expense-add");
 const weekRange = document.querySelector("#week-range");
 const weekTodayButton = document.querySelector("#week-today");
 const weekPrevButton = document.querySelector("#week-prev");
@@ -68,6 +70,20 @@ const profileFormGrid = document.querySelector("#profile-form-grid");
 const reviewsShell = document.querySelector("#reviews-shell");
 const billingBody = document.querySelector("#billing-body");
 const billingAddButton = document.querySelector(".billing-add-button");
+const adaAssistant = document.querySelector("#ada-assistant");
+const adaLauncher = document.querySelector("#ada-launcher");
+const adaLauncherHint = document.querySelector("#ada-launcher-hint");
+const adaPanel = document.querySelector("#ada-panel");
+const adaClose = document.querySelector("#ada-close");
+const adaSpeech = document.querySelector("#ada-speech");
+const adaActions = document.querySelector("#ada-actions");
+const adaChatLog = document.querySelector("#ada-chat-log");
+const adaChatForm = document.querySelector("#ada-chat-form");
+const adaChatInput = document.querySelector("#ada-chat-input");
+const adaLiveButton = document.querySelector("#ada-live-button");
+const adaStage = document.querySelector("#ada-stage");
+const adaStatus = document.querySelector("#ada-status");
+const adaStatusTitle = document.querySelector("#ada-status-title");
 const setupRoadmap = document.querySelector(".venue-setup-roadmap");
 const setupRoadmapToggle = document.querySelector("[data-setup-roadmap-toggle]");
 const navGroups = document.querySelectorAll(".venue-nav-group");
@@ -95,6 +111,11 @@ const venueState = {
   calendarTeam: "all",
   setupRoadmapOpen: false,
   pendingFacilitySelections: {},
+  adaOpen: false,
+  adaInsights: [],
+  campaignDraft: null,
+  campaignFeedback: "",
+  campaignSending: false,
 };
 
 let venueToastTimer = null;
@@ -141,7 +162,7 @@ const VIEW_META = {
     railVisible: false,
   },
   subscriptions: {
-    title: "Paketler",
+    title: "Üyelikler",
     subtitle: "Aktif üyelikler, kullanım hakları ve tekrar eden gelir tarafı.",
     railVisible: false,
   },
@@ -170,7 +191,7 @@ const VIEW_META = {
 const venueCampaignKpis = [
   { label: "Aktif akış", value: "6", meta: "3 otomatik, 3 manuel" },
   { label: "Geri kazanılan müşteri", value: "38", meta: "Son 30 gün" },
-  { label: "Kampanya cirosu", value: "₺27.400", meta: "CRM kaynaklı rezervasyon" },
+  { label: "Kampanya cirosu", value: "₺0", meta: "Henüz kampanya satışı yok" },
   { label: "Mesaj teslim oranı", value: "%93", meta: "WhatsApp + SMS" },
 ];
 
@@ -199,30 +220,6 @@ const venueCampaignFlows = [
     status: "Taslak",
     detail: "İlk deneyim sonrası ikinci rezervasyonu tetikleme",
   },
-];
-
-const venueFinanceKpis = [
-  { label: "Bu ay satış", value: "₺184.600", meta: "Marketplace + manuel + paket" },
-  { label: "Net işletme geliri", value: "₺136.900", meta: "Komisyon ve gider sonrası" },
-  { label: "Toplam gider", value: "₺31.400", meta: "Personel, kira, sarf" },
-  { label: "Brüt kar marjı", value: "%42", meta: "Hizmet bazlı görünüm" },
-];
-
-const venueFinanceCards = [
-  { title: "Tahsilat karışımı", body: "Online kapora ₺38.500, tesiste tahsilat ₺96.100, paket satış ₺50.000" },
-  { title: "En karlı hizmet", body: "Akşam prime-time saha rezervasyonları checkout sonrası ortalama yüzde 54 marj üretiyor." },
-  { title: "Gider alarmı", body: "Bu ay sarf giderleri yüzde 11 yükseldi. Stok ve tedarik kontrolü önerilir." },
-];
-
-const venuePnlRows = [
-  ["Marketplace rezervasyon", "₺82.400"],
-  ["Manuel / walk-in satış", "₺52.200"],
-  ["Üyelik / paket", "₺50.000"],
-  ["Personel gideri", "-₺14.800"],
-  ["Kira ve genel gider", "-₺11.400"],
-  ["Sarf ve temizlik", "-₺5.200"],
-  ["Tyee platform payı", "-₺13.500"],
-  ["Net kalan", "₺139.700"],
 ];
 
 const venueOperationalNotes = [
@@ -1886,11 +1883,11 @@ function openSalesModal(day = null, time = "", slotKey = "", options = {}) {
   const fallbackTime = time || "19:00";
   venueState.salesDraftSlotKey = slotKey;
   salesTime.value = fallbackDay ? formatSlotDateTime(fallbackDay, fallbackTime) : fallbackTime;
-  salesDeposit.value = existingEntry?.deposit || "50";
+  salesDeposit.value = existingEntry?.deposit || "0";
   salesPhone.value = existingEntry?.phone || "";
-  salesPayout.value = existingEntry?.payout || "100";
+  salesPayout.value = existingEntry?.payout || "0";
   salesName.value = existingEntry?.name || "";
-  salesTotal.value = existingEntry?.total || "150";
+  salesTotal.value = existingEntry?.total || "0";
   salesNotes.value = existingEntry?.notes || "";
   salesSubscription.checked = Boolean(options.isSubscription || existingEntry?.isSubscription);
   salesModal.classList.remove("hidden");
@@ -1933,6 +1930,14 @@ async function saveSlotState() {
   venueState.slotModes = payload.slotState?.slotModes || venueState.slotModes;
   venueState.manualEntries = payload.slotState?.manualEntries || venueState.manualEntries;
   venueState.slotServices = payload.slotState?.slotServices || venueState.slotServices;
+  if (venueState.dashboard) {
+    venueState.dashboard.slotState = {
+      slotModes: venueState.slotModes,
+      manualEntries: venueState.manualEntries,
+      slotServices: venueState.slotServices,
+    };
+    refreshAdaAssistant().catch(() => renderAdaAssistant());
+  }
 }
 
 function renderWeeklySchedule(board, days) {
@@ -2340,6 +2345,8 @@ function renderCustomersView() {
 }
 
 function renderCampaignsView() {
+  const draft = venueState.campaignDraft;
+  const feedback = venueState.campaignFeedback;
   if (campaignsKpiGrid) {
     campaignsKpiGrid.innerHTML = venueCampaignKpis
       .map(
@@ -2355,7 +2362,69 @@ function renderCampaignsView() {
   }
 
   if (campaignsBoard) {
-    campaignsBoard.innerHTML = venueCampaignFlows
+    const draftCard = `
+      <article class="campaign-sms-card" id="campaign-sms-draft">
+        <div class="campaign-sms-head">
+          <div>
+            <small>ADA AKILLI KAMPANYA</small>
+            <strong>Boş saat SMS taslağı</strong>
+          </div>
+          <button class="soft-button" type="button" data-campaign-action="draft-sms">Taslak hazırla</button>
+        </div>
+        ${
+          draft
+            ? `
+              <div class="campaign-sms-grid">
+                <label>
+                  <span>Hedef kitle</span>
+                  <select id="campaign-sms-segment">
+                    ${[
+                      ["all", "Telefonu kayıtlı tüm müşteriler"],
+                      ["lost", "30+ gündür gelmeyenler"],
+                      ["loyal", "Sadık müşteriler"],
+                      ["new", "Yeni müşteriler"],
+                    ]
+                      .map(
+                        ([value, label]) =>
+                          `<option value="${value}" ${draft.segment === value ? "selected" : ""}>${label}</option>`,
+                      )
+                      .join("")}
+                  </select>
+                </label>
+                <div class="campaign-sms-count">
+                  <span>Alıcı</span>
+                  <strong>${escapeHtml(String(draft.recipientCount || 0))}</strong>
+                </div>
+              </div>
+              <textarea id="campaign-sms-text" maxlength="320">${escapeHtml(draft.message || "")}</textarea>
+              <div class="campaign-sms-preview">
+                ${
+                  draft.recipients?.length
+                    ? draft.recipients
+                        .map((recipient) => `<span>${escapeHtml(recipient.name)} · ${escapeHtml(recipient.phone)}</span>`)
+                        .join("")
+                    : "<span>Telefonu kayıtlı müşteri bulunamadı.</span>"
+                }
+              </div>
+              <p class="campaign-sms-note">${escapeHtml(draft.consentNote || "")}</p>
+              <div class="campaign-sms-actions">
+                <button class="soft-button" type="button" data-campaign-action="refresh-draft">Alıcıyı güncelle</button>
+                <button class="primary-button" type="button" data-campaign-action="send-sms" ${draft.canSend && !venueState.campaignSending ? "" : "disabled"}>
+                  ${venueState.campaignSending ? "Gönderiliyor..." : "Onayla ve gönder"}
+                </button>
+              </div>
+            `
+            : `
+              <p>Ada, takvim ve müşteri kayıtlarına göre kısa bir SMS metni hazırlar. Gönderim son onaydan önce yapılmaz.</p>
+            `
+        }
+        ${feedback ? `<div class="campaign-sms-feedback">${escapeHtml(feedback)}</div>` : ""}
+      </article>
+    `;
+
+    campaignsBoard.innerHTML =
+      draftCard +
+      venueCampaignFlows
       .map(
         (flow) => `
           <article class="campaign-flow-card">
@@ -2372,9 +2441,124 @@ function renderCampaignsView() {
   }
 }
 
-function renderFinanceView() {
+async function requestCampaignSmsDraft({ announce = true } = {}) {
+  venueState.campaignFeedback = "";
+  const segment = document.querySelector("#campaign-sms-segment")?.value || venueState.campaignDraft?.segment || "all";
+  const message = document.querySelector("#campaign-sms-text")?.value || venueState.campaignDraft?.message || "";
+  try {
+    const payload = await venueApiRequest("/api/venue/assistant/sms-draft", {
+      method: "POST",
+      body: JSON.stringify({
+        venueId: venueState.venueId,
+        segment,
+        message,
+      }),
+    });
+    venueState.campaignDraft = payload.draft;
+    renderCampaignsView();
+    focusAdaTarget("#campaign-sms-draft");
+    if (announce) {
+      appendAdaChatMessage("ada", `${payload.draft.recipientCount} alıcı için SMS taslağı hazırladım. Metni kontrol edip son onayı verebilirsin.`);
+    }
+  } catch (error) {
+    venueState.campaignFeedback = error.message || "SMS taslağı hazırlanamadı.";
+    renderCampaignsView();
+    appendAdaChatMessage("ada", venueState.campaignFeedback);
+  }
+}
+
+async function sendCampaignSmsDraft() {
+  if (!venueState.campaignDraft || venueState.campaignSending) return;
+  const message = document.querySelector("#campaign-sms-text")?.value.trim() || "";
+  const segment = document.querySelector("#campaign-sms-segment")?.value || venueState.campaignDraft.segment || "all";
+  venueState.campaignSending = true;
+  venueState.campaignFeedback = "";
+  renderCampaignsView();
+  try {
+    const payload = await venueApiRequest("/api/venue/assistant/sms-send", {
+      method: "POST",
+      body: JSON.stringify({
+        venueId: venueState.venueId,
+        segment,
+        message,
+        confirm: true,
+      }),
+    });
+    venueState.campaignFeedback =
+      payload.status === "sent"
+        ? `${payload.deliveredCount} SMS Twilio üzerinden gönderildi.`
+        : `${payload.deliveredCount} SMS kaydı oluşturuldu. Twilio canlı değilse dev SMS kutusunda görünür.`;
+    venueState.campaignDraft = {
+      ...venueState.campaignDraft,
+      message,
+      segment,
+      recipientCount: payload.recipientCount,
+      canSend: false,
+    };
+    appendAdaChatMessage("ada", payload.message || venueState.campaignFeedback);
+  } catch (error) {
+    venueState.campaignFeedback = error.message || "SMS gönderimi tamamlanamadı.";
+    appendAdaChatMessage("ada", venueState.campaignFeedback);
+  } finally {
+    venueState.campaignSending = false;
+    renderCampaignsView();
+    focusAdaTarget("#campaign-sms-draft");
+  }
+}
+
+function getCurrentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function parseFinanceAmount(value = "") {
+  const parsed = Number(String(value || "").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getFinancePayload(finance = {}) {
+  return {
+    month: finance.month || getCurrentMonthKey(),
+    kpis: Array.isArray(finance.kpis)
+      ? finance.kpis
+      : [
+          { label: "Bu ay gelir", value: "₺0", meta: "0 işlem" },
+          { label: "Bu ay gider", value: "₺0", meta: "0 gider" },
+          { label: "Net kalan", value: "₺0", meta: "Gelir - gider" },
+          { label: "Kar marjı", value: "%0", meta: "Bu ay" },
+        ],
+    rows: Array.isArray(finance.rows)
+      ? finance.rows
+      : [
+          { label: "Rezervasyon geliri", value: "₺0" },
+          { label: "Aylık gider", value: "₺0" },
+          { label: "Net kalan", value: "₺0" },
+        ],
+    expenses: Array.isArray(finance.expenses) ? finance.expenses : [],
+  };
+}
+
+function getFinanceExpenseFormPayload() {
+  const findField = (name) => financeCardStack?.querySelector(`[data-finance-expense-field="${name}"]`);
+  return {
+    title: findField("title")?.value.trim() || "",
+    amount: findField("amount")?.value.trim() || "",
+    month: findField("month")?.value.trim() || getCurrentMonthKey(),
+    category: findField("category")?.value.trim() || "Genel",
+  };
+}
+
+function setFinanceExpenseStatus(message = "", isError = false) {
+  const status = financeCardStack?.querySelector("[data-finance-expense-status]");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("is-error", isError);
+}
+
+function renderFinanceView(finance = venueState.dashboard?.finance || {}) {
+  const financePayload = getFinancePayload(finance);
   if (financeKpiGrid) {
-    financeKpiGrid.innerHTML = venueFinanceKpis
+    financeKpiGrid.innerHTML = financePayload.kpis
       .map(
         (item) => `
           <article class="report-summary-card">
@@ -2388,16 +2572,63 @@ function renderFinanceView() {
   }
 
   if (financeCardStack) {
-    financeCardStack.innerHTML = venueFinanceCards
-      .map(
-        (item) => `
-          <article class="finance-insight-card">
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.body)}</p>
-          </article>
-        `,
-      )
-      .join("");
+    const expenseRows = financePayload.expenses.length
+      ? financePayload.expenses
+          .map(
+            (item) => `
+              <div class="finance-expense-row">
+                <div>
+                  <strong>${escapeHtml(item.title)}</strong>
+                  <span>${escapeHtml(item.category)} · ${escapeHtml(item.month)}</span>
+                </div>
+                <b>${escapeHtml(item.amountLabel || item.amount || "₺0")}</b>
+              </div>
+            `,
+          )
+          .join("")
+      : `<p class="finance-empty-copy">Bu ay için henüz gider girilmedi.</p>`;
+
+    financeCardStack.innerHTML = `
+      <article class="finance-insight-card finance-expense-entry">
+        <div>
+          <strong>Aylık gider ekle</strong>
+          <p>Kira, personel, sarf, reklam veya benzeri aylık giderleri buradan işle.</p>
+        </div>
+        <div class="finance-expense-form">
+          <label>
+            <span>Gider adı</span>
+            <input data-finance-expense-field="title" type="text" placeholder="Örn: Kira, personel, sarf" />
+          </label>
+          <label>
+            <span>Tutar</span>
+            <input data-finance-expense-field="amount" type="text" inputmode="decimal" placeholder="0" />
+          </label>
+          <label>
+            <span>Ay</span>
+            <input data-finance-expense-field="month" type="month" value="${escapeHtml(financePayload.month)}" />
+          </label>
+          <label>
+            <span>Kategori</span>
+            <select data-finance-expense-field="category">
+              <option>Genel</option>
+              <option>Kira</option>
+              <option>Personel</option>
+              <option>Sarf</option>
+              <option>Reklam</option>
+              <option>Platform</option>
+            </select>
+          </label>
+        </div>
+        <div class="finance-expense-actions">
+          <button class="solid-button" type="button" data-finance-expense-save>Gideri kaydet</button>
+          <span class="venue-save-status" data-finance-expense-status></span>
+        </div>
+      </article>
+      <article class="finance-insight-card finance-expense-list">
+        <strong>Bu ay gider kalemleri</strong>
+        <div>${expenseRows}</div>
+      </article>
+    `;
   }
 
   if (financePnlShell) {
@@ -2410,12 +2641,12 @@ function renderFinanceView() {
           </div>
         </div>
         <div class="finance-pnl-rows">
-          ${venuePnlRows
+          ${financePayload.rows
             .map(
-              ([label, value]) => `
+              (item) => `
                 <div class="detail-row">
-                  <span>${escapeHtml(label)}</span>
-                  <strong>${escapeHtml(value)}</strong>
+                  <span>${escapeHtml(item.label)}</span>
+                  <strong>${escapeHtml(item.value)}</strong>
                 </div>
               `,
             )
@@ -2440,26 +2671,31 @@ function renderOverview(payload) {
     return;
   }
 
+  const transactions = payload?.transactions || [];
+  const openSlots = Object.values(payload?.slotState?.slotModes || {}).filter((state) => state === "rezerv").length;
+  const manualSlots = Object.values(payload?.slotState?.manualEntries || {}).length;
+  const completedSales = transactions.filter((item) => item.status === "Tamamlandı").length;
+  const reviewCount = Number(payload?.reviewSummary?.total || 0);
   const notes = [
     {
-      title: "En yoğun zaman dilimi",
-      body: "18:00–22:00 arasında doluluk yüzde 92 seviyesine çıkıyor.",
-      meta: "Bu akşam",
+      title: "Satışa açık takvim",
+      body: openSlots ? "Müşterinin rezervasyon yapabileceği saatler satışa açık." : "Satışa açılan saatler burada görünecek.",
+      meta: `${openSlots} slot`,
     },
     {
-      title: "Açık satış fırsatı",
-      body: "Perşembe 20:00 sonrası için 3 slot rezervasyona açılabilir.",
-      meta: "3 slot",
+      title: "Manuel rezervasyon",
+      body: manualSlots ? "Takvime elle eklenen rezervasyonlar ve notlar takip ediliyor." : "Manuel rezervasyon eklenirse burada takip edilir.",
+      meta: `${manualSlots} kayıt`,
     },
     {
-      title: "Üyelik yenileme",
-      body: "Bu hafta biten 6 aktif üyelik için yenileme teklifi hazırlanmalı.",
-      meta: "6 müşteri",
+      title: "Checkout durumu",
+      body: completedSales ? "Tamamlanan satışlar performans ve rapora işleniyor." : "Tamamlanan satış olmadığında tutarlar sıfır kalır.",
+      meta: `${completedSales} işlem`,
     },
     {
-      title: "Checkout özeti",
-      body: "Bugün online tahsilat ağırlıklı, EFT takibi gereken 2 satış var.",
-      meta: "2 işlem",
+      title: "Değerlendirmeler",
+      body: reviewCount ? "Müşteri yorumları ve firma iç notları değerlendirme ekranında tutuluyor." : "İlk yorum geldiğinde burada özetlenecek.",
+      meta: `${reviewCount} yorum`,
     },
   ];
 
@@ -2476,6 +2712,343 @@ function renderOverview(payload) {
       `,
     )
     .join("");
+}
+
+function getAdaOpenSlotCount(payload = {}) {
+  return Object.values(payload?.slotState?.slotModes || {}).filter((state) => state === "rezerv").length;
+}
+
+function getAdaManualSlotCount(payload = {}) {
+  return Object.keys(payload?.slotState?.manualEntries || {}).length;
+}
+
+function getAdaActiveServices(settings = {}) {
+  const normalized = normalizeSettings(settings || {});
+  return normalized.areas.filter((area) => area?.isActive !== false);
+}
+
+function getAdaGalleryCount(settings = {}) {
+  const normalized = normalizeSettings(settings || {});
+  return normalizeMediaGallery(normalized.media?.gallery).length;
+}
+
+function buildAdaInsights(payload = venueState.dashboard || {}) {
+  if (!payload) return [];
+  const settings = normalizeSettings(payload.settings || {});
+  const activeServices = getAdaActiveServices(settings);
+  const pricedServices = activeServices.filter((area) => parseFinanceAmount(area.price) > 0);
+  const openSlots = getAdaOpenSlotCount(payload);
+  const manualSlots = getAdaManualSlotCount(payload);
+  const transactions = payload.transactions || [];
+  const finance = payload.finance || {};
+  const expenseCount = Array.isArray(finance.expenses) ? finance.expenses.length : 0;
+  const waitingReviews = Number(payload.reviewSummary?.waitingRequests || 0);
+  const waitlistCount = Number(payload.calendarOps?.waitlist?.summary?.waiting || 0);
+  const galleryCount = getAdaGalleryCount(settings);
+  const insights = [];
+
+  if (!activeServices.length || !pricedServices.length) {
+    insights.push({
+      id: "services",
+      icon: "₺",
+      title: "Hizmet menüsünü tamamla",
+      detail: pricedServices.length ? `${activeServices.length} aktif hizmet var.` : "Fiyatı girilmemiş hizmetler var.",
+      message: "Satışa çıkmadan önce hizmet adı, süre, fiyat ve ödeme modelini netleştirelim.",
+      actionLabel: "Hizmetlere git",
+      view: "sales-products",
+      focus: "#sales-products-layout",
+    });
+  }
+
+  if (!openSlots) {
+    insights.push({
+      id: "calendar-open",
+      icon: "SA",
+      title: "Takvim satışa kapalı",
+      detail: "Satışa açık slot yok.",
+      message: "Takvimde müşterinin rezerve edebileceği saat açarsan marketplace görünürlüğü anlam kazanır.",
+      actionLabel: "Takvimi aç",
+      view: "calendar",
+      focus: "#calendar-board-secondary",
+    });
+  } else if (!transactions.length) {
+    insights.push({
+      id: "campaign-empty-slots",
+      icon: "SMS",
+      title: "Boş saatlerin var",
+      detail: `${openSlots} satışa açık slot bekliyor.`,
+      message: "Boş saatler görünüyor. İstersen yakın müşterilere kısa bir reklam SMS akışı hazırlayalım.",
+      actionLabel: "SMS kampanyası",
+      view: "campaigns",
+      focus: "#campaigns-board",
+    });
+  }
+
+  if (waitlistCount > 0) {
+    insights.push({
+      id: "waitlist",
+      icon: "BL",
+      title: "Bekleyen talep var",
+      detail: `${waitlistCount} müşteri uygun saat bekliyor.`,
+      message: "Bekleme listesindeki müşterileri açık saatlerle eşleştirirsek hızlı rezervasyon kazanabiliriz.",
+      actionLabel: "Beklemeyi aç",
+      view: "calendar",
+      focus: "#venue-waitlist",
+    });
+  }
+
+  if (!expenseCount) {
+    insights.push({
+      id: "expenses",
+      icon: "₺",
+      title: "Bu ay gider girilmemiş",
+      detail: "Kar zarar gerçek görünmeyebilir.",
+      message: "Kira, personel ve sarf giderlerini girersek işletmenin net performansı temiz görünür.",
+      actionLabel: "Gider ekle",
+      view: "finance",
+      focus: '[data-finance-expense-field="title"]',
+    });
+  }
+
+  if (waitingReviews > 0) {
+    insights.push({
+      id: "reviews",
+      icon: "Y",
+      title: "Yorum takibi bekliyor",
+      detail: `${waitingReviews} değerlendirme isteği açık.`,
+      message: "Bekleyen yorumları takip edelim. Güçlü yorumlar marketplace sıralamasında kritik sinyal olur.",
+      actionLabel: "Yorumları aç",
+      view: "reviews",
+      focus: "#reviews-shell",
+    });
+  }
+
+  if (galleryCount < 3) {
+    insights.push({
+      id: "media",
+      icon: "G",
+      title: "Galeri güçlendirilmeli",
+      detail: `${galleryCount}/6 görsel hazır.`,
+      message: "Dış görünüş, iç mekan ve çalışan görselleri eklenirse rezervasyon sayfası daha güven verir.",
+      actionLabel: "Görsel ekle",
+      view: "settings",
+      focus: ".settings-media-grid",
+    });
+  }
+
+  if (manualSlots > 0) {
+    insights.push({
+      id: "manual",
+      icon: "M",
+      title: "Manuel kayıtlar aktif",
+      detail: `${manualSlots} manuel rezervasyon var.`,
+      message: "Manuel kayıtları checkout ile kapatırsan satış ve performans raporu temiz kalır.",
+      actionLabel: "Checkout aç",
+      view: "transactions",
+      focus: "#transactions-body",
+    });
+  }
+
+  if (!insights.length) {
+    insights.push({
+      id: "healthy",
+      icon: "OK",
+      title: "Operasyon sağlıklı",
+      detail: "Temel kurulum tamam görünüyor.",
+      message: "Panel iyi durumda. Şimdi tekrar müşteri kampanyası veya doluluk artırma akışı planlayabiliriz.",
+      actionLabel: "Pazarlamaya git",
+      view: "campaigns",
+      focus: "#campaigns-board",
+    });
+  }
+
+  return insights.slice(0, 6);
+}
+
+function renderAdaAssistant(assistantPayload = {}) {
+  if (!adaAssistant || !venueState.dashboard) return;
+  const insights = Array.isArray(assistantPayload.insights) && assistantPayload.insights.length
+    ? assistantPayload.insights
+    : buildAdaInsights(venueState.dashboard);
+  const primary = insights[0];
+  venueState.adaInsights = insights;
+
+  if (adaLauncherHint) {
+    adaLauncherHint.textContent = primary?.title || "Paneli okuyorum";
+  }
+  if (adaSpeech) {
+    adaSpeech.textContent = primary?.message || "Panelini izliyorum. Sıradaki en iyi aksiyonu birlikte seçebiliriz.";
+  }
+  if (adaStatusTitle) {
+    adaStatusTitle.textContent = assistantPayload.summary?.title || "İşletmeni izliyorum";
+  }
+  if (adaStatus) {
+    adaStatus.textContent =
+      assistantPayload.summary?.detail ||
+      `${insights.length} aksiyon önerisi hazır. Takvim, gider, yorum ve kampanya sinyallerini takip ediyorum.`;
+  }
+  if (adaActions) {
+    adaActions.innerHTML = insights
+      .map(
+        (item) => `
+          <button class="ada-action" type="button" data-ada-action="${escapeHtml(item.id)}">
+            <span class="ada-action-icon">${escapeHtml(item.icon || "A")}</span>
+            <span class="ada-action-copy">
+              <strong>${escapeHtml(item.title)}</strong>
+              <span>${escapeHtml(item.detail)}</span>
+            </span>
+            <span class="ada-action-next">›</span>
+          </button>
+        `,
+      )
+      .join("");
+  }
+}
+
+async function refreshAdaAssistant() {
+  if (!venueState.dashboard) return;
+  const fallback = {
+    insights: buildAdaInsights(venueState.dashboard),
+    summary: null,
+  };
+  try {
+    const payload = await venueApiRequest(`/api/venue/assistant?venueId=${encodeURIComponent(venueState.venueId || "")}`);
+    renderAdaAssistant({
+      insights: payload.insights?.length ? payload.insights : fallback.insights,
+      summary: payload.summary || fallback.summary,
+    });
+  } catch (error) {
+    renderAdaAssistant(fallback);
+  }
+}
+
+function openAdaPanel() {
+  venueState.adaOpen = true;
+  adaPanel?.classList.remove("hidden");
+  adaLauncher?.setAttribute("aria-expanded", "true");
+  if (adaChatLog && !adaChatLog.dataset.ready) {
+    appendAdaChatMessage("ada", "Ben Ada. Takvim, hizmet, gider, yorum ve kampanya tarafında seni yönlendirebilirim.");
+    adaChatLog.dataset.ready = "true";
+  }
+}
+
+function closeAdaPanel() {
+  venueState.adaOpen = false;
+  adaPanel?.classList.add("hidden");
+  adaLauncher?.setAttribute("aria-expanded", "false");
+}
+
+function toggleAdaPanel() {
+  if (venueState.adaOpen) {
+    closeAdaPanel();
+  } else {
+    openAdaPanel();
+  }
+}
+
+function focusAdaTarget(selector = "") {
+  if (!selector) return;
+  window.requestAnimationFrame(() => {
+    const target = document.querySelector(selector);
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+    target?.focus?.({ preventScroll: true });
+  });
+}
+
+function runAdaAction(actionId = "") {
+  const action = (venueState.adaInsights || []).find((item) => item.id === actionId);
+  if (!action) return;
+  if (action.view) setView(action.view);
+  focusAdaTarget(action.focus);
+  showVenueToast(`${action.actionLabel || action.title} açıldı.`);
+  appendAdaChatMessage("ada", action.message || `${action.title} ekranını açtım.`);
+  if (action.id === "campaign-empty-slots" || action.id === "healthy") {
+    requestCampaignSmsDraft({ announce: true });
+  }
+}
+
+function appendAdaChatMessage(role = "ada", message = "") {
+  if (!adaChatLog || !message) return;
+  const node = document.createElement("div");
+  node.className = `ada-chat-message ${role === "user" ? "is-user" : "is-ada"}`;
+  node.textContent = message;
+  adaChatLog.appendChild(node);
+  adaChatLog.scrollTo({ top: adaChatLog.scrollHeight, behavior: "smooth" });
+}
+
+function answerAdaQuestion(question = "") {
+  const normalized = question.toLocaleLowerCase("tr-TR");
+  const payload = venueState.dashboard || {};
+  const openSlots = getAdaOpenSlotCount(payload);
+  const activeServices = getAdaActiveServices(payload.settings || {});
+  const expenseCount = payload.finance?.expenses?.length || 0;
+  const waitingReviews = Number(payload.reviewSummary?.waitingRequests || 0);
+
+  if (normalized.includes("boş") || normalized.includes("slot") || normalized.includes("takvim")) {
+    return openSlots
+      ? `${openSlots} satışa açık slot var. Düşük doluluk varsa Pazarlama ekranından SMS akışı hazırlayabiliriz.`
+      : "Şu anda satışa açık slot görünmüyor. Takvim ekranında uygun saatleri Tyee olarak satışa açmalısın.";
+  }
+
+  if (normalized.includes("sms") || normalized.includes("reklam") || normalized.includes("kampanya")) {
+    return "Pazarlama ekranında geri çağırma ve boş saat kampanyalarını yönetebiliriz. Özellikle açık slot varsa yakın müşterilere kısa SMS iyi çalışır.";
+  }
+
+  if (normalized.includes("gider") || normalized.includes("gelir") || normalized.includes("performans")) {
+    return expenseCount
+      ? `Bu ay ${expenseCount} gider kaydı var. Performans ekranı gelir, gider ve net kalan hesabını buradan çıkarıyor.`
+      : "Bu ay gider kaydı yok. Performans ekranında Gider ekle ile kira, personel ve sarf giderlerini girmelisin.";
+  }
+
+  if (normalized.includes("hizmet") || normalized.includes("fiyat") || normalized.includes("kapora") || normalized.includes("ödeme")) {
+    return `${activeServices.length} aktif hizmet görünüyor. Her hizmet için süre, fiyat ve ödeme modelini Hizmet Menüsü veya İşletme Ayarları ekranından tamamlayabilirsin.`;
+  }
+
+  if (normalized.includes("yorum") || normalized.includes("değerlendirme") || normalized.includes("puan")) {
+    return waitingReviews
+      ? `${waitingReviews} değerlendirme isteği bekliyor. Değerlendirmeler ekranında yorumları ve iç notlarını takip edebilirsin.`
+      : "Bekleyen değerlendirme görünmüyor. Rezervasyon tamamlanınca yorum isteği akışı buraya düşer.";
+  }
+
+  if (normalized.includes("resim") || normalized.includes("foto") || normalized.includes("görsel")) {
+    return "İşletme Ayarları içinde en fazla 6 görsel ekleyebilirsin. Dış görünüş, dükkan içi ve çalışan görselleri rezervasyon sayfasında daha güvenli durur.";
+  }
+
+  return "Panelde takvim, hizmet, gider, yorum, müşteri ve kampanya tarafını okuyabiliyorum. İstersen bana belirli bir ekranı sor ya da önerilerden birini aç.";
+}
+
+async function connectAdaLive() {
+  if (!adaLiveButton) return;
+  adaLiveButton.disabled = true;
+  adaLiveButton.classList.add("is-waiting");
+  adaLiveButton.textContent = "Ada bağlantısı kontrol ediliyor...";
+  if (adaStatus) adaStatus.textContent = "Simli oturumu hazırlanıyor.";
+
+  try {
+    const payload = await venueApiRequest("/api/venue/avatar/session", {
+      method: "POST",
+      body: JSON.stringify({ venueId: venueState.venueId, provider: "simli", avatarName: "Ada" }),
+    });
+    const sessionUrl = String(payload.sessionUrl || payload.stageUrl || "").trim();
+
+    if (sessionUrl && adaStage) {
+      adaStage.innerHTML = `<iframe title="Ada canlı avatar" src="${escapeHtml(sessionUrl)}" allow="camera; microphone; autoplay; clipboard-write"></iframe>`;
+      adaLiveButton.textContent = "Ada canlı bağlantıda";
+      appendAdaChatMessage("ada", "Canlı avatar sahnesini açtım. Simli bağlantısı burada çalışacak.");
+      return;
+    }
+
+    if (adaStatusTitle) adaStatusTitle.textContent = "Canlı avatar hazır değil";
+    if (adaStatus) adaStatus.textContent = payload.message || "Simli ortam bilgileri tamamlanınca Ada burada canlı açılacak.";
+    adaLiveButton.textContent = "Simli yapılandırması bekleniyor";
+    appendAdaChatMessage("ada", payload.message || "Simli bağlantısı henüz hazır değil. Yine de panel önerilerini vermeye devam ediyorum.");
+  } catch (error) {
+    if (adaStatusTitle) adaStatusTitle.textContent = "Bağlantı kurulamadı";
+    if (adaStatus) adaStatus.textContent = error.message || "Canlı avatar bağlantısı şu an hazır değil.";
+    adaLiveButton.textContent = "Tekrar dene";
+    adaLiveButton.disabled = false;
+    appendAdaChatMessage("ada", error.message || "Canlı avatar bağlantısı şu an kurulamadı.");
+  }
 }
 
 function getGuideSteps(payload) {
@@ -3095,7 +3668,7 @@ function areaSettingsFields(settings, startIndex = 0) {
             </label>
             <label class="settings-input-field">
               <span>Satış fiyatı</span>
-              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺2.000" />
+              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺0" />
             </label>
           </div>
         </article>
@@ -3509,7 +4082,7 @@ function renderAreaSettings(settings) {
             </label>
             <label class="settings-input-field">
               <span>Satış fiyatı</span>
-              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺2.000" />
+              <input data-area-price="${index}" type="text" value="${escapeHtml(area.price)}" placeholder="₺0" />
             </label>
           </div>
         </article>
@@ -3733,6 +4306,14 @@ function renderReviews(items, summary = {}) {
                 <span>${escapeHtml(item.rating)}/5</span>
               </div>
               <p>${escapeHtml(item.comment)}</p>
+              <label class="review-note-editor">
+                <span>İşletme notu</span>
+                <textarea data-review-note="${escapeHtml(item.id)}" rows="2" placeholder="Bu yorumla ilgili iç not...">${escapeHtml(item.businessNote || "")}</textarea>
+              </label>
+              <div class="review-note-actions">
+                <button class="ghost-button" type="button" data-review-note-save="${escapeHtml(item.id)}">Notu kaydet</button>
+                <span class="venue-save-status" data-review-note-status="${escapeHtml(item.id)}"></span>
+              </div>
               <div class="review-card-meta">
                 <span>${escapeHtml(item.status || "Yayınlandı")}</span>
               </div>
@@ -4149,7 +4730,7 @@ async function loadVenueDashboard() {
   renderSalesProducts(payload.settings);
   renderCustomersView();
   renderCampaignsView();
-  renderFinanceView();
+  renderFinanceView(payload.finance);
   renderWeeklySchedule(calendarBoardSecondary, payload.weekDays);
   renderSubscriptions(payload.subscriptions);
   renderReportSummary(payload.reportSummary || []);
@@ -4165,6 +4746,7 @@ async function loadVenueDashboard() {
   }
   renderReviews(payload.reviews || [], payload.reviewSummary || {});
   renderBillingAddresses(payload.billingAddresses || []);
+  refreshAdaAssistant().catch(() => renderAdaAssistant());
   loadVenueReport().catch((error) => {
     if (venueReportDocument) {
       venueReportDocument.innerHTML = `<span class="empty-copy">${escapeHtml(error.message)}</span>`;
@@ -4174,6 +4756,54 @@ async function loadVenueDashboard() {
 
 function bindVenueInteractions() {
   setView("calendar");
+
+  [adaLauncher, adaTopbarButton].forEach((node) => {
+    node?.addEventListener("click", toggleAdaPanel);
+  });
+
+  adaClose?.addEventListener("click", closeAdaPanel);
+
+  adaActions?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-ada-action]");
+    if (!button) return;
+    runAdaAction(button.dataset.adaAction);
+  });
+
+  adaChatForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const question = adaChatInput?.value.trim() || "";
+    if (!question) return;
+    appendAdaChatMessage("user", question);
+    adaChatInput.value = "";
+    try {
+      const payload = await venueApiRequest("/api/venue/assistant/chat", {
+        method: "POST",
+        body: JSON.stringify({ venueId: venueState.venueId, question }),
+      });
+      if (payload.context) renderAdaAssistant(payload.context);
+      appendAdaChatMessage("ada", payload.answer || answerAdaQuestion(question));
+      if (/(sms|kampanya|reklam|toplu|müşteri)/i.test(question)) {
+        setView("campaigns");
+        requestCampaignSmsDraft({ announce: false });
+      }
+    } catch (error) {
+      appendAdaChatMessage("ada", answerAdaQuestion(question));
+    }
+  });
+
+  adaLiveButton?.addEventListener("click", connectAdaLive);
+
+  campaignsBoard?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-campaign-action]");
+    if (!button) return;
+    const action = button.dataset.campaignAction;
+    if (action === "draft-sms" || action === "refresh-draft") {
+      requestCampaignSmsDraft({ announce: action === "draft-sms" });
+    }
+    if (action === "send-sms") {
+      sendCampaignSmsDraft();
+    }
+  });
 
   setupRoadmapToggle?.addEventListener("click", () => {
     setSetupRoadmapOpen(!venueState.setupRoadmapOpen);
@@ -4455,6 +5085,47 @@ function bindVenueInteractions() {
     openSalesModal(null, "19:00", "", { isSubscription: true });
   });
 
+  financeExpenseAdd?.addEventListener("click", () => {
+    setView("finance");
+    window.requestAnimationFrame(() => {
+      const titleField = financeCardStack?.querySelector('[data-finance-expense-field="title"]');
+      titleField?.scrollIntoView({ behavior: "smooth", block: "center" });
+      titleField?.focus();
+    });
+  });
+
+  financeCardStack?.addEventListener("click", async (event) => {
+    const saveButton = event.target.closest("[data-finance-expense-save]");
+    if (!saveButton || !venueState.dashboard) return;
+
+    const expense = getFinanceExpenseFormPayload();
+    if (!expense.title) {
+      setFinanceExpenseStatus("Gider adı gerekli.", true);
+      return;
+    }
+    if (parseFinanceAmount(expense.amount) <= 0) {
+      setFinanceExpenseStatus("Tutar sıfırdan büyük olmalı.", true);
+      return;
+    }
+
+    saveButton.disabled = true;
+    setFinanceExpenseStatus("Kaydediliyor...");
+    try {
+      const payload = await venueApiRequest("/api/venue/expenses", {
+        method: "POST",
+        body: JSON.stringify({ venueId: venueState.venueId, ...expense }),
+      });
+      venueState.dashboard.finance = payload.finance;
+      renderFinanceView(payload.finance);
+      renderOverview(venueState.dashboard);
+      refreshAdaAssistant().catch(() => renderAdaAssistant());
+      showVenueToast("Gider eklendi.");
+    } catch (error) {
+      setFinanceExpenseStatus(error.message || "Gider kaydedilemedi.", true);
+      saveButton.disabled = false;
+    }
+  });
+
   refreshVenueReport?.addEventListener("click", () => {
     loadVenueReport().catch((error) => {
       if (venueReportDocument) {
@@ -4501,10 +5172,45 @@ function bindVenueInteractions() {
       renderTransactions(venueState.dashboard.transactions);
       renderReviews(venueState.dashboard.reviews, venueState.dashboard.reviewSummary);
       renderGuidanceRail(venueState.dashboard);
+      refreshAdaAssistant().catch(() => renderAdaAssistant());
       loadVenueReport().catch(() => null);
     } catch (error) {
       completeButton.disabled = false;
       completeButton.textContent = error.message || "Hata";
+    }
+  });
+
+  reviewsShell?.addEventListener("click", async (event) => {
+    const saveButton = event.target.closest("[data-review-note-save]");
+    if (!saveButton || !venueState.dashboard) return;
+
+    const reviewId = saveButton.dataset.reviewNoteSave;
+    const noteField = Array.from(reviewsShell.querySelectorAll("[data-review-note]")).find(
+      (field) => field.dataset.reviewNote === reviewId,
+    );
+    const statusNode = Array.from(reviewsShell.querySelectorAll("[data-review-note-status]")).find(
+      (field) => field.dataset.reviewNoteStatus === reviewId,
+    );
+    const note = noteField?.value.trim() || "";
+
+    saveButton.disabled = true;
+    if (statusNode) statusNode.textContent = "Kaydediliyor...";
+    try {
+      const payload = await venueApiRequest(`/api/venue/reviews/${encodeURIComponent(reviewId)}/note`, {
+        method: "PATCH",
+        body: JSON.stringify({ venueId: venueState.venueId, note }),
+      });
+      venueState.dashboard.reviews = payload.reviews || venueState.dashboard.reviews || [];
+      venueState.dashboard.reviewSummary = payload.reviewSummary || venueState.dashboard.reviewSummary || {};
+      renderReviews(venueState.dashboard.reviews, venueState.dashboard.reviewSummary);
+      refreshAdaAssistant().catch(() => renderAdaAssistant());
+      showVenueToast(note ? "Not kaydedildi." : "Not temizlendi.");
+    } catch (error) {
+      saveButton.disabled = false;
+      if (statusNode) {
+        statusNode.textContent = error.message || "Not kaydedilemedi.";
+        statusNode.classList.add("is-error");
+      }
     }
   });
 
@@ -4609,6 +5315,7 @@ function bindVenueInteractions() {
     if (venueState.dashboard) {
       renderWeeklySchedule(calendarBoardSecondary, venueState.dashboard.weekDays);
       renderGuidanceRail(venueState.dashboard);
+      refreshAdaAssistant().catch(() => renderAdaAssistant());
     }
     saveSlotState().catch((error) => {
       console.error(error);
@@ -4693,6 +5400,7 @@ function bindVenueInteractions() {
     setSaveStatus("[data-settings-status]", "Kaydediliyor...");
     try {
       await saveVenueSettings();
+      refreshAdaAssistant().catch(() => renderAdaAssistant());
     } catch (error) {
       setSaveStatus("[data-settings-status]", error.message, true);
       showVenueToast(error.message || "Ayarlar kaydedilemedi.", true);
@@ -4719,6 +5427,7 @@ function bindVenueInteractions() {
 
     try {
       await saveVenueSettings();
+      refreshAdaAssistant().catch(() => renderAdaAssistant());
     } catch (error) {
       setSaveStatus("[data-settings-status]", error.message, true);
       showVenueToast(error.message || "Ayarlar kaydedilemedi.", true);
