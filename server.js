@@ -2095,26 +2095,34 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background:
-          radial-gradient(circle at 72% 16%, rgba(47,126,230,.32), transparent 32%),
-          linear-gradient(145deg, #061a42, #082b5d);
+        background: transparent;
         color: #fff;
         font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
       video, audio {
         position: fixed;
-        inset: 0;
+        left: 50%;
+        top: 0;
         width: 100%;
-        height: 100%;
+        height: calc(100% - 64px);
         object-fit: cover;
-        background: #061a42;
+        object-position: center top;
+        background: transparent;
+        transform: translateX(-50%);
+        clip-path: ellipse(47% 50% at 50% 50%);
+        filter: drop-shadow(0 24px 42px rgba(3, 15, 38, 0.2));
       }
-      audio { opacity: 0; pointer-events: none; }
+      audio {
+        opacity: 0;
+        pointer-events: none;
+        clip-path: none;
+        filter: none;
+      }
       .status {
         position: fixed;
         left: 14px;
         right: 14px;
-        bottom: 14px;
+        bottom: 72px;
         border: 1px solid rgba(255,255,255,.14);
         border-radius: 999px;
         padding: 11px 13px;
@@ -2127,19 +2135,42 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
       .status.ready { opacity: .18; }
       .mic {
         position: fixed;
-        right: 14px;
-        top: 14px;
-        width: 44px;
+        left: 50%;
+        bottom: 14px;
+        width: auto;
+        min-width: 178px;
         height: 44px;
+        padding: 0 18px;
         border: 1px solid rgba(255,255,255,.18);
         border-radius: 999px;
-        background: rgba(255,255,255,.14);
-        color: #fff;
-        display: grid;
-        place-items: center;
+        background: rgba(255,255,255,.92);
+        box-shadow: 0 16px 42px rgba(3, 15, 38, 0.24);
+        color: #061a42;
+        font-weight: 800;
+        font-size: 13px;
+        transform: translateX(-50%);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
         backdrop-filter: blur(18px);
       }
-      .mic.listening { background: #2f7ee6; }
+      .mic::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #9aa7b8;
+      }
+      .mic.listening {
+        background: #2f7ee6;
+        color: #fff;
+      }
+      .mic.listening::before {
+        background: #34d399;
+        box-shadow: 0 0 0 6px rgba(52, 211, 153, 0.18);
+      }
       .fallback {
         position: fixed;
         inset: 0;
@@ -2158,7 +2189,7 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
     <div id="fallback" class="fallback">
       <div><strong>${safeAvatarName} bağlanıyor</strong><span>Canlı yüz ve ses sahnesi hazırlanıyor.</span></div>
     </div>
-    <button id="mic" class="mic" type="button" aria-label="Konuş">●</button>
+    <button id="mic" class="mic" type="button" aria-label="Konuş">Konuşmak için bas</button>
     <div id="status" class="status">${safeAvatarName} bağlanıyor...</div>
     <script type="module">
       import { SimliClient, LogLevel } from "https://esm.sh/simli-client@3.0.1?bundle";
@@ -2175,10 +2206,18 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
       let recognition = null;
       let speaking = false;
       let listening = false;
+      let voiceLoopActive = false;
+      let recognitionSupported = false;
+      let recognitionRestartTimer = null;
 
       function setStatus(message, ready = false) {
         statusEl.textContent = message;
         statusEl.classList.toggle("ready", ready);
+      }
+
+      function setMicLabel(text, active = false) {
+        micEl.textContent = text;
+        micEl.classList.toggle("listening", active);
       }
 
       function sleep(ms) {
@@ -2242,7 +2281,13 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
           await speakWithDeviceVoice(normalizedText);
         } finally {
           speaking = false;
-          setStatus(avatarName + " seni dinliyor", true);
+          if (voiceLoopActive) {
+            setStatus("Cevap bitti. Seni tekrar dinliyorum...");
+            window.setTimeout(startListening, 420);
+          } else {
+            setStatus("Konuşmak için aşağıdaki butona bas.", true);
+            setMicLabel("Konuşmak için bas");
+          }
         }
       }
 
@@ -2268,40 +2313,94 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
           setStatus("Bu tarayıcıda sesli dinleme desteklenmiyor.");
+          setMicLabel("Ses desteklenmiyor");
+          micEl.disabled = true;
           return;
         }
+        recognitionSupported = true;
         recognition = new SpeechRecognition();
         recognition.lang = "tr-TR";
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.onstart = () => {
+          window.clearTimeout(recognitionRestartTimer);
           listening = true;
-          micEl.classList.add("listening");
+          setMicLabel("Dinliyorum...");
           setStatus("Seni dinliyorum...");
         };
         recognition.onend = () => {
           listening = false;
-          micEl.classList.remove("listening");
-          if (!speaking) setStatus("Konuşmak için butona dokun.", true);
+          setMicLabel(voiceLoopActive ? "Dinlemeyi durdur" : "Konuşmak için bas", false);
+          if (voiceLoopActive && !speaking) {
+            recognitionRestartTimer = window.setTimeout(startListening, 420);
+            return;
+          }
+          if (!speaking) setStatus("Konuşmak için aşağıdaki butona bas.", true);
         };
-        recognition.onerror = () => {
+        recognition.onerror = (event) => {
           listening = false;
-          micEl.classList.remove("listening");
-          if (!speaking) setStatus("Tekrar dokunup konuşabilirsin.");
+          const errorName = event?.error || "";
+          if (errorName === "not-allowed" || errorName === "service-not-allowed") {
+            voiceLoopActive = false;
+            setMicLabel("Mikrofon izni gerekli");
+            setStatus("Mikrofon izni kapalı. Chrome adres çubuğundaki izinlerden mikrofonu aç.");
+            return;
+          }
+          setMicLabel(voiceLoopActive ? "Dinlemeyi durdur" : "Konuşmak için bas", false);
+          if (errorName === "no-speech" && voiceLoopActive && !speaking) {
+            setStatus("Ses alamadım. Tekrar dinliyorum...");
+            recognitionRestartTimer = window.setTimeout(startListening, 650);
+            return;
+          }
+          if (!speaking) setStatus("Tekrar basıp konuşabilirsin.");
         };
         recognition.onresult = (event) => {
           const transcript = Array.from(event.results || [])
             .map((result) => result[0]?.transcript || "")
             .join(" ")
             .trim();
-          if (transcript) askAda(transcript);
+          if (transcript) {
+            setStatus("Duydum: " + transcript);
+            askAda(transcript);
+          }
         };
       }
 
-      function toggleListening() {
-        if (!recognition || speaking) return;
-        if (listening) recognition.stop();
-        else recognition.start();
+      async function ensureMicrophonePermission() {
+        if (!navigator.mediaDevices?.getUserMedia) return;
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      function startListening() {
+        if (!recognition || speaking || listening || !voiceLoopActive) return;
+        try {
+          recognition.start();
+        } catch (_error) {
+          setStatus("Mikrofon hazırlanıyor. Bir saniye sonra tekrar dene.");
+        }
+      }
+
+      async function toggleListening() {
+        if (!recognitionSupported || !recognition || speaking) return;
+        if (voiceLoopActive || listening) {
+          voiceLoopActive = false;
+          window.clearTimeout(recognitionRestartTimer);
+          if (listening) recognition.stop();
+          setMicLabel("Konuşmak için bas");
+          setStatus("Dinleme durdu. Devam etmek için tekrar bas.");
+          return;
+        }
+        try {
+          await ensureMicrophonePermission();
+          voiceLoopActive = true;
+          setMicLabel("Dinliyorum...", true);
+          startListening();
+        } catch (_error) {
+          voiceLoopActive = false;
+          setMicLabel("Mikrofon izni gerekli");
+          setStatus("Mikrofon izni verilmedi. Chrome izinlerinden mikrofonu açmalısın.");
+        }
       }
 
       async function start() {

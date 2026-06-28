@@ -454,6 +454,73 @@ button {
   background: #07153a;
 }
 
+.customer-ada.is-live {
+  width: min(310px, calc(100vw - 28px));
+}
+
+.customer-ada.is-live .customer-ada-launcher {
+  display: none;
+}
+
+.customer-ada.is-live .customer-ada-panel {
+  max-height: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.customer-ada.is-live .customer-ada-speech,
+.customer-ada.is-live .customer-ada-actions,
+.customer-ada.is-live .customer-ada-chat-log,
+.customer-ada.is-live .customer-ada-form,
+.customer-ada.is-live .customer-ada-live {
+  display: none;
+}
+
+.customer-ada.is-live .customer-ada-head {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  display: block;
+  padding: 0;
+}
+
+.customer-ada.is-live .customer-ada-head > div {
+  display: none;
+}
+
+.customer-ada.is-live .customer-ada-close {
+  border-color: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  box-shadow: 0 14px 34px rgba(3, 15, 38, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+.customer-ada.is-live .customer-ada-stage {
+  display: block;
+  margin: 0;
+  border: 0;
+  border-radius: 34px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.customer-ada.is-live .customer-ada-stage iframe {
+  min-height: 390px;
+  height: min(58vh, 500px);
+  border-radius: 34px;
+  box-shadow: 0 28px 72px rgba(7, 52, 95, 0.26);
+  background: transparent;
+}
+
 .page-shell {
   width: 100%;
   min-height: 100vh;

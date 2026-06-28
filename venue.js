@@ -82,6 +82,7 @@ const adaChatForm = document.querySelector("#ada-chat-form");
 const adaChatInput = document.querySelector("#ada-chat-input");
 const adaLiveButton = document.querySelector("#ada-live-button");
 const adaStage = document.querySelector("#ada-stage");
+const adaDefaultStageMarkup = adaStage?.innerHTML || "";
 const adaStatus = document.querySelector("#ada-status");
 const adaStatusTitle = document.querySelector("#ada-status-title");
 const setupRoadmap = document.querySelector(".venue-setup-roadmap");
@@ -2934,8 +2935,21 @@ function openAdaPanel() {
 
 function closeAdaPanel() {
   venueState.adaOpen = false;
+  resetAdaLivePanel();
   adaPanel?.classList.add("hidden");
   adaLauncher?.setAttribute("aria-expanded", "false");
+}
+
+function resetAdaLivePanel() {
+  adaAssistant?.classList.remove("is-live");
+  if (adaStage?.querySelector("iframe")) {
+    adaStage.innerHTML = adaDefaultStageMarkup;
+  }
+  if (adaLiveButton) {
+    adaLiveButton.disabled = false;
+    adaLiveButton.classList.remove("is-waiting");
+    adaLiveButton.textContent = "Canlı görüşmeyi başlat";
+  }
 }
 
 function toggleAdaPanel() {
@@ -3032,6 +3046,7 @@ async function connectAdaLive() {
     const sessionUrl = String(payload.sessionUrl || payload.stageUrl || "").trim();
 
     if (sessionUrl && adaStage) {
+      adaAssistant?.classList.add("is-live");
       adaStage.innerHTML = `<iframe title="Ada canlı avatar" src="${escapeHtml(sessionUrl)}" allow="camera; microphone; autoplay; clipboard-write"></iframe>`;
       adaLiveButton.textContent = "Ada canlı bağlantıda";
       appendAdaChatMessage("ada", "Canlı avatar sahnesini açtım. Simli bağlantısı burada çalışacak.");

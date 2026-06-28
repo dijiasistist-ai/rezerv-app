@@ -121,6 +121,7 @@ const customerAdaChatLog = document.querySelector("#customer-ada-chat-log");
 const customerAdaForm = document.querySelector("#customer-ada-form");
 const customerAdaInput = document.querySelector("#customer-ada-input");
 const customerAdaLive = document.querySelector("#customer-ada-live");
+const customerAdaDefaultStageMarkup = customerAdaStage?.innerHTML || "";
 const notificationStorageKey = "tyee_read_notifications_v1";
 let notificationReadTimer = null;
 
@@ -1266,8 +1267,21 @@ function openCustomerAda() {
 
 function closeCustomerAda() {
   state.customerAdaOpen = false;
+  resetCustomerAdaLive();
   customerAdaPanel?.classList.add("hidden");
   customerAdaLauncher?.setAttribute("aria-expanded", "false");
+}
+
+function resetCustomerAdaLive() {
+  customerAda?.classList.remove("is-live");
+  if (customerAdaStage?.querySelector("iframe")) {
+    customerAdaStage.innerHTML = customerAdaDefaultStageMarkup;
+  }
+  if (customerAdaLive) {
+    customerAdaLive.disabled = false;
+    customerAdaLive.classList.remove("is-waiting");
+    customerAdaLive.textContent = "Canlı görüşmeyi başlat";
+  }
 }
 
 function toggleCustomerAda() {
@@ -1374,6 +1388,7 @@ async function connectCustomerAdaLive() {
     const sessionUrl = String(payload.sessionUrl || payload.stageUrl || "").trim();
 
     if (sessionUrl && customerAdaStage) {
+      customerAda?.classList.add("is-live");
       customerAdaStage.innerHTML = `<iframe title="Ada canlı avatar" src="${escapeHtml(sessionUrl)}" allow="camera; microphone; autoplay; clipboard-write"></iframe>`;
       customerAdaLive.textContent = "Ada canlı bağlantıda";
       appendCustomerAdaMessage("ada", "Canlı avatar sahnesini açtım. Simli bağlantısı burada çalışacak.");
