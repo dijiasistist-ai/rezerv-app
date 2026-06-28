@@ -9966,7 +9966,8 @@ body[data-venue-view="overview"] #venue-branch {
 .ada-panel {
   width: 100%;
   max-height: min(720px, calc(100vh - 112px));
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   border: 1px solid rgba(207, 226, 246, 0.92);
   border-radius: 24px;
   background:
@@ -10240,7 +10241,7 @@ body[data-venue-view="overview"] #venue-branch {
   display: block;
   width: calc(100% - 36px);
   min-height: 44px;
-  margin: 12px 18px 18px;
+  margin: 12px 18px 0;
   background: linear-gradient(135deg, #04a7f4, #0869c9);
   box-shadow: 0 12px 24px rgba(4, 167, 244, 0.22);
 }
