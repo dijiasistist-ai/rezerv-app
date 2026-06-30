@@ -59,6 +59,7 @@ const ASSISTANT_DISPLAY_NAME = "Tyee";
 const DEFAULT_SIMLI_FACE_ID = "b1f6ad8f-ed78-430b-85ef-2ec672728104";
 const OPENAI_TTS_SAMPLE_RATE = 24000;
 const SIMLI_AUDIO_SAMPLE_RATE = 16000;
+const SIMLI_AUDIO_CHUNK_BYTES = 6000;
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
 const VENUE_GALLERY_LIMIT = 6;
 const CALENDAR_SLOT_TIMES = [
@@ -2217,6 +2218,7 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = ASSIST
       const greetingText = ${JSON.stringify(greetingText || `Merhaba, ben ${safeAvatarName}. Buradayım.`)};
       const openAiTtsSampleRate = ${OPENAI_TTS_SAMPLE_RATE};
       const simliAudioSampleRate = ${SIMLI_AUDIO_SAMPLE_RATE};
+      const simliAudioChunkBytes = ${SIMLI_AUDIO_CHUNK_BYTES};
       const videoEl = document.getElementById("simli-video");
       const audioEl = document.getElementById("simli-audio");
       const statusEl = document.getElementById("status");
@@ -2278,27 +2280,56 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = ASSIST
         return output;
       }
 
-      function withSilenceBookends(input, sampleRate) {
-        const leadSamples = Math.round(sampleRate * 0.06);
-        const tailSamples = Math.round(sampleRate * 0.18);
-        const output = new Int16Array(leadSamples + input.length + tailSamples);
-        output.set(input, leadSamples);
+      function appendTailSilence(input, sampleRate) {
+        const tailSamples = Math.round(sampleRate * 0.16);
+        const output = new Int16Array(input.length + tailSamples);
+        output.set(input, 0);
         return output;
       }
 
       async function streamPcmToSimli(pcm16, sampleRate) {
         if (!simliClient?.sendAudioData) throw new Error("simli audio stream unavailable");
-        const prepared = withSilenceBookends(pcm16, sampleRate);
-        const chunkSamples = Math.max(320, Math.round(sampleRate * 0.04));
+        const prepared = appendTailSilence(pcm16, sampleRate);
+        const audioBytes = new Uint8Array(prepared.buffer, prepared.byteOffset, prepared.byteLength);
+        const evenChunkBytes = Math.max(2, simliAudioChunkBytes - (simliAudioChunkBytes % 2));
+        const playbackDone = waitForSimliPlayback(prepared.length, sampleRate);
         simliClient?.ClearBuffer?.();
-        let nextSendAt = performance.now();
-        for (let offset = 0; offset < prepared.length; offset += chunkSamples) {
-          const chunk = prepared.subarray(offset, offset + chunkSamples);
-          simliClient.sendAudioData(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
-          nextSendAt += (chunk.length / sampleRate) * 1000;
-          await sleep(Math.max(0, nextSendAt - performance.now()));
+        await sleep(80);
+        for (let offset = 0; offset < audioBytes.length; offset += evenChunkBytes) {
+          const chunk = audioBytes.subarray(offset, Math.min(offset + evenChunkBytes, audioBytes.length));
+          if (offset === 0 && simliClient?.sendAudioDataImmediate) {
+            simliClient.sendAudioDataImmediate(chunk);
+          } else {
+            simliClient.sendAudioData(chunk);
+          }
         }
-        await sleep(260);
+        await playbackDone;
+      }
+
+      function waitForSimliPlayback(sampleCount, sampleRate) {
+        const estimatedMs = Math.max(900, Math.round((sampleCount / sampleRate) * 1000) + 1400);
+        return new Promise((resolve) => {
+          let settled = false;
+          let sawSpeaking = false;
+          const cleanup = () => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            simliClient?.off?.("speaking", onSpeaking);
+            simliClient?.off?.("silent", onSilent);
+            resolve();
+          };
+          const onSpeaking = () => {
+            sawSpeaking = true;
+            setStatus(avatarName + " konuşuyor...");
+          };
+          const onSilent = () => {
+            if (sawSpeaking) window.setTimeout(cleanup, 120);
+          };
+          const timer = window.setTimeout(cleanup, estimatedMs);
+          simliClient?.on?.("speaking", onSpeaking);
+          simliClient?.on?.("silent", onSilent);
+        });
       }
 
       async function speakWithDeviceVoice(text) {
@@ -2465,13 +2496,21 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = ASSIST
 
       async function start() {
         try {
-          simliClient = new SimliClient(sessionToken, videoEl, audioEl, null, LogLevel.INFO, "livekit");
+          simliClient = new SimliClient(sessionToken, videoEl, audioEl, null, LogLevel.INFO, "livekit", "websockets", "wss://api.simli.ai", simliAudioChunkBytes);
           simliClient.on("start", () => {
             simliStarted = true;
             fallbackEl.style.display = "none";
             setStatus(avatarName + " hazır.", true);
           });
           simliClient.on("error", () => setStatus(avatarName + " bağlantısı hata verdi."));
+          simliClient.on("speaking", () => setStatus(avatarName + " konuşuyor..."));
+          simliClient.on("silent", () => {
+            if (!speaking && voiceLoopActive) {
+              setStatus("Cevap bitti. Seni tekrar dinliyorum...");
+            } else if (!speaking) {
+              setStatus("Konuşmak için aşağıdaki butona bas.", true);
+            }
+          });
           await simliClient.start();
           fallbackEl.style.display = "none";
           setupSpeechRecognition();
