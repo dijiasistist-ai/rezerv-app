@@ -6,7 +6,6 @@ const venueBranch = document.querySelector("#venue-branch");
 const venueGlobalAccount = document.querySelector("#venue-global-account");
 const venueGlobalAvatar = document.querySelector("#venue-global-avatar");
 const venueGlobalAccountLabel = document.querySelector("#venue-global-account-label");
-const adaTopbarButton = document.querySelector("#ada-topbar-button");
 const statGrid = document.querySelector("#stat-grid");
 const quickActions = document.querySelector("#quick-actions");
 const calendarBoardSecondary = document.querySelector("#calendar-board-secondary");
@@ -3820,7 +3819,7 @@ function renderBusinessInfoSettings(settings) {
       "Temel bilgiler",
       "Marketplace'te görünen ana işletme bilgileri.",
       `
-        <div class="settings-form-grid">
+        <div class="settings-form-grid settings-business-info-grid">
           <label class="settings-input-field">
             <span>İşletme adı</span>
             <input id="settings-business-name" type="text" value="${escapeHtml(settings.businessName)}" />
@@ -3841,15 +3840,15 @@ function renderBusinessInfoSettings(settings) {
             <span>Çalışma saatleri</span>
             <input id="settings-detail-working-hours" type="text" value="${escapeHtml(details.workingHours)}" placeholder="Hafta içi 09:00 - 22:00" />
           </label>
+          <label class="settings-input-field settings-business-description-field">
+            <span>İşletme açıklaması</span>
+            <textarea id="settings-detail-description" rows="3" placeholder="Müşterinin göreceği kısa açıklama">${escapeHtml(details.description)}</textarea>
+          </label>
+          <label class="settings-input-field settings-business-policy-field">
+            <span>İptal politikası</span>
+            <input id="settings-detail-cancellation" type="text" value="${escapeHtml(details.cancellationPolicy)}" placeholder="Rezervasyondan 2 saat öncesine kadar" />
+          </label>
         </div>
-        <label class="settings-input-field">
-          <span>İşletme açıklaması</span>
-          <textarea id="settings-detail-description" rows="4" placeholder="Müşterinin göreceği kısa açıklama">${escapeHtml(details.description)}</textarea>
-        </label>
-        <label class="settings-input-field">
-          <span>İptal politikası</span>
-          <input id="settings-detail-cancellation" type="text" value="${escapeHtml(details.cancellationPolicy)}" placeholder="Rezervasyondan 2 saat öncesine kadar" />
-        </label>
       `,
     )}
 
@@ -4192,13 +4191,13 @@ function renderContractSettings(settings, includeSave = true) {
         `,
       ).join("")}
     </article>
-    <div class="settings-question">
+    <div class="settings-question settings-contract-status">
       <strong>Sözleşme durumları</strong>
-      <label class="settings-radio">
+      <label class="settings-radio settings-contract-check">
         <input id="settings-contract-terms" type="checkbox" ${contracts.termsAccepted ? "checked" : ""} />
         <span>İşletme kullanım ve rezervasyon aracılık sözleşmesi okundu, onaylandı</span>
       </label>
-      <label class="settings-radio">
+      <label class="settings-radio settings-contract-check">
         <input id="settings-contract-kvkk" type="checkbox" ${contracts.kvkkAccepted ? "checked" : ""} />
         <span>KVKK, veri güvenliği ve ticari ileti yükümlülükleri onaylandı</span>
       </label>
@@ -4770,11 +4769,9 @@ async function loadVenueDashboard() {
 }
 
 function bindVenueInteractions() {
-  setView("calendar");
+  setView("overview");
 
-  [adaLauncher, adaTopbarButton].forEach((node) => {
-    node?.addEventListener("click", toggleAdaPanel);
-  });
+  adaLauncher?.addEventListener("click", toggleAdaPanel);
 
   adaClose?.addEventListener("click", closeAdaPanel);
 

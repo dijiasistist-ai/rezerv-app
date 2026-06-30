@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260628-ada-live-cutout-2" />
+    <link rel="stylesheet" href="/venue.css?v=20260630-dashboard-compact-contracts" />
   </head>
   <body>
     <header class="venue-global-header">
@@ -91,7 +91,7 @@
           <div class="venue-nav-group is-open">
             <button class="venue-nav-heading" type="button" aria-expanded="true">Dashboard</button>
             <div class="venue-nav-group-body">
-              <button class="venue-nav-item" data-view="overview">Kontrol Merkezi</button>
+              <button class="venue-nav-item is-active" data-view="overview">Kontrol Merkezi</button>
             </div>
           </div>
 
@@ -114,7 +114,7 @@
               <span class="venue-nav-chevron" aria-hidden="true">⌄</span>
             </button>
             <div class="venue-nav-group-body" id="venue-operations-menu">
-              <button class="venue-nav-item is-active" data-view="calendar">Takvim</button>
+              <button class="venue-nav-item" data-view="calendar">Takvim</button>
               <button class="venue-nav-item" data-view="transactions">Checkout & Satış</button>
               <button class="venue-nav-item" data-view="customers">Müşteriler</button>
               <button class="venue-nav-item" data-view="sales-products">Hizmet Menüsü</button>
@@ -141,16 +141,11 @@
           <header class="venue-topbar">
             <div>
               <p class="eyebrow">Tyee business workspace</p>
-              <h1 id="venue-title">Takvim</h1>
-              <span class="topbar-subtitle" id="venue-topbar-subtitle">Rezervasyon, müsaitlik, müşteri ve checkout akışının başladığı ana operasyon ekranı.</span>
+              <h1 id="venue-title">Kontrol Merkezi</h1>
+              <span class="topbar-subtitle" id="venue-topbar-subtitle">Günün durumu, boş saatler ve işletmenin kısa performans özeti.</span>
             </div>
 
             <div class="topbar-actions">
-              <button class="ada-topbar-button" id="ada-topbar-button" type="button" aria-controls="ada-panel">
-                <span class="ada-topbar-dot" aria-hidden="true"></span>
-                <span>Ada</span>
-              </button>
-
               <div class="menu-cluster">
                 <a class="menu-chip marketplace-link" href="/index.html">Marketplace</a>
               </div>
@@ -188,7 +183,7 @@
             </button>
           </section>
 
-          <section class="view-section hidden" id="overview-view">
+          <section class="view-section" id="overview-view">
           <div class="stat-grid" id="stat-grid"></div>
 
           <div class="panel-grid">
@@ -217,7 +212,7 @@
           </div>
           </section>
 
-          <section class="view-section" id="calendar-view">
+          <section class="view-section hidden" id="calendar-view">
           <div class="operation-hero">
             <div class="operation-hero-copy">
               <p class="eyebrow">Başlangıç</p>
@@ -669,6 +664,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/venue.js?v=20260628-ada-live-cutout-2"></script>
+  <script src="/venue.js?v=20260630-dashboard-compact-contracts"></script>
   </body>
 </html>

@@ -117,13 +117,12 @@ button {
 
 .customer-ada-launcher {
   display: grid;
-  grid-template-columns: 50px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  min-width: 245px;
+  min-width: 220px;
   border: 1px solid rgba(191, 221, 249, 0.84);
   border-radius: 999px;
-  padding: 8px 16px 8px 8px;
+  padding: 11px 18px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(238, 248, 255, 0.86)),
     rgba(255, 255, 255, 0.78);
@@ -238,13 +237,12 @@ button {
 
 .customer-ada-stage {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
   margin: 0 18px;
   border: 1px solid rgba(205, 228, 250, 0.95);
   border-radius: 20px;
-  padding: 12px;
+  padding: 16px;
   background:
     radial-gradient(circle at 20% 0%, rgba(4, 167, 244, 0.24), transparent 38%),
     linear-gradient(135deg, #08325f, #061a42);
@@ -425,7 +423,7 @@ button {
 }
 
 .customer-ada-live {
-  display: block;
+  display: none !important;
   width: calc(100% - 36px);
   min-height: 44px;
   margin: 12px 18px 0;

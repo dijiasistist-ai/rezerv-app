@@ -1159,6 +1159,7 @@ button {
 }
 
 .settings-onboarding-form,
+.settings-form-grid,
 .profile-layout,
 .profile-form-grid,
 .billing-shell,
@@ -9058,6 +9059,85 @@ textarea:focus {
 
 .settings-input-field textarea {
   min-height: 108px;
+}
+
+.settings-business-info-grid {
+  grid-template-columns: minmax(180px, 1.15fr) minmax(150px, 0.85fr) minmax(160px, 0.85fr) minmax(190px, 1fr);
+  gap: 10px 12px;
+  align-items: start;
+}
+
+.settings-business-info-grid .settings-business-description-field,
+.settings-business-info-grid .settings-input-field:has(textarea) {
+  grid-column: span 2;
+}
+
+.settings-business-info-grid .settings-business-policy-field {
+  grid-column: span 2;
+}
+
+.settings-business-info-grid .settings-input-field textarea {
+  min-height: 88px;
+}
+
+.settings-contract-status {
+  align-items: start;
+  gap: 10px;
+}
+
+.settings-contract-status .settings-contract-check {
+  width: fit-content;
+  max-width: min(100%, 720px);
+  align-items: center;
+  justify-self: start;
+  border-color: #dfe5ee;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: #111827;
+  line-height: 1.35;
+}
+
+.settings-contract-status .settings-contract-check input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.settings-contract-status .settings-contract-check span {
+  font-size: 13px;
+  font-weight: 780;
+}
+
+@media (max-width: 1180px) {
+  .settings-business-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-business-info-grid .settings-business-description-field,
+  .settings-business-info-grid .settings-input-field:has(textarea),
+  .settings-business-info-grid .settings-business-policy-field {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .settings-business-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-business-info-grid .settings-business-description-field,
+  .settings-business-info-grid .settings-input-field:has(textarea),
+  .settings-business-info-grid .settings-business-policy-field {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .settings-contract-status .settings-contract-check {
+    width: 100%;
+  }
 }
 
 .settings-save-row,
