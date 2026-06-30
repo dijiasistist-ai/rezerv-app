@@ -9942,7 +9942,7 @@ body[data-venue-view="overview"] #venue-branch {
 .ada-assistant {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  bottom: 36px;
   z-index: 10020;
   display: grid;
   justify-items: end;
@@ -10283,10 +10283,15 @@ body[data-venue-view="overview"] #venue-branch {
 }
 
 .ada-chat-form {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
-  padding: 14px 18px 6px;
+  border-radius: 0 0 22px 22px;
+  padding: 14px 18px 18px;
+  background: linear-gradient(180deg, rgba(246, 250, 255, 0.72), rgba(246, 250, 255, 0.98));
 }
 
 .ada-chat-form input {
@@ -10417,7 +10422,7 @@ body[data-venue-view="overview"] #venue-branch {
 @media (max-width: 760px) {
   .ada-assistant {
     right: 14px;
-    bottom: 14px;
+    bottom: 18px;
     width: min(390px, calc(100vw - 28px));
   }
 
