@@ -4270,10 +4270,47 @@ button {
 }
 
 .checkout-login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  gap: 10px;
+  max-width: 100%;
+  min-height: 44px;
   border-left: 1px solid var(--line);
   padding-left: 24px;
   color: var(--ink);
   font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.checkout-login.is-authenticated {
+  max-width: min(280px, 100%);
+  border: 1px solid #dce8f6;
+  border-left: 1px solid #dce8f6;
+  border-radius: 999px;
+  padding: 5px 15px 5px 6px;
+  background: #f7fbff;
+  color: #07153a;
+  box-shadow: 0 12px 28px rgba(7, 52, 95, 0.08);
+}
+
+.checkout-login.is-authenticated span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkout-login-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--tyee-blue), var(--brand));
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: var(--weight-strong);
 }
 
 .checkout-layout {

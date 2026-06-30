@@ -11138,3 +11138,50 @@ body[data-venue-view="overview"] .venue-topbar #venue-branch {
   transform: none;
   animation: none;
 }
+
+body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-open) {
+  right: auto;
+  left: 256px;
+  bottom: 22px;
+  justify-items: start;
+  width: auto;
+}
+
+body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-open) .ada-launcher {
+  grid-template-columns: 64px;
+  gap: 0;
+  width: 74px;
+  min-width: 74px;
+  min-height: 74px;
+  padding: 5px;
+  border-color: rgba(152, 208, 255, 0.86);
+  border-radius: 999px;
+  box-shadow: 0 18px 42px rgba(7, 52, 95, 0.18);
+}
+
+body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-open) .ada-launcher:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-open) .ada-launcher-avatar {
+  width: 64px;
+  height: 64px;
+}
+
+body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-open) .ada-launcher-avatar img {
+  object-position: center center;
+  transform: none;
+}
+
+body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-open) .ada-launcher-copy,
+body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-open) .ada-launcher-dot {
+  display: none;
+}
+
+@media (max-width: 980px) {
+  body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-open) {
+    right: 16px;
+    left: auto;
+    bottom: 18px;
+  }
+}

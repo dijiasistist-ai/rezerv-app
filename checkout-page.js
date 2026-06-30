@@ -28,8 +28,10 @@ const contractAccept = document.querySelector("#checkout-contract-accept");
 const checkoutContract = document.querySelector("#checkout-contract");
 const cardForm = document.querySelector("#checkout-card-form");
 const transferBox = document.querySelector("#checkout-transfer");
+const checkoutLogin = document.querySelector(".checkout-login");
 const paymentTabs = document.querySelectorAll("[data-payment-tab]");
 const paymentChoices = document.querySelectorAll("[data-payment-choice]");
+const authToken = localStorage.getItem("tyee_token") || "";
 
 let remainingSeconds = 300;
 let selectedPaymentChoice = "deposit";
@@ -69,6 +71,52 @@ function escapeHtml(value = "") {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function getInitials(name = "") {
+  const parts = String(name || "Tyee")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toLocaleUpperCase("tr-TR") || "")
+    .join("");
+}
+
+function renderCheckoutAccount(user = null) {
+  if (!checkoutLogin) return;
+  if (!user) {
+    checkoutLogin.classList.remove("is-authenticated");
+    checkoutLogin.href = "/index.html";
+    checkoutLogin.textContent = "Giriş Yap / Kayıt Ol";
+    return;
+  }
+
+  const name = user.name || "Hesabım";
+  checkoutLogin.classList.add("is-authenticated");
+  checkoutLogin.href = user.canManageVenue ? "/venue.html" : "/index.html#account";
+  checkoutLogin.innerHTML = `
+    <span class="checkout-login-avatar" aria-hidden="true">${escapeHtml(getInitials(name))}</span>
+    <span>${escapeHtml(name)}</span>
+  `;
+}
+
+async function loadCheckoutAccount() {
+  if (!authToken) {
+    renderCheckoutAccount(null);
+    return;
+  }
+
+  try {
+    const payload = await fetchJson("/api/auth/me", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    renderCheckoutAccount(payload.user);
+  } catch (error) {
+    renderCheckoutAccount(null);
+  }
 }
 
 function renderLegalTerms(container, terms) {
@@ -193,6 +241,7 @@ submitButton?.addEventListener("click", async () => {
 
     const response = await fetchJson("/api/reservations", {
       method: "POST",
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       body: JSON.stringify({
         ...draft,
         selectedPaymentChoice,
@@ -209,6 +258,7 @@ submitButton?.addEventListener("click", async () => {
   }
 });
 
+loadCheckoutAccount();
 renderSummary();
 loadCustomerTerms().catch(() => {
   if (checkoutContract) checkoutContract.innerHTML = "<p>Sözleşme metni şu anda yüklenemedi.</p>";
