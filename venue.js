@@ -2415,7 +2415,7 @@ function renderCampaignsView() {
               </div>
             `
             : `
-              <p>Ada, takvim ve müşteri kayıtlarına göre kısa bir SMS metni hazırlar. Gönderim son onaydan önce yapılmaz.</p>
+              <p>Tyee, takvim ve müşteri kayıtlarına göre kısa bir SMS metni hazırlar. Gönderim son onaydan önce yapılmaz.</p>
             `
         }
         ${feedback ? `<div class="campaign-sms-feedback">${escapeHtml(feedback)}</div>` : ""}
@@ -2928,7 +2928,7 @@ function openAdaPanel() {
   adaPanel?.classList.remove("hidden");
   adaLauncher?.setAttribute("aria-expanded", "true");
   if (adaChatLog && !adaChatLog.dataset.ready) {
-    appendAdaChatMessage("ada", "Ben Ada. Takvim, hizmet, gider, yorum ve kampanya tarafında seni yönlendirebilirim.");
+    appendAdaChatMessage("ada", "Ben Tyee. Takvim, hizmet, gider, yorum ve kampanya tarafında seni yönlendirebilirim.");
     adaChatLog.dataset.ready = "true";
   }
 }
@@ -3036,26 +3036,26 @@ async function connectAdaLive() {
   if (!adaLiveButton) return;
   adaLiveButton.disabled = true;
   adaLiveButton.classList.add("is-waiting");
-  adaLiveButton.textContent = "Ada bağlantısı kontrol ediliyor...";
+  adaLiveButton.textContent = "Tyee bağlantısı kontrol ediliyor...";
   if (adaStatus) adaStatus.textContent = "Simli oturumu hazırlanıyor.";
 
   try {
     const payload = await venueApiRequest("/api/venue/avatar/session", {
       method: "POST",
-      body: JSON.stringify({ venueId: venueState.venueId, provider: "simli", avatarName: "Ada" }),
+      body: JSON.stringify({ venueId: venueState.venueId, provider: "simli", avatarName: "Tyee" }),
     });
     const sessionUrl = String(payload.sessionUrl || payload.stageUrl || "").trim();
 
     if (sessionUrl && adaStage) {
       adaAssistant?.classList.add("is-live");
-      adaStage.innerHTML = `<iframe title="Ada canlı avatar" src="${escapeHtml(sessionUrl)}" allow="camera; microphone; autoplay; clipboard-write"></iframe>`;
-      adaLiveButton.textContent = "Ada canlı bağlantıda";
+      adaStage.innerHTML = `<iframe title="Tyee canlı avatar" src="${escapeHtml(sessionUrl)}" allow="camera; microphone; autoplay; clipboard-write"></iframe>`;
+      adaLiveButton.textContent = "Tyee canlı bağlantıda";
       appendAdaChatMessage("ada", "Canlı avatar sahnesini açtım. Simli bağlantısı burada çalışacak.");
       return;
     }
 
     if (adaStatusTitle) adaStatusTitle.textContent = "Canlı avatar hazır değil";
-    if (adaStatus) adaStatus.textContent = payload.message || "Simli ortam bilgileri tamamlanınca Ada burada canlı açılacak.";
+    if (adaStatus) adaStatus.textContent = payload.message || "Simli ortam bilgileri tamamlanınca Tyee burada canlı açılacak.";
     adaLiveButton.textContent = "Simli yapılandırması bekleniyor";
     appendAdaChatMessage("ada", payload.message || "Simli bağlantısı henüz hazır değil. Yine de panel önerilerini vermeye devam ediyorum.");
   } catch (error) {

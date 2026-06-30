@@ -55,6 +55,10 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 const ADA_LIVE_SESSION_TTL_MS = 20 * 60 * 1000;
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
 const HIDE_PUBLIC_VENUES = process.env.HIDE_PUBLIC_VENUES === "1";
+const ASSISTANT_DISPLAY_NAME = "Tyee";
+const DEFAULT_SIMLI_FACE_ID = "b1f6ad8f-ed78-430b-85ef-2ec672728104";
+const OPENAI_TTS_SAMPLE_RATE = 24000;
+const SIMLI_AUDIO_SAMPLE_RATE = 16000;
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
 const VENUE_GALLERY_LIMIT = 6;
 const CALENDAR_SLOT_TIMES = [
@@ -1856,7 +1860,7 @@ function buildVenueAssistantPayload(payload = {}) {
 
   return {
     assistant: {
-      name: "Ada",
+      name: ASSISTANT_DISPLAY_NAME,
       role: "Operasyon koçu",
       provider: "tyee-rules",
     },
@@ -1885,7 +1889,7 @@ function buildVenueAssistantAnswer(question = "", payload = {}) {
 
   if (normalized.includes("sms") || normalized.includes("reklam") || normalized.includes("kampanya")) {
     if (normalized.includes("toplu") || normalized.includes("müşterilere") || normalized.includes("son mesaj")) {
-      return "Toplu SMS için Pazarlama ekranında izinli müşteri segmenti, mesaj metni ve son onay adımı gerekir. Ada mesajı taslak olarak hazırlar; işletme sahibi onaylamadan gönderim yapılmaz.";
+      return "Toplu SMS için Pazarlama ekranında izinli müşteri segmenti, mesaj metni ve son onay adımı gerekir. Tyee mesajı taslak olarak hazırlar; işletme sahibi onaylamadan gönderim yapılmaz.";
     }
     return "Pazarlama ekranında geri çağırma, boş saat ve tekrar müşteri kampanyalarını yönetebiliriz. Açık slot varsa yakın müşterilere kısa SMS iyi çalışır.";
   }
@@ -1911,7 +1915,7 @@ function buildVenueAssistantAnswer(question = "", payload = {}) {
   }
 
   if (normalized.includes("mağaza") || normalized.includes("işletme") || normalized.includes("nerede tanıml")) {
-    return "Mağaza bilgisi İşletme Ayarları ekranında tanımlanır. Ada bu kayıtla birlikte hizmetleri, takvimi, fotoğrafları, yorumları ve performans verilerini okur.";
+    return "Mağaza bilgisi İşletme Ayarları ekranında tanımlanır. Tyee bu kayıtla birlikte hizmetleri, takvimi, fotoğrafları, yorumları ve performans verilerini okur.";
   }
 
   return "Takvim, hizmet menüsü, gider, yorum, müşteri ve kampanya tarafını okuyabiliyorum. Bana belirli bir ekranı sorabilir veya öneri kartlarından birini açabilirsin.";
@@ -1985,7 +1989,7 @@ function purgeExpiredAdaLiveSessions() {
   }
 }
 
-function createAdaLiveSession({ scope, assistantContext, greetingText, avatarName = "Ada" }) {
+function createAdaLiveSession({ scope, assistantContext, greetingText, avatarName = ASSISTANT_DISPLAY_NAME }) {
   purgeExpiredAdaLiveSessions();
   const id = crypto.randomUUID();
   const session = {
@@ -2029,7 +2033,7 @@ async function requestOpenAiSpeechPcm(text = "") {
     },
     body: JSON.stringify({
       model: String(process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts").trim(),
-      voice: String(process.env.OPENAI_TTS_VOICE || "nova").trim(),
+      voice: String(process.env.OPENAI_TTS_VOICE_TYEE || process.env.OPENAI_TTS_VOICE || "nova").trim(),
       input: String(text || "").slice(0, 900),
       response_format: "pcm",
     }),
@@ -2044,7 +2048,7 @@ async function requestOpenAiSpeechPcm(text = "") {
 
 async function requestSimliSessionToken(simliFaceId = "") {
   const apiKey = String(process.env.SIMLI_API_KEY || "").trim();
-  const faceId = String(simliFaceId || process.env.SIMLI_FACE_ID_ADA || process.env.SIMLI_FACE_ID || "").trim();
+  const faceId = String(simliFaceId || process.env.SIMLI_FACE_ID_TYEE || DEFAULT_SIMLI_FACE_ID || "").trim();
   if (!apiKey) throw new Error("SIMLI_API_KEY missing");
   if (!faceId) throw new Error("SIMLI_FACE_ID missing");
 
@@ -2080,8 +2084,8 @@ async function requestSimliSessionToken(simliFaceId = "") {
   return String(token).trim();
 }
 
-function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada", greetingText = "" }) {
-  const safeAvatarName = String(avatarName || "Ada").replace(/\s+/g, " ").trim().slice(0, 24) || "Ada";
+function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = ASSISTANT_DISPLAY_NAME, greetingText = "" }) {
+  const safeAvatarName = String(avatarName || ASSISTANT_DISPLAY_NAME).replace(/\s+/g, " ").trim().slice(0, 24) || ASSISTANT_DISPLAY_NAME;
   return `<!doctype html>
 <html lang="tr">
   <head>
@@ -2211,6 +2215,8 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
       const adaSessionId = ${JSON.stringify(adaSessionId)};
       const avatarName = ${JSON.stringify(safeAvatarName)};
       const greetingText = ${JSON.stringify(greetingText || `Merhaba, ben ${safeAvatarName}. Buradayım.`)};
+      const openAiTtsSampleRate = ${OPENAI_TTS_SAMPLE_RATE};
+      const simliAudioSampleRate = ${SIMLI_AUDIO_SAMPLE_RATE};
       const videoEl = document.getElementById("simli-video");
       const audioEl = document.getElementById("simli-audio");
       const statusEl = document.getElementById("status");
@@ -2252,6 +2258,11 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         });
       }
 
+      function toInt16Samples(audioBuffer) {
+        const evenLength = audioBuffer.byteLength - (audioBuffer.byteLength % 2);
+        return new Int16Array(audioBuffer.slice(0, evenLength));
+      }
+
       function downsamplePcm16(input, inputRate, outputRate) {
         if (inputRate === outputRate) return input;
         const ratio = inputRate / outputRate;
@@ -2265,6 +2276,29 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
           output[i] = Math.round(input[lower] * (1 - weight) + input[upper] * weight);
         }
         return output;
+      }
+
+      function withSilenceBookends(input, sampleRate) {
+        const leadSamples = Math.round(sampleRate * 0.06);
+        const tailSamples = Math.round(sampleRate * 0.18);
+        const output = new Int16Array(leadSamples + input.length + tailSamples);
+        output.set(input, leadSamples);
+        return output;
+      }
+
+      async function streamPcmToSimli(pcm16, sampleRate) {
+        if (!simliClient?.sendAudioData) throw new Error("simli audio stream unavailable");
+        const prepared = withSilenceBookends(pcm16, sampleRate);
+        const chunkSamples = Math.max(320, Math.round(sampleRate * 0.04));
+        simliClient?.ClearBuffer?.();
+        let nextSendAt = performance.now();
+        for (let offset = 0; offset < prepared.length; offset += chunkSamples) {
+          const chunk = prepared.subarray(offset, offset + chunkSamples);
+          simliClient.sendAudioData(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength));
+          nextSendAt += (chunk.length / sampleRate) * 1000;
+          await sleep(Math.max(0, nextSendAt - performance.now()));
+        }
+        await sleep(260);
       }
 
       async function speakWithDeviceVoice(text) {
@@ -2288,6 +2322,7 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
         setStatus(avatarName + " konuşuyor...");
         try {
           await waitUntilSimliStarted();
+          if (!simliStarted) throw new Error("simli did not start");
           const response = await fetch("/api/ada/live/speech", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2295,20 +2330,14 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
           });
           if (!response.ok) throw new Error("speech failed");
           const audioBuffer = await response.arrayBuffer();
-          const pcm24k = new Int16Array(audioBuffer);
-          const pcm16k = downsamplePcm16(pcm24k, 24000, 16000);
-          const sampleRate = 16000;
-          const chunkSize = 3000;
-          simliClient?.ClearBuffer?.();
-          for (let offset = 0; offset < pcm16k.length; offset += chunkSize) {
-            const chunk = pcm16k.slice(offset, offset + chunkSize);
-            simliClient.sendAudioData(new Uint8Array(chunk.buffer));
-            await sleep(Math.max(120, Math.round((chunk.length / sampleRate) * 1000)));
-          }
-          await sleep(1000);
+          const headerSampleRate = Number(response.headers.get("X-Audio-Sample-Rate"));
+          const sourceRate = Number.isFinite(headerSampleRate) && headerSampleRate > 0 ? headerSampleRate : openAiTtsSampleRate;
+          const sourcePcm = toInt16Samples(audioBuffer);
+          const simliPcm = downsamplePcm16(sourcePcm, sourceRate, simliAudioSampleRate);
+          await streamPcmToSimli(simliPcm, simliAudioSampleRate);
         } catch (error) {
           console.error("[ada-live-speech]", error);
-          setStatus("Ada sesi üretilemedi; dudak senkronu için tekrar dene.");
+          setStatus(avatarName + " sesi üretilemedi; dudak senkronu için tekrar dene.");
           await sleep(900);
         } finally {
           speaking = false;
@@ -2461,7 +2490,7 @@ function buildAdaLiveStagePage({ sessionToken, adaSessionId, avatarName = "Ada",
 </html>`;
 }
 
-async function buildDirectSimliSessionResponse({ scope, assistantContext, sourcePayload = null, greetingText, avatarName = "Ada", simliFaceId = "" }) {
+async function buildDirectSimliSessionResponse({ scope, assistantContext, sourcePayload = null, greetingText, avatarName = ASSISTANT_DISPLAY_NAME, simliFaceId = "" }) {
   const sessionToken = await requestSimliSessionToken(simliFaceId);
   const liveSession = createAdaLiveSession({ scope, assistantContext: sourcePayload || assistantContext, greetingText, avatarName });
   const stageUrl = `/ada-live.html?${new URLSearchParams({
@@ -2480,7 +2509,7 @@ async function buildDirectSimliSessionResponse({ scope, assistantContext, source
     contextEndpoint: scope === "venue" ? "/api/venue/assistant" : "/api/customer/assistant",
     chatEndpoint: scope === "venue" ? "/api/venue/assistant/chat" : "/api/customer/assistant/chat",
     assistantContext,
-    message: "Ada canlı avatar oturumu hazır.",
+    message: `${avatarName} canlı avatar oturumu hazır.`,
   };
 }
 
@@ -2545,7 +2574,7 @@ function buildCustomerAssistantPayload({ user = null, category = "all", city = "
 
   return {
     assistant: {
-      name: "Ada",
+      name: ASSISTANT_DISPLAY_NAME,
       role: "Rezervasyon asistanı",
       provider: "tyee-rules",
     },
@@ -4393,7 +4422,7 @@ app.post("/api/venue/assistant/sms-send", requireVenueAccess, async (req, res) =
 
 app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
   const venueId = resolveVenueIdForRequest(req, req.body?.venueId || req.query.venueId);
-  const simliFaceId = process.env.SIMLI_FACE_ID_ADA || process.env.SIMLI_FACE_ID || "";
+  const simliFaceId = process.env.SIMLI_FACE_ID_TYEE || DEFAULT_SIMLI_FACE_ID;
   const hasDirectSimli = Boolean(String(process.env.SIMLI_API_KEY || "").trim() && String(simliFaceId || "").trim());
   const simliEnabled =
     hasDirectSimli || ["1", "true", "yes", "ready"].includes(String(process.env.SIMLI_ENABLED || "").toLowerCase());
@@ -4406,8 +4435,8 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
     res.json({
       provider: "simli",
       status: "not_configured",
-      assistantName: "Ada",
-      message: "Simli canlı avatar bağlantısı için ortam yapılandırması bekleniyor. Ada operasyon önerilerini vermeye devam ediyor.",
+      assistantName: ASSISTANT_DISPLAY_NAME,
+      message: `Simli canlı avatar bağlantısı için ortam yapılandırması bekleniyor. ${ASSISTANT_DISPLAY_NAME} operasyon önerilerini vermeye devam ediyor.`,
       contextEndpoint: "/api/venue/assistant",
       chatEndpoint: "/api/venue/assistant/chat",
       assistantContext,
@@ -4425,7 +4454,7 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
         },
         body: JSON.stringify({
           provider: "simli",
-          avatarName: req.body?.avatarName || "Ada",
+          avatarName: req.body?.avatarName || ASSISTANT_DISPLAY_NAME,
           avatarVoice: req.body?.avatarVoice || "shimmer",
           simliFaceId,
           language: "tr",
@@ -4439,9 +4468,9 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
       res.json({
         provider: "simli",
         status: "ready",
-        assistantName: "Ada",
+        assistantName: ASSISTANT_DISPLAY_NAME,
         sessionUrl: data.sessionUrl || data.stageUrl || data.url || "",
-        message: data.message || "Ada canlı avatar oturumu hazır.",
+        message: data.message || `${ASSISTANT_DISPLAY_NAME} canlı avatar oturumu hazır.`,
         contextEndpoint: "/api/venue/assistant",
         chatEndpoint: "/api/venue/assistant/chat",
         assistantContext,
@@ -4464,9 +4493,9 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
           scope: "venue",
           assistantContext,
           sourcePayload: payload,
-          avatarName: req.body?.avatarName || "Ada",
+          avatarName: req.body?.avatarName || ASSISTANT_DISPLAY_NAME,
           simliFaceId,
-          greetingText: "Merhaba, ben Ada. İşletme panelini okuyorum; boş saat, müşteri ve kampanya tarafında sana yardımcı olacağım.",
+          greetingText: `Merhaba, ben ${ASSISTANT_DISPLAY_NAME}. İşletme panelini okuyorum; boş saat, müşteri ve kampanya tarafında sana yardımcı olacağım.`,
         }),
       );
       return;
@@ -4484,9 +4513,9 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
     res.json({
       provider: "simli",
       status: "ready",
-      assistantName: "Ada",
+      assistantName: ASSISTANT_DISPLAY_NAME,
       stageUrl: configuredStageUrl,
-      message: "Ada canlı avatar sahnesi hazır.",
+      message: `${ASSISTANT_DISPLAY_NAME} canlı avatar sahnesi hazır.`,
       contextEndpoint: "/api/venue/assistant",
       chatEndpoint: "/api/venue/assistant/chat",
       assistantContext,
@@ -4497,7 +4526,7 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
   res.json({
     provider: "simli",
     status: "waiting_for_stage",
-    assistantName: "Ada",
+    assistantName: ASSISTANT_DISPLAY_NAME,
     message: "Simli açık görünüyor ama oturum sahnesi için SIMLI_SESSION_ENDPOINT veya SIMLI_STAGE_URL eksik.",
     contextEndpoint: "/api/venue/assistant",
     chatEndpoint: "/api/venue/assistant/chat",
@@ -4531,7 +4560,7 @@ app.post("/api/customer/avatar/session", async (req, res) => {
   const category = String(req.body?.category || "all");
   const city = String(req.body?.city || "istanbul");
   const query = String(req.body?.query || "");
-  const simliFaceId = process.env.SIMLI_FACE_ID_ADA || process.env.SIMLI_FACE_ID || "";
+  const simliFaceId = process.env.SIMLI_FACE_ID_TYEE || DEFAULT_SIMLI_FACE_ID;
   const hasDirectSimli = Boolean(String(process.env.SIMLI_API_KEY || "").trim() && String(simliFaceId || "").trim());
   const simliEnabled =
     hasDirectSimli || ["1", "true", "yes", "ready"].includes(String(process.env.SIMLI_ENABLED || "").toLowerCase());
@@ -4543,8 +4572,8 @@ app.post("/api/customer/avatar/session", async (req, res) => {
     res.json({
       provider: "simli",
       status: "not_configured",
-      assistantName: "Ada",
-      message: "Simli canlı avatar bağlantısı için ortam yapılandırması bekleniyor. Ada rezervasyon önerilerini vermeye devam ediyor.",
+      assistantName: ASSISTANT_DISPLAY_NAME,
+      message: `Simli canlı avatar bağlantısı için ortam yapılandırması bekleniyor. ${ASSISTANT_DISPLAY_NAME} rezervasyon önerilerini vermeye devam ediyor.`,
       contextEndpoint: "/api/customer/assistant",
       chatEndpoint: "/api/customer/assistant/chat",
       assistantContext,
@@ -4562,7 +4591,7 @@ app.post("/api/customer/avatar/session", async (req, res) => {
         },
         body: JSON.stringify({
           provider: "simli",
-          avatarName: req.body?.avatarName || "Ada",
+          avatarName: req.body?.avatarName || ASSISTANT_DISPLAY_NAME,
           avatarVoice: req.body?.avatarVoice || "shimmer",
           simliFaceId,
           language: "tr",
@@ -4576,9 +4605,9 @@ app.post("/api/customer/avatar/session", async (req, res) => {
       res.json({
         provider: "simli",
         status: "ready",
-        assistantName: "Ada",
+        assistantName: ASSISTANT_DISPLAY_NAME,
         sessionUrl: data.sessionUrl || data.stageUrl || data.url || "",
-        message: data.message || "Ada canlı avatar oturumu hazır.",
+        message: data.message || `${ASSISTANT_DISPLAY_NAME} canlı avatar oturumu hazır.`,
         contextEndpoint: "/api/customer/assistant",
         chatEndpoint: "/api/customer/assistant/chat",
         assistantContext,
@@ -4600,9 +4629,9 @@ app.post("/api/customer/avatar/session", async (req, res) => {
         await buildDirectSimliSessionResponse({
           scope: "customer",
           assistantContext,
-          avatarName: req.body?.avatarName || "Ada",
+          avatarName: req.body?.avatarName || ASSISTANT_DISPLAY_NAME,
           simliFaceId,
-          greetingText: "Merhaba, ben Ada. Yakınındaki işletmeleri, kategorileri ve rezervasyonlarını birlikte yönetebiliriz.",
+          greetingText: `Merhaba, ben ${ASSISTANT_DISPLAY_NAME}. Yakınındaki işletmeleri, kategorileri ve rezervasyonlarını birlikte yönetebiliriz.`,
         }),
       );
       return;
@@ -4620,9 +4649,9 @@ app.post("/api/customer/avatar/session", async (req, res) => {
     res.json({
       provider: "simli",
       status: "ready",
-      assistantName: "Ada",
+      assistantName: ASSISTANT_DISPLAY_NAME,
       stageUrl: configuredStageUrl,
-      message: "Ada canlı avatar sahnesi hazır.",
+      message: `${ASSISTANT_DISPLAY_NAME} canlı avatar sahnesi hazır.`,
       contextEndpoint: "/api/customer/assistant",
       chatEndpoint: "/api/customer/assistant/chat",
       assistantContext,
@@ -4633,7 +4662,7 @@ app.post("/api/customer/avatar/session", async (req, res) => {
   res.json({
     provider: "simli",
     status: "waiting_for_stage",
-    assistantName: "Ada",
+    assistantName: ASSISTANT_DISPLAY_NAME,
     message: "Simli açık görünüyor ama oturum sahnesi için SIMLI_SESSION_ENDPOINT veya SIMLI_STAGE_URL eksik.",
     contextEndpoint: "/api/customer/assistant",
     chatEndpoint: "/api/customer/assistant/chat",
@@ -4644,11 +4673,11 @@ app.post("/api/customer/avatar/session", async (req, res) => {
 app.get("/ada-live.html", (req, res) => {
   const sessionToken = String(req.query.sessionToken || "").trim();
   const adaSessionId = String(req.query.adaSessionId || "").trim();
-  const avatarName = String(req.query.avatarName || "Ada").trim() || "Ada";
+  const avatarName = String(req.query.avatarName || ASSISTANT_DISPLAY_NAME).trim() || ASSISTANT_DISPLAY_NAME;
   const liveSession = getAdaLiveSession(adaSessionId);
 
   if (!sessionToken || !liveSession) {
-    res.status(400).type("html").send("<!doctype html><meta charset=\"utf-8\"><body>Ada canlı oturumu bulunamadı.</body>");
+    res.status(400).type("html").send(`<!doctype html><meta charset="utf-8"><body>${ASSISTANT_DISPLAY_NAME} canlı oturumu bulunamadı.</body>`);
     return;
   }
 
@@ -4673,7 +4702,7 @@ app.post("/api/ada/live/reply", (req, res) => {
   const message = String(req.body?.message || "").trim();
 
   if (!liveSession) {
-    res.status(404).json({ error: "Ada canlı oturumu bulunamadı." });
+    res.status(404).json({ error: `${ASSISTANT_DISPLAY_NAME} canlı oturumu bulunamadı.` });
     return;
   }
 
@@ -4695,7 +4724,7 @@ app.post("/api/ada/live/speech", async (req, res) => {
   const text = String(req.body?.text || "").trim();
 
   if (!liveSession) {
-    res.status(404).json({ error: "Ada canlı oturumu bulunamadı." });
+    res.status(404).json({ error: `${ASSISTANT_DISPLAY_NAME} canlı oturumu bulunamadı.` });
     return;
   }
 
@@ -4709,10 +4738,13 @@ app.post("/api/ada/live/speech", async (req, res) => {
     res.set({
       "Content-Type": "application/octet-stream",
       "Cache-Control": "no-store",
+      "X-Audio-Format": "pcm_s16le",
+      "X-Audio-Sample-Rate": String(OPENAI_TTS_SAMPLE_RATE),
+      "X-Simli-Audio-Sample-Rate": String(SIMLI_AUDIO_SAMPLE_RATE),
     });
     res.send(audio);
   } catch (error) {
-    res.status(503).json({ error: error.message || "Ada sesi üretilemedi." });
+    res.status(503).json({ error: error.message || `${ASSISTANT_DISPLAY_NAME} sesi üretilemedi.` });
   }
 });
 

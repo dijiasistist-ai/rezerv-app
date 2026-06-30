@@ -1260,7 +1260,7 @@ function openCustomerAda() {
   customerAdaPanel?.classList.remove("hidden");
   customerAdaLauncher?.setAttribute("aria-expanded", "true");
   if (customerAdaChatLog && !customerAdaChatLog.dataset.ready) {
-    appendCustomerAdaMessage("ada", "Ben Ada. Sana uygun işletme bulabilir, rezervasyonlarını açabilir ve arama seçimlerini hızlandırabilirim.");
+    appendCustomerAdaMessage("ada", "Ben Tyee. Sana uygun işletme bulabilir, rezervasyonlarını açabilir ve arama seçimlerini hızlandırabilirim.");
     customerAdaChatLog.dataset.ready = "true";
   }
 }
@@ -1372,14 +1372,14 @@ async function connectCustomerAdaLive() {
   if (!customerAdaLive) return;
   customerAdaLive.disabled = true;
   customerAdaLive.classList.add("is-waiting");
-  customerAdaLive.textContent = "Ada bağlantısı kontrol ediliyor...";
+  customerAdaLive.textContent = "Tyee bağlantısı kontrol ediliyor...";
   if (customerAdaStatus) customerAdaStatus.textContent = "Simli canlı avatar sahnesi hazırlanıyor.";
 
   try {
     const payload = await apiRequest("/api/customer/avatar/session", {
       method: "POST",
       body: JSON.stringify({
-        avatarName: "Ada",
+        avatarName: "Tyee",
         query: state.query,
         category: state.category,
         city: state.city,
@@ -1389,14 +1389,14 @@ async function connectCustomerAdaLive() {
 
     if (sessionUrl && customerAdaStage) {
       customerAda?.classList.add("is-live");
-      customerAdaStage.innerHTML = `<iframe title="Ada canlı avatar" src="${escapeHtml(sessionUrl)}" allow="camera; microphone; autoplay; clipboard-write"></iframe>`;
-      customerAdaLive.textContent = "Ada canlı bağlantıda";
+      customerAdaStage.innerHTML = `<iframe title="Tyee canlı avatar" src="${escapeHtml(sessionUrl)}" allow="camera; microphone; autoplay; clipboard-write"></iframe>`;
+      customerAdaLive.textContent = "Tyee canlı bağlantıda";
       appendCustomerAdaMessage("ada", "Canlı avatar sahnesini açtım. Simli bağlantısı burada çalışacak.");
       return;
     }
 
     if (customerAdaStatusTitle) customerAdaStatusTitle.textContent = "Canlı avatar hazır değil";
-    if (customerAdaStatus) customerAdaStatus.textContent = payload.message || "Simli ortam bilgileri tamamlanınca Ada burada canlı açılacak.";
+    if (customerAdaStatus) customerAdaStatus.textContent = payload.message || "Simli ortam bilgileri tamamlanınca Tyee burada canlı açılacak.";
     customerAdaLive.textContent = "Simli yapılandırması bekleniyor";
     appendCustomerAdaMessage("ada", payload.message || "Simli bağlantısı henüz hazır değil. Yine de arama ve rezervasyon yönlendirmesi yapabilirim.");
   } catch (error) {
