@@ -10935,6 +10935,49 @@ body[data-venue-view="overview"] .venue-avatar.has-image {
   box-shadow: 0 8px 18px rgba(7, 52, 95, 0.14);
 }
 
+body[data-venue-view="overview"] .topbar-actions {
+  gap: 22px;
+}
+
+body[data-venue-view="overview"] .marketplace-link,
+body[data-venue-view="overview"] .venue-profile {
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: #ffffff;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body[data-venue-view="overview"] .marketplace-link {
+  font-weight: 900;
+  line-height: 1.15;
+  text-shadow: 0 1px 2px rgba(6, 40, 77, 0.18);
+}
+
+body[data-venue-view="overview"] .marketplace-link::before {
+  content: none;
+}
+
+body[data-venue-view="overview"] .venue-profile {
+  gap: 10px;
+}
+
+body[data-venue-view="overview"] .venue-profile strong,
+body[data-venue-view="overview"] .venue-profile span {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(6, 40, 77, 0.18);
+}
+
+body[data-venue-view="overview"] .venue-profile #venue-branch,
+body[data-venue-view="overview"] #venue-branch {
+  color: rgba(232, 244, 255, 0.88) !important;
+}
+
 #overview-view {
   background:
     linear-gradient(135deg, rgba(234, 244, 255, 0.82), rgba(255, 255, 255, 0.72) 45%, rgba(245, 247, 255, 0.62) 100%);
@@ -10974,6 +11017,10 @@ body[data-venue-view="overview"] .venue-avatar.has-image {
 .ada-launcher:hover {
   border-color: rgba(4, 167, 244, 0.72);
   box-shadow: 0 28px 64px rgba(7, 52, 95, 0.24);
+}
+
+.ada-assistant.is-open .ada-launcher {
+  display: none;
 }
 
 .ada-launcher-avatar {

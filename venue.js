@@ -2924,6 +2924,7 @@ async function refreshAdaAssistant() {
 
 function openAdaPanel() {
   venueState.adaOpen = true;
+  adaAssistant?.classList.add("is-open");
   adaPanel?.classList.remove("hidden");
   adaLauncher?.setAttribute("aria-expanded", "true");
   if (adaChatLog && !adaChatLog.dataset.ready) {
@@ -2935,6 +2936,7 @@ function openAdaPanel() {
 function closeAdaPanel() {
   venueState.adaOpen = false;
   resetAdaLivePanel();
+  adaAssistant?.classList.remove("is-open");
   adaPanel?.classList.add("hidden");
   adaLauncher?.setAttribute("aria-expanded", "false");
 }
