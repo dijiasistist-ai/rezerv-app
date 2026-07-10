@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
-const runtimeDir = path.join(__dirname, "runtime");
+const runtimeDir = process.env.TYEE_RUNTIME_DIR || process.env.RENDER_DISK_MOUNT_PATH || path.join(__dirname, "runtime");
 const usersPath = path.join(runtimeDir, "users.json");
 const legacyUsersPath = path.join(__dirname, "users.json");
 const mailboxPath = path.join(runtimeDir, "dev-mailbox.json");
