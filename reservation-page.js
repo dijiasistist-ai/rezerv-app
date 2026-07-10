@@ -103,8 +103,8 @@ function getListingGallery(listing = {}) {
 
 function setHeroMedia(src = "", mediaClass = "media-field") {
   if (!heroMedia) return;
-  heroMedia.className = `booking-hero-media ${mediaClass || "media-field"}`;
   const mediaUrl = safeMediaUrl(src);
+  heroMedia.className = `booking-hero-media ${mediaUrl ? "has-listing-media" : "media-placeholder"}`;
   heroMedia.style.backgroundImage = "";
   heroMedia.innerHTML = mediaUrl
     ? `

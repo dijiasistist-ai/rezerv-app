@@ -3797,6 +3797,8 @@ function getRuntimeVenueMapItems(origin) {
       const distanceKm = getDistanceKm(origin, { lat, lng });
       const nextSlotInfo = getVenueNextSlotInfo(venueId);
       const gallery = getVenueGallery(settings);
+      const mediaUrl = getVenueMediaUrl(settings);
+      const hasMedia = Boolean(mediaUrl || gallery.length);
       return {
         id: venueId,
         name: settings.businessName || user.name || "İşletme",
@@ -3814,8 +3816,8 @@ function getRuntimeVenueMapItems(origin) {
         priceLabel: priceInfo.priceLabel,
         priceUnit: priceInfo.priceUnit,
         paymentMode: resolveVenuePaymentPolicy(venueId).paymentMode,
-        mediaClass: getVenueCategoryMediaClass(category.id),
-        mediaUrl: getVenueMediaUrl(settings),
+        mediaClass: hasMedia ? "has-listing-media" : "media-placeholder",
+        mediaUrl,
         gallery,
         facilities: getEnabledSettingsFacilities(settings),
         summary: details.description || `${category.label} hizmetleri ve müsaitlik bilgileri işletme panelinden yönetiliyor.`,
@@ -3849,7 +3851,7 @@ function getRuntimeVenueListingById(id) {
     summary: item.summary || `${item.categoryLabel || "Hizmet"} · Canlı işletme profili`,
     tags: ["Yakında müsait", "Tyee işletmesi", "Güvenli rezervasyon"],
     cta: "Rezerv et",
-    mediaClass: item.mediaClass || "media-field",
+    mediaClass: item.mediaUrl || (item.gallery || []).length ? "has-listing-media" : "media-placeholder",
     mediaUrl: item.mediaUrl || "",
     gallery: item.gallery || [],
     featured: true,

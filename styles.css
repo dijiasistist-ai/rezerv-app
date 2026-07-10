@@ -1352,6 +1352,20 @@ button {
   background-size: cover;
 }
 
+.media-placeholder,
+.booking-hero-media.media-placeholder {
+  background:
+    linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(248, 250, 252, 0.96)),
+    url("/assets/tyee-avatar.png") center / 96px auto no-repeat;
+}
+
+.listing-media.media-placeholder,
+.nearby-facility-media.media-placeholder {
+  background:
+    linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(248, 250, 252, 0.96)),
+    url("/assets/tyee-avatar.png") center / 58px auto no-repeat;
+}
+
 .mosaic-card {
   position: relative;
   overflow: hidden;

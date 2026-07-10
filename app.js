@@ -363,6 +363,10 @@ function listingMediaStyleAttribute(item = {}) {
   return mediaStyleAttribute(getListingGallerySources(item)[0] || item.mediaUrl);
 }
 
+function listingMediaClass(item = {}, fallbackClass = "media-placeholder") {
+  return getListingGallerySources(item).length ? "has-listing-media" : fallbackClass;
+}
+
 function galleryDotsMarkup(item = {}) {
   const gallery = getListingGallerySources(item);
   if (gallery.length < 2) return "";
@@ -1055,7 +1059,7 @@ function renderNearbyListings(items = state.nearbyItems) {
           const nextSlotLabel = hasSpecificSlot ? `${item.nextSlot} müsait` : "Müsait";
           return `
           <article class="nearby-facility-card" data-marker-id="${item.id}">
-            <div class="nearby-facility-media ${item.mediaClass || "media-field"}"${listingMediaStyleAttribute(item)}>${galleryDotsMarkup(item)}</div>
+            <div class="nearby-facility-media ${listingMediaClass(item)}"${listingMediaStyleAttribute(item)}>${galleryDotsMarkup(item)}</div>
             <div class="nearby-facility-body">
               <div class="nearby-facility-title">
                 <h3>${item.name}</h3>
@@ -1113,7 +1117,7 @@ function renderListings(items = []) {
 
         return `
         <article class="listing-card" data-id="${item.id}">
-          <div class="listing-media ${item.mediaClass || "media-pet"}"${listingMediaStyleAttribute(item)}>
+          <div class="listing-media ${listingMediaClass(item)}"${listingMediaStyleAttribute(item)}>
             <span>${availabilityLabel}</span>
             <button type="button" aria-label="Kaydet">♡</button>
             ${galleryDotsMarkup(item)}
