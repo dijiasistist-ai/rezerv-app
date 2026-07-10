@@ -3073,9 +3073,20 @@ async function connectAdaLive() {
   }
 }
 
+function hasCompletedServiceDefinition(area = {}) {
+  if (!area?.isActive) return false;
+  const name = String(area.name || "").trim();
+  const normalizedName = name.toLocaleLowerCase("tr-TR");
+  const isPlaceholderName = !name || normalizedName === "ana hizmet" || /^hizmet\s+\d+$/i.test(name);
+  const hasPrice = parseFinanceAmount(area.price) > 0;
+  const hasDurationOrCapacity = Boolean(String(area.capacity || "").trim());
+  return !isPlaceholderName && (hasPrice || hasDurationOrCapacity);
+}
+
 function getGuideSteps(payload) {
   const settings = normalizeSettings(payload?.settings || {});
   const activeAreas = Array.isArray(settings.areas) ? settings.areas.filter((area) => area?.isActive) : [];
+  const hasCompletedService = activeAreas.some(hasCompletedServiceDefinition);
   const transactions = payload?.transactions || [];
   const completedSales = transactions.filter((item) => item.status === "Tamamlandı");
   const manualEntries = payload?.slotState?.manualEntries || venueState.manualEntries || {};
@@ -3105,9 +3116,9 @@ function getGuideSteps(payload) {
     {
       title: "İlk hizmetini oluştur",
       shortTitle: "Hizmet menüsü",
-      detail: "Rezervasyona açık en az bir hizmet veya saha tanımla.",
-      shortDetail: "Fiyat, süre, ödeme",
-      done: activeAreas.length > 0,
+      detail: "Rezervasyona açık en az bir hizmete ad ve fiyat veya süre/kontenjan bilgisi gir.",
+      shortDetail: "Ad + fiyat veya süre",
+      done: hasCompletedService,
       view: "sales-products",
       focus: "#sales-products-view [data-area-add]",
     },
