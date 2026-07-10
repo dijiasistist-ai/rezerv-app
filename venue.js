@@ -1927,23 +1927,25 @@ function renderSalesProducts(settings) {
       ${
         selectedArea
           ? `
-            <div class="service-editor-shell">
-              <div class="service-editor-head">
-                <div>
-                  <strong>${escapeHtml(selectedArea.name || "Hizmet")}</strong>
-                  <span>${escapeHtml(selectedMeta)}</span>
+              <div class="service-editor-shell">
+                <div class="service-editor-head">
+                  <div>
+                    <span class="service-editor-kicker">Hizmet Detayı</span>
+                    <strong>${escapeHtml(selectedArea.name || "Yeni hizmet")}</strong>
+                    <span>${escapeHtml(selectedMeta)}</span>
+                  </div>
+                  <div class="service-editor-actions">
+                    <label class="service-status-toggle">
+                      <input type="checkbox" data-area-active="${selectedIndex}" ${selectedArea.isActive ? "checked" : ""} />
+                      <span>${selectedArea.isActive ? "Satışta" : "Pasif"}</span>
+                    </label>
+                    <button class="ghost-button danger" type="button" data-area-delete="${selectedIndex}">Sil</button>
+                  </div>
                 </div>
-                <div class="service-editor-actions">
-                  <label class="settings-switch">
-                    <input type="checkbox" data-area-active="${selectedIndex}" ${selectedArea.isActive ? "checked" : ""} />
-                    <span>Aktif</span>
-                  </label>
-                  <button class="ghost-button danger" type="button" data-area-delete="${selectedIndex}">Sil</button>
+                <div class="service-editor-grid" data-area-card="${selectedIndex}">
+                  ${serviceEditorFields(selectedArea, selectedIndex)}
                 </div>
               </div>
-              <div class="settings-note">Seçilen hizmetin detaylarını güncelle. Liste görünümü solda, detay düzenleme sağda kalır.</div>
-              <div class="sales-products-editor-grid">${areaSettingsFields({ ...normalized, areas: [selectedArea] }, selectedIndex)}</div>
-            </div>
           `
           : `
             <div class="service-editor-shell">
@@ -1953,6 +1955,31 @@ function renderSalesProducts(settings) {
           `
       }
     </section>
+  `;
+}
+
+function serviceEditorFields(area = {}, index = 0) {
+  return `
+    <label class="settings-input-field service-field-wide">
+      <span>Hizmet adı</span>
+      <input data-area-name="${index}" type="text" value="${escapeHtml(area.name || "")}" placeholder="Örn. Küçük ırk bakım, Saç kesimi, Saha kiralama" />
+    </label>
+    <label class="settings-input-field">
+      <span>Kategori</span>
+      <input data-area-type="${index}" type="text" value="${escapeHtml(area.type || "")}" placeholder="Örn. Bakım, Kuaför, Saha" />
+    </label>
+    <label class="settings-input-field">
+      <span>Süre / kontenjan</span>
+      <input data-area-capacity="${index}" type="text" value="${escapeHtml(area.capacity || "")}" placeholder="Örn. 60 dk, 1 kişi, 1 pet" />
+    </label>
+    <label class="settings-input-field">
+      <span>Satış fiyatı</span>
+      <input data-area-price="${index}" type="text" value="${escapeHtml(area.price || "")}" placeholder="₺0" inputmode="decimal" />
+    </label>
+    <div class="service-editor-helper">
+      <strong>Marketplace görünümü</strong>
+      <span>Aktif hizmetler müşteriye gösterilir. Hizmet adı ve fiyat ya da süre bilgisi girildiğinde kurulum adımı tamamlanır.</span>
+    </div>
   `;
 }
 
@@ -4464,6 +4491,14 @@ function collectSettingsPayload() {
   const valueOf = (selector) => document.querySelector(selector)?.value.trim() || "";
   const checked = (selector) => Boolean(document.querySelector(selector)?.checked);
   const next = { ...current };
+  const visibleAreaScope = Array.from(document.querySelectorAll(".view-section:not(.hidden)"))
+    .map((section) => section.querySelector("[data-area-card], [data-area-active]") ? section : null)
+    .find(Boolean);
+  const scopedValueOf = (root, selector) => root?.querySelector(selector)?.value.trim() || "";
+  const scopedChecked = (root, selector, fallback = false) => {
+    const input = root?.querySelector(selector);
+    return input ? Boolean(input.checked) : fallback;
+  };
 
   if (venueState.activeSettingsTab === "İşletme Bilgileri") {
     next.businessName = valueOf("#settings-business-name");
@@ -4537,16 +4572,17 @@ function collectSettingsPayload() {
     };
   }
 
-  if (document.querySelector("[data-area-card]")) {
+  if (visibleAreaScope?.querySelector("[data-area-card]")) {
     const mergedAreas = Array.isArray(current.areas) ? [...current.areas] : [];
-    Array.from(document.querySelectorAll("[data-area-card]")).forEach((card) => {
+    Array.from(visibleAreaScope.querySelectorAll("[data-area-card]")).forEach((card) => {
       const index = card.dataset.areaCard;
+      const currentArea = mergedAreas[index] || {};
       mergedAreas[index] = {
-        name: valueOf(`[data-area-name="${index}"]`),
-        type: valueOf(`[data-area-type="${index}"]`),
-        capacity: valueOf(`[data-area-capacity="${index}"]`),
-        price: valueOf(`[data-area-price="${index}"]`),
-        isActive: checked(`[data-area-active="${index}"]`),
+        name: scopedValueOf(card, `[data-area-name="${index}"]`),
+        type: scopedValueOf(card, `[data-area-type="${index}"]`),
+        capacity: scopedValueOf(card, `[data-area-capacity="${index}"]`),
+        price: scopedValueOf(card, `[data-area-price="${index}"]`),
+        isActive: scopedChecked(visibleAreaScope, `[data-area-active="${index}"]`, currentArea.isActive !== false),
       };
     });
     next.areas = mergedAreas;

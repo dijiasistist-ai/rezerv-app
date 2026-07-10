@@ -8978,6 +8978,139 @@ textarea:focus {
   font-weight: 780;
 }
 
+#sales-products-view .service-editor-shell {
+  padding: 20px !important;
+  background: #ffffff !important;
+}
+
+#sales-products-view .service-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e7edf5;
+}
+
+#sales-products-view .service-editor-head > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.service-editor-kicker {
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 780;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+#sales-products-view .service-editor-head strong {
+  color: #111827;
+  font-size: 22px;
+  font-weight: 790;
+  line-height: 1.2;
+}
+
+#sales-products-view .service-editor-head span:not(.service-editor-kicker) {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+#sales-products-view .service-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.service-status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid #dbe5f0;
+  border-radius: 12px;
+  padding: 0 12px;
+  color: #344054;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.service-status-toggle input {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+.service-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding-top: 18px;
+}
+
+.service-field-wide,
+.service-editor-helper {
+  grid-column: 1 / -1;
+}
+
+.service-editor-grid .settings-input-field {
+  display: grid;
+  gap: 8px;
+}
+
+.service-editor-grid .settings-input-field span {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.service-editor-grid input {
+  min-height: 48px;
+  border-radius: 12px !important;
+  font-size: 14px;
+}
+
+.service-editor-helper {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e7edf5;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+}
+
+.service-editor-helper strong {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.service-editor-helper span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  #sales-products-view .service-editor-head,
+  #sales-products-view .service-editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .service-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 #settings-view .section-card {
   padding: 18px;
 }
