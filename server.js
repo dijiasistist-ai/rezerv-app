@@ -39,7 +39,7 @@ const {
   ensureSeedUser,
 } = require("./data/runtime-store");
 const { diagnoseEmailTransport, getEmailStatus, sendEmail } = require("./services/email");
-const { getMessagingStatus, sendMessage } = require("./services/messaging");
+const { getMessagingStatus, normalizePhoneNumber, sendMessage } = require("./services/messaging");
 const {
   PAYMENT_MODES,
   calculateReservationBilling,
@@ -4068,7 +4068,8 @@ app.post("/api/reservations", async (req, res) => {
   const paymentMode = policy.paymentMode;
   const customerName = String(body.customerName || user?.name || "").trim();
   const customerEmail = normalizeEmail(body.customerEmail || user?.email || "");
-  const customerPhone = String(body.customerPhone || user?.phone || "").trim();
+  const customerPhoneInput = String(body.customerPhone || user?.phone || "").trim();
+  const customerPhone = normalizePhoneNumber(customerPhoneInput);
   const serviceDate = String(body.serviceDate || "").trim();
   const serviceTime = String(body.serviceTime || "").trim();
 
@@ -4079,6 +4080,11 @@ app.post("/api/reservations", async (req, res) => {
 
   if (!customerName || !customerPhone) {
     res.status(400).json({ error: "Ad soyad ve telefon gerekli." });
+    return;
+  }
+
+  if (!/^\+905\d{9}$/.test(customerPhone)) {
+    res.status(400).json({ error: "Cep telefonunu 5xxxxxxxxx formatında gir." });
     return;
   }
 
@@ -4155,12 +4161,18 @@ app.post("/api/reservations", async (req, res) => {
 app.post("/api/auth/register", async (req, res) => {
   const name = String(req.body.name || "").trim();
   const email = normalizeEmail(req.body.email || "");
-  const phone = String(req.body.phone || "").trim();
+  const phoneInput = String(req.body.phone || "").trim();
+  const phone = phoneInput ? normalizePhoneNumber(phoneInput) : "";
   const password = String(req.body.password || "");
   const role = req.body.role === "venue" ? "venue" : "customer";
 
   if (!name || !email || password.length < 6) {
     res.status(400).json({ error: "Ad, e-posta ve en az 6 karakter şifre gerekli." });
+    return;
+  }
+
+  if (phoneInput && !/^\+905\d{9}$/.test(phone)) {
+    res.status(400).json({ error: "Cep telefonunu 05xxxxxxxxx veya +905xxxxxxxxx formatında gir." });
     return;
   }
 
@@ -4183,7 +4195,7 @@ app.post("/api/auth/register", async (req, res) => {
     isAdmin: false,
     venueId: role === "venue" ? createVenueIdFromUser({ id: userId, email }) : "",
     emailVerified: false,
-    phoneVerified: Boolean(phone),
+    phoneVerified: false,
     emailVerificationToken: createToken(18),
     phoneVerificationCode: "",
     passwordResetToken: "",

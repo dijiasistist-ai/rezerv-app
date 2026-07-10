@@ -3612,7 +3612,7 @@ button {
   gap: 8px;
 }
 
-.reservation-form label span,
+.reservation-form label > span,
 .reservation-policy strong {
   color: var(--ink);
   font-size: var(--fs-sm);
@@ -3642,6 +3642,53 @@ button {
 .reservation-form textarea:focus {
   border-color: #9edcff;
   box-shadow: 0 0 0 4px rgba(4, 167, 244, 0.12);
+}
+
+.phone-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.phone-prefix {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-right: 1px solid var(--line);
+  background: #f6f8fb;
+  color: #465467;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.phone-input input,
+.reservation-form .phone-input input,
+.auth-form .phone-input input {
+  min-height: 44px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.phone-input:focus-within {
+  border-color: #9edcff;
+  box-shadow: 0 0 0 4px rgba(4, 167, 244, 0.12);
+}
+
+.phone-input:focus-within input {
+  box-shadow: none;
+}
+
+.auth-form .phone-input input:focus,
+.reservation-form .phone-input input:focus {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .reservation-policy {
@@ -4706,7 +4753,7 @@ button {
   gap: 8px;
 }
 
-.auth-form label span {
+.auth-form label > span {
   color: var(--ink);
   font-size: var(--fs-sm);
   font-weight: var(--weight-semibold);

@@ -221,6 +221,13 @@ function initials(name = "T") {
     .toLocaleUpperCase("tr-TR");
 }
 
+function toTurkeyPhoneInput(value = "") {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.startsWith("90") && digits.length === 12) return digits.slice(2);
+  if (digits.startsWith("0") && digits.length === 11) return digits.slice(1);
+  return digits;
+}
+
 function normalizeVenueGallery(gallery: unknown): string[] {
   if (!Array.isArray(gallery)) return [];
   return gallery
@@ -485,7 +492,7 @@ export default function App() {
           serviceTime: firstSlot?.time || current.serviceTime,
           customerName: current.customerName || session?.user.name || "",
           customerEmail: current.customerEmail || session?.user.email || "",
-          customerPhone: current.customerPhone || session?.user.phone || "",
+          customerPhone: current.customerPhone || toTurkeyPhoneInput(session?.user.phone || ""),
         }));
       } catch (error) {
         Alert.alert("İşletme açılamadı", error instanceof Error ? error.message : "Lütfen tekrar dene.");
@@ -1283,13 +1290,16 @@ function ListingDetailScreen({
           placeholder="Ad soyad"
           style={styles.input}
         />
-        <TextInput
-          value={draft.customerPhone}
-          onChangeText={(customerPhone) => onDraftChange({ ...draft, customerPhone })}
-          placeholder="Telefon"
-          keyboardType="phone-pad"
-          style={styles.input}
-        />
+        <View style={styles.phoneRow}>
+          <Text style={styles.phonePrefix}>+90</Text>
+          <TextInput
+            value={draft.customerPhone}
+            onChangeText={(customerPhone) => onDraftChange({ ...draft, customerPhone })}
+            placeholder="5xxxxxxxxx"
+            keyboardType="phone-pad"
+            style={styles.phoneInput}
+          />
+        </View>
         <TextInput
           value={draft.customerEmail}
           onChangeText={(customerEmail) => onDraftChange({ ...draft, customerEmail })}
@@ -1375,13 +1385,16 @@ function AuthCard({
         style={styles.input}
       />
       {mode === "register" ? (
-        <TextInput
-          value={form.phone}
-          onChangeText={(phone) => onFormChange({ ...form, phone })}
-          placeholder="Telefon"
-          keyboardType="phone-pad"
-          style={styles.input}
-        />
+        <View style={styles.phoneRow}>
+          <Text style={styles.phonePrefix}>+90</Text>
+          <TextInput
+            value={form.phone}
+            onChangeText={(phone) => onFormChange({ ...form, phone })}
+            placeholder="5xxxxxxxxx"
+            keyboardType="phone-pad"
+            style={styles.phoneInput}
+          />
+        </View>
       ) : null}
       <TextInput
         value={form.password}
@@ -3251,6 +3264,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginTop: 10,
+  },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#dce7f3",
+    borderRadius: 16,
+    overflow: "hidden",
+    marginTop: 10,
+  },
+  phonePrefix: {
+    alignSelf: "stretch",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    backgroundColor: "#f6f8fb",
+    borderRightWidth: 1,
+    borderRightColor: "#dce7f3",
+    color: "#465467",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  phoneInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    color: "#07123d",
+    fontSize: 16,
+    fontWeight: "700",
   },
   primaryButton: {
     backgroundColor: "#248be8",

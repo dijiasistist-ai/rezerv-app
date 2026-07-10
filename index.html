@@ -550,7 +550,10 @@
             </label>
             <label>
               <span>Telefon</span>
-              <input id="reservation-phone" type="tel" required />
+              <div class="phone-input">
+                <span class="phone-prefix">+90</span>
+                <input id="reservation-phone" type="tel" inputmode="tel" placeholder="5xxxxxxxxx" required />
+              </div>
             </label>
             <label>
               <span>E-posta</span>
@@ -636,7 +639,10 @@
             </label>
             <label id="phone-field" class="hidden">
               <span>Cep telefonu</span>
-              <input id="auth-phone" type="tel" placeholder="Hoş geldin SMS'i için opsiyonel" />
+              <div class="phone-input">
+                <span class="phone-prefix">+90</span>
+                <input id="auth-phone" type="tel" inputmode="tel" placeholder="5xxxxxxxxx" />
+              </div>
             </label>
             <label>
               <span>E-posta</span>

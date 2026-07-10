@@ -229,6 +229,13 @@ function normalizeSearchQuery(value = "") {
     .trim();
 }
 
+function toTurkeyPhoneInput(value = "") {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.startsWith("90") && digits.length === 12) return digits.slice(2);
+  if (digits.startsWith("0") && digits.length === 11) return digits.slice(1);
+  return digits;
+}
+
 function getInfoTabFromHash() {
   const match = window.location.hash.match(/^#bilgi\/(.+)$/);
   if (!match) return "";
@@ -1704,7 +1711,7 @@ function openReservationModal(item = {}) {
     reservationSubtitle.textContent = `${draft.categoryLabel} · ${draft.cityLabel}`;
   }
   if (reservationName) reservationName.value = state.user?.name || "";
-  if (reservationPhone) reservationPhone.value = state.user?.phone || "";
+  if (reservationPhone) reservationPhone.value = toTurkeyPhoneInput(state.user?.phone || "");
   if (reservationEmail) reservationEmail.value = state.user?.email || "";
   if (reservationTotal) reservationTotal.value = String(Math.round(draft.totalAmount));
   if (reservationDate) {
