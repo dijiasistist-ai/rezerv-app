@@ -27,15 +27,25 @@ const runtimeBackupState = {
   isRestoring: false,
   branchReady: false,
   timers: new Map(),
+  warnedMissingSecret: false,
 };
 
 function getRuntimeBackupConfig() {
   const token = process.env.TYEE_GITHUB_BACKUP_TOKEN || process.env.GITHUB_RUNTIME_BACKUP_TOKEN || "";
   const repo = process.env.TYEE_GITHUB_BACKUP_REPO || process.env.GITHUB_REPOSITORY || "";
+  const secret = process.env.TYEE_GITHUB_BACKUP_SECRET || process.env.TYEE_RUNTIME_BACKUP_SECRET || "";
   if (!token || !repo || !repo.includes("/")) return null;
+  if (!secret) {
+    if (!runtimeBackupState.warnedMissingSecret) {
+      console.warn("[runtime-backup] TYEE_GITHUB_BACKUP_SECRET is required so GitHub backups stay encrypted");
+      runtimeBackupState.warnedMissingSecret = true;
+    }
+    return null;
+  }
   return {
     token,
     repo,
+    secret,
     branch: process.env.TYEE_GITHUB_BACKUP_BRANCH || "runtime-backup",
     baseBranch: process.env.TYEE_GITHUB_BACKUP_BASE_BRANCH || "main",
     prefix: (process.env.TYEE_GITHUB_BACKUP_PREFIX || "runtime").replace(/^\/+|\/+$/g, ""),
@@ -79,6 +89,45 @@ function runtimeBackupPath(config, filePath) {
   return `${config.prefix}/${name}`;
 }
 
+function runtimeBackupKey(config) {
+  return crypto.createHash("sha256").update(config.secret).digest();
+}
+
+function encryptRuntimeBackup(content, config) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", runtimeBackupKey(config), iv);
+  const encrypted = Buffer.concat([cipher.update(content, "utf8"), cipher.final()]);
+  return `${JSON.stringify(
+    {
+      version: 1,
+      algorithm: "aes-256-gcm",
+      iv: iv.toString("base64"),
+      tag: cipher.getAuthTag().toString("base64"),
+      data: encrypted.toString("base64"),
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+function decryptRuntimeBackup(content, config) {
+  const payload = JSON.parse(content);
+  if (payload?.version !== 1 || payload?.algorithm !== "aes-256-gcm") {
+    throw new Error("Unsupported runtime backup format");
+  }
+
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    runtimeBackupKey(config),
+    Buffer.from(payload.iv, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(payload.tag, "base64"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(payload.data, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
 async function ensureRuntimeBackupBranch(config) {
   if (runtimeBackupState.branchReady) return;
   try {
@@ -116,7 +165,8 @@ async function getRuntimeBackupFile(config, filePath) {
 async function restoreRuntimeBackupFile(config, filePath) {
   const backupFile = await getRuntimeBackupFile(config, filePath);
   if (!backupFile?.content) return false;
-  const decoded = Buffer.from(String(backupFile.content).replace(/\s/g, ""), "base64").toString("utf8");
+  const encrypted = Buffer.from(String(backupFile.content).replace(/\s/g, ""), "base64").toString("utf8");
+  const decoded = decryptRuntimeBackup(encrypted, config);
   JSON.parse(decoded);
   ensureRuntimeDir();
   fs.writeFileSync(filePath, decoded.endsWith("\n") ? decoded : `${decoded}\n`);
@@ -131,10 +181,11 @@ async function pushRuntimeBackupFile(filePath) {
     await ensureRuntimeBackupBranch(config);
     const backupPath = runtimeBackupPath(config, filePath);
     const content = fs.readFileSync(filePath, "utf8");
+    const encryptedContent = encryptRuntimeBackup(content, config);
     let backupFile = await getRuntimeBackupFile(config, filePath);
     const body = {
       message: `Backup ${path.basename(filePath)}`,
-      content: Buffer.from(content).toString("base64"),
+      content: Buffer.from(encryptedContent).toString("base64"),
       branch: config.branch,
       ...(backupFile?.sha ? { sha: backupFile.sha } : {}),
     };

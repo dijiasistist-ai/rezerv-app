@@ -51,12 +51,14 @@ kalici olmadigi icin canli ortamda ucretsiz GitHub yedegi acilabilir.
 
 Render Environment Variables:
 
-- `TYEE_GITHUB_BACKUP_TOKEN`: Private repo'ya yazma yetkili GitHub token.
+- `TYEE_GITHUB_BACKUP_TOKEN`: Repo'ya yazma yetkili GitHub token.
 - `TYEE_GITHUB_BACKUP_REPO`: `dijiasistist-ai/rezerv-app`
 - `TYEE_GITHUB_BACKUP_BRANCH`: `runtime-backup`
+- `TYEE_GITHUB_BACKUP_SECRET`: Render'da saklanan uzun ve gizli sifreleme anahtari.
 
-Sunucu acilirken `runtime-backup` branch'indeki JSON dosyalari geri yuklenir.
-Runtime dosyalari degistikce ayni branch'e tekrar yedeklenir.
+Sunucu acilirken `runtime-backup` branch'indeki sifreli JSON yedekleri geri
+yuklenir. Runtime dosyalari degistikce ayni branch'e tekrar sifreli yedeklenir.
+Repo public kalsa bile kullanici verileri bu secret olmadan okunamaz.
 
 ## Mobil uygulama
 
