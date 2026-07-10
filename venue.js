@@ -1975,10 +1975,10 @@ function serviceEditorFields(area = {}, index = 0) {
   const venueAmount = Math.max(price - depositAmount, 0);
   const paymentSummary =
     paymentMode === "full_online"
-      ? `Müşteri online ${formatCurrency(price)} öder, işletmede ödeme kalmaz.`
+      ? `Müşteri online ${formatFinanceCurrency(price)} öder, işletmede ödeme kalmaz.`
       : paymentMode === "venue_payment"
-        ? `Online ödeme alınmaz, müşteri işletmede ${formatCurrency(price)} öder.`
-        : `Müşteri online ${formatCurrency(depositAmount)} öder, işletmede ${formatCurrency(venueAmount)} kalır.`;
+        ? `Online ödeme alınmaz, müşteri işletmede ${formatFinanceCurrency(price)} öder.`
+        : `Müşteri online ${formatFinanceCurrency(depositAmount)} öder, işletmede ${formatFinanceCurrency(venueAmount)} kalır.`;
   return `
     <label class="settings-input-field service-field-wide">
       <span>Hizmet adı</span>
@@ -2662,6 +2662,10 @@ function getCurrentMonthKey() {
 function parseFinanceAmount(value = "") {
   const parsed = Number(String(value || "").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatFinanceCurrency(value = 0) {
+  return `₺${new Intl.NumberFormat("tr-TR").format(Math.round(Number(value || 0)))}`;
 }
 
 function getFinancePayload(finance = {}) {
