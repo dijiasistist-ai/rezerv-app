@@ -43,6 +43,21 @@ Render Web Service ayarlari:
 
 Repo kokundeki `render.yaml` blueprint olarak ayni ayarlari icerir.
 
+## Kalici veri yedegi
+
+Varsayilan local gelistirmede kullanici, isletme ve rezervasyon verileri
+`data/runtime/*.json` icinde tutulur. Render dosya sistemi deploy/restart sonrasi
+kalici olmadigi icin canli ortamda ucretsiz GitHub yedegi acilabilir.
+
+Render Environment Variables:
+
+- `TYEE_GITHUB_BACKUP_TOKEN`: Private repo'ya yazma yetkili GitHub token.
+- `TYEE_GITHUB_BACKUP_REPO`: `dijiasistist-ai/rezerv-app`
+- `TYEE_GITHUB_BACKUP_BRANCH`: `runtime-backup`
+
+Sunucu acilirken `runtime-backup` branch'indeki JSON dosyalari geri yuklenir.
+Runtime dosyalari degistikce ayni branch'e tekrar yedeklenir.
+
 ## Mobil uygulama
 
 Mobil uygulama `mobile/` altinda Expo / React Native olarak baslatildi. Bireysel

@@ -3,6 +3,16 @@ const fs = require("fs");
 const path = require("path");
 
 const runtimeDir = process.env.TYEE_RUNTIME_DIR || process.env.RENDER_DISK_MOUNT_PATH || path.join(__dirname, "runtime");
+const runtimeFileNames = [
+  "users.json",
+  "dev-mailbox.json",
+  "dev-sms.json",
+  "venues.json",
+  "admin-access.json",
+  "deleted-venues.json",
+  "reservations.json",
+  "reviews.json",
+];
 const usersPath = path.join(runtimeDir, "users.json");
 const legacyUsersPath = path.join(__dirname, "users.json");
 const mailboxPath = path.join(runtimeDir, "dev-mailbox.json");
@@ -12,6 +22,174 @@ const adminAccessPath = path.join(runtimeDir, "admin-access.json");
 const deletedVenuesPath = path.join(runtimeDir, "deleted-venues.json");
 const reservationsPath = path.join(runtimeDir, "reservations.json");
 const reviewsPath = path.join(runtimeDir, "reviews.json");
+const runtimeBackupState = {
+  initialized: false,
+  isRestoring: false,
+  branchReady: false,
+  timers: new Map(),
+};
+
+function getRuntimeBackupConfig() {
+  const token = process.env.TYEE_GITHUB_BACKUP_TOKEN || process.env.GITHUB_RUNTIME_BACKUP_TOKEN || "";
+  const repo = process.env.TYEE_GITHUB_BACKUP_REPO || process.env.GITHUB_REPOSITORY || "";
+  if (!token || !repo || !repo.includes("/")) return null;
+  return {
+    token,
+    repo,
+    branch: process.env.TYEE_GITHUB_BACKUP_BRANCH || "runtime-backup",
+    baseBranch: process.env.TYEE_GITHUB_BACKUP_BASE_BRANCH || "main",
+    prefix: (process.env.TYEE_GITHUB_BACKUP_PREFIX || "runtime").replace(/^\/+|\/+$/g, ""),
+  };
+}
+
+function runtimeBackupHeaders(config) {
+  return {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${config.token}`,
+    "Content-Type": "application/json",
+    "User-Agent": "tyee-runtime-backup",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
+
+function githubApiUrl(config, pathname) {
+  return `https://api.github.com/repos/${config.repo}${pathname}`;
+}
+
+async function githubRequest(config, pathname, options = {}) {
+  const response = await fetch(githubApiUrl(config, pathname), {
+    ...options,
+    headers: {
+      ...runtimeBackupHeaders(config),
+      ...(options.headers || {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    const error = new Error(data?.message || `GitHub backup request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
+function runtimeBackupPath(config, filePath) {
+  const name = path.basename(filePath);
+  return `${config.prefix}/${name}`;
+}
+
+async function ensureRuntimeBackupBranch(config) {
+  if (runtimeBackupState.branchReady) return;
+  try {
+    await githubRequest(config, `/git/ref/heads/${encodeURIComponent(config.branch)}`);
+    runtimeBackupState.branchReady = true;
+    return;
+  } catch (error) {
+    if (error.status !== 404) throw error;
+  }
+
+  const baseRef = await githubRequest(config, `/git/ref/heads/${encodeURIComponent(config.baseBranch)}`);
+  await githubRequest(config, "/git/refs", {
+    method: "POST",
+    body: JSON.stringify({
+      ref: `refs/heads/${config.branch}`,
+      sha: baseRef.object.sha,
+    }),
+  });
+  runtimeBackupState.branchReady = true;
+}
+
+async function getRuntimeBackupFile(config, filePath) {
+  const backupPath = runtimeBackupPath(config, filePath);
+  try {
+    return await githubRequest(
+      config,
+      `/contents/${backupPath}?ref=${encodeURIComponent(config.branch)}`,
+    );
+  } catch (error) {
+    if (error.status === 404) return null;
+    throw error;
+  }
+}
+
+async function restoreRuntimeBackupFile(config, filePath) {
+  const backupFile = await getRuntimeBackupFile(config, filePath);
+  if (!backupFile?.content) return false;
+  const decoded = Buffer.from(String(backupFile.content).replace(/\s/g, ""), "base64").toString("utf8");
+  JSON.parse(decoded);
+  ensureRuntimeDir();
+  fs.writeFileSync(filePath, decoded.endsWith("\n") ? decoded : `${decoded}\n`);
+  return true;
+}
+
+async function pushRuntimeBackupFile(filePath) {
+  const config = getRuntimeBackupConfig();
+  if (!config || runtimeBackupState.isRestoring || !fs.existsSync(filePath)) return;
+
+  try {
+    await ensureRuntimeBackupBranch(config);
+    const backupPath = runtimeBackupPath(config, filePath);
+    const content = fs.readFileSync(filePath, "utf8");
+    let backupFile = await getRuntimeBackupFile(config, filePath);
+    const body = {
+      message: `Backup ${path.basename(filePath)}`,
+      content: Buffer.from(content).toString("base64"),
+      branch: config.branch,
+      ...(backupFile?.sha ? { sha: backupFile.sha } : {}),
+    };
+
+    try {
+      await githubRequest(config, `/contents/${backupPath}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      if (error.status !== 409) throw error;
+      backupFile = await getRuntimeBackupFile(config, filePath);
+      await githubRequest(config, `/contents/${backupPath}`, {
+        method: "PUT",
+        body: JSON.stringify({ ...body, sha: backupFile?.sha }),
+      });
+    }
+  } catch (error) {
+    console.warn(`[runtime-backup] ${path.basename(filePath)} backup failed: ${error.message}`);
+  }
+}
+
+function queueRuntimeBackup(filePath) {
+  const config = getRuntimeBackupConfig();
+  if (!config || runtimeBackupState.isRestoring) return;
+  const existingTimer = runtimeBackupState.timers.get(filePath);
+  if (existingTimer) clearTimeout(existingTimer);
+  const timer = setTimeout(() => {
+    runtimeBackupState.timers.delete(filePath);
+    pushRuntimeBackupFile(filePath);
+  }, 1200);
+  runtimeBackupState.timers.set(filePath, timer);
+}
+
+async function initializeRuntimeStore() {
+  if (runtimeBackupState.initialized) return;
+  runtimeBackupState.initialized = true;
+  const config = getRuntimeBackupConfig();
+  ensureRuntimeDir();
+  if (!config) return;
+
+  runtimeBackupState.isRestoring = true;
+  try {
+    await ensureRuntimeBackupBranch(config);
+    const results = await Promise.allSettled(
+      runtimeFileNames.map((fileName) => restoreRuntimeBackupFile(config, path.join(runtimeDir, fileName))),
+    );
+    const restoredCount = results.filter((result) => result.status === "fulfilled" && result.value).length;
+    if (restoredCount) console.log(`[runtime-backup] restored ${restoredCount} file(s) from GitHub`);
+  } catch (error) {
+    console.warn(`[runtime-backup] restore failed: ${error.message}`);
+  } finally {
+    runtimeBackupState.isRestoring = false;
+  }
+}
 
 const bundledLegacyUsers = [
   {
@@ -48,6 +226,7 @@ function readJson(filePath, fallback) {
 function writeJson(filePath, value) {
   ensureRuntimeDir();
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+  queueRuntimeBackup(filePath);
 }
 
 function normalizeEmail(email = "") {
@@ -404,6 +583,7 @@ module.exports = {
   getDevOutbox,
   getVenueOverlay,
   hashPassword,
+  initializeRuntimeStore,
   normalizeEmail,
   migrateLegacyUsers,
   saveVenueOverlay,

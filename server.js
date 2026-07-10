@@ -29,6 +29,7 @@ const {
   getDevOutbox,
   getVenueOverlay,
   hashPassword,
+  initializeRuntimeStore,
   migrateLegacyUsers,
   normalizeEmail,
   saveVenueOverlay,
@@ -847,8 +848,6 @@ function seedUsers() {
   seedDemoVenues();
   seedExistingNemoVenue();
 }
-
-seedUsers();
 
 app.use(express.json({ limit: "16mb" }));
 
@@ -5467,6 +5466,15 @@ app.use((req, res, next) => {
   sendIndex(res);
 });
 
-app.listen(port, () => {
-  console.log(`tyee local server: http://127.0.0.1:${port}`);
+async function startServer() {
+  await initializeRuntimeStore();
+  seedUsers();
+  app.listen(port, () => {
+    console.log(`tyee local server: http://127.0.0.1:${port}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error("[startup]", error);
+  process.exitCode = 1;
 });
