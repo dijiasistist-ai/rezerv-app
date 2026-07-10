@@ -1350,20 +1350,8 @@ function renderGlobalAccount(user = null) {
 
 async function requireVenueAccess() {
   const token = getToken();
-
-  if (!token) {
-    renderGlobalAccount(null);
-    authWall.classList.remove("hidden");
-    setTimeout(() => {
-      window.location.href = "/index.html?auth=venue-login";
-    }, 1200);
-    throw new Error("No auth token");
-  }
-
   const response = await fetch("/api/auth/me", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 
   if (!response.ok) {
@@ -4854,6 +4842,12 @@ function bindVenueInteractions() {
   navItems.forEach((item) => {
     item.addEventListener("click", () => {
       if (item.dataset.action === "logout") {
+        const token = getToken();
+        fetch("/api/auth/logout", {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          keepalive: true,
+        }).catch(() => {});
         localStorage.removeItem("tyee_token");
         window.location.href = "/index.html";
         return;

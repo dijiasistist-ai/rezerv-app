@@ -1876,6 +1876,12 @@ function closeAuthModal() {
 }
 
 function clearAuthSession() {
+  const token = state.token || localStorage.getItem("tyee_token") || "";
+  fetch("/api/auth/logout", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    keepalive: true,
+  }).catch(() => {});
   localStorage.removeItem("tyee_token");
   state.token = "";
   state.user = null;

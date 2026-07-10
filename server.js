@@ -997,7 +997,7 @@ function hasAdminNetworkAccess(req, user) {
 
 function getUserFromRequest(req) {
   const header = req.get("authorization") || "";
-  const token = header.replace(/^Bearer\s+/i, "").trim();
+  const token = header.replace(/^Bearer\s+/i, "").trim() || getSessionCookie(req);
   if (!token) return null;
   const session = sessions.get(token);
   if (session) {
@@ -1063,6 +1063,48 @@ function createSession(user) {
   const token = createSignedSessionToken(user);
   sessions.set(token, { userId: user.id, createdAt: Date.now(), expiresAt: Date.now() + SESSION_TTL_MS });
   return token;
+}
+
+function parseCookies(req) {
+  return String(req.headers.cookie || "")
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .reduce((cookies, item) => {
+      const separatorIndex = item.indexOf("=");
+      if (separatorIndex === -1) return cookies;
+      const key = decodeURIComponent(item.slice(0, separatorIndex).trim());
+      const value = decodeURIComponent(item.slice(separatorIndex + 1).trim());
+      cookies[key] = value;
+      return cookies;
+    }, {});
+}
+
+function getSessionCookie(req) {
+  return parseCookies(req).tyee_session || "";
+}
+
+function getCookieSecurityAttributes(req) {
+  const secure = req.secure || req.get("x-forwarded-proto") === "https" || process.env.NODE_ENV === "production";
+  return [
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`,
+    secure ? "Secure" : "",
+  ].filter(Boolean);
+}
+
+function setSessionCookie(req, res, token) {
+  res.setHeader("Set-Cookie", `tyee_session=${encodeURIComponent(token)}; ${getCookieSecurityAttributes(req).join("; ")}`);
+}
+
+function clearSessionCookie(req, res) {
+  const secure = req.secure || req.get("x-forwarded-proto") === "https" || process.env.NODE_ENV === "production";
+  res.setHeader(
+    "Set-Cookie",
+    `tyee_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? "; Secure" : ""}`,
+  );
 }
 
 function mergeVenuePayload(venueId, user = null) {
@@ -4225,6 +4267,7 @@ app.post("/api/auth/register", async (req, res) => {
 
   const baseUrl = publicBaseUrl(req);
   const token = createSession(user);
+  setSessionCookie(req, res, token);
   const [emailDelivery, smsDeliveryResult] = await Promise.all([
     sendVerificationEmailForBaseUrl(baseUrl, user),
     sendRegistrationWelcomeSms(user),
@@ -4266,6 +4309,7 @@ app.post("/api/auth/login", (req, res) => {
   }
 
   const token = createSession(user);
+  setSessionCookie(req, res, token);
   res.json({ token, user: normalizeUser(user) });
 });
 
@@ -4293,11 +4337,20 @@ app.post("/api/auth/admin-login", (req, res) => {
   }
 
   const token = createSession(user);
+  setSessionCookie(req, res, token);
   res.json({ token, user: normalizeUser(user) });
 });
 
 app.get("/api/auth/me", requireAuth, (req, res) => {
   res.json({ user: normalizeUser(req.user) });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  const header = req.get("authorization") || "";
+  const token = header.replace(/^Bearer\s+/i, "").trim() || getSessionCookie(req);
+  if (token) sessions.delete(token);
+  clearSessionCookie(req, res);
+  res.json({ ok: true });
 });
 
 app.post("/api/auth/enable-venue", requireAuth, (req, res) => {
