@@ -123,6 +123,7 @@ const customerAdaInput = document.querySelector("#customer-ada-input");
 const customerAdaLive = document.querySelector("#customer-ada-live");
 const customerAdaDefaultStageMarkup = customerAdaStage?.innerHTML || "";
 const notificationStorageKey = "tyee_read_notifications_v1";
+const sessionRecoveryStorageKey = "tyee_session_recovery_v1";
 let notificationReadTimer = null;
 
 const state = {
@@ -1883,10 +1884,19 @@ function clearAuthSession() {
     keepalive: true,
   }).catch(() => {});
   localStorage.removeItem("tyee_token");
+  localStorage.removeItem(sessionRecoveryStorageKey);
   state.token = "";
   state.user = null;
   state.customerDashboard = null;
   updateAuthUi();
+}
+
+function storeAuthSession(response = {}) {
+  if (!response.token) return;
+  state.token = response.token;
+  state.user = response.user || null;
+  localStorage.setItem("tyee_token", response.token);
+  localStorage.setItem(sessionRecoveryStorageKey, response.token);
 }
 
 function showAuthFormStep() {
@@ -2159,6 +2169,20 @@ async function loadCurrentUser() {
     state.user = payload.user;
     updateAuthUi();
   } catch (error) {
+    const recoveryToken = localStorage.getItem(sessionRecoveryStorageKey) || state.token;
+    if (recoveryToken) {
+      try {
+        const recovered = await apiRequest("/api/auth/recover-session", {
+          method: "POST",
+          body: JSON.stringify({ token: recoveryToken }),
+        });
+        storeAuthSession(recovered);
+        updateAuthUi();
+        return;
+      } catch (_recoverError) {
+        // Fall through to signed-out state.
+      }
+    }
     if (state.token) localStorage.removeItem("tyee_token");
     state.token = "";
     state.user = null;
@@ -2679,9 +2703,7 @@ authForm.addEventListener("submit", async (event) => {
         body: JSON.stringify(payload),
       });
 
-      state.token = response.token;
-      state.user = response.user;
-      localStorage.setItem("tyee_token", response.token);
+      storeAuthSession(response);
       updateAuthUi();
       const emailStatus = response.emailDelivery?.status || "";
       const smsStatus = response.smsDelivery?.status || "";
@@ -2736,9 +2758,7 @@ authForm.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload),
     });
 
-    state.token = response.token;
-    state.user = response.user;
-    localStorage.setItem("tyee_token", response.token);
+    storeAuthSession(response);
     updateAuthUi();
     setAuthFeedback("Giriş başarılı.", "success");
     authForm.reset();

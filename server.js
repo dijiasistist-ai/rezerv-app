@@ -4423,6 +4423,24 @@ app.post("/api/auth/logout", (req, res) => {
   res.json({ ok: true });
 });
 
+app.post("/api/auth/recover-session", (req, res) => {
+  const recoveryToken = String(req.body?.token || "").trim();
+  const signedSession = parseSignedSessionToken(recoveryToken);
+  if (!signedSession?.user || signedSession.user.id !== signedSession.userId) {
+    res.status(401).json({ error: "Oturum kurtarma bilgisi geçersiz." });
+    return;
+  }
+
+  const restoredUser = upsertUser({
+    ...signedSession.user,
+    isAdmin: false,
+    restoredAt: new Date().toISOString(),
+  });
+  const token = createSession(restoredUser);
+  setSessionCookie(req, res, token);
+  res.json({ token, user: normalizeUser(restoredUser) });
+});
+
 app.post("/api/auth/enable-venue", requireAuth, (req, res) => {
   res.status(403).json({
     error: "Bireysel hesap işletme hesabına çevrilemez. İşletme paneli için ayrı işletme hesabı gerekir.",

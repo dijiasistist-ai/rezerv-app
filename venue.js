@@ -91,6 +91,8 @@ const navGroupTriggers = document.querySelectorAll(".venue-nav-heading");
 const navItems = document.querySelectorAll(".venue-nav-item");
 const sections = document.querySelectorAll(".view-section");
 const authWall = document.querySelector("#venue-auth-wall");
+const sessionRecoveryStorageKey = "tyee_session_recovery_v1";
+const venueBackupStorageKey = "tyee_venue_backup_v1";
 
 const venueState = {
   selectedSlotKey: "",
@@ -1033,6 +1035,52 @@ function getAuthHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+async function recoverAuthSession() {
+  const recoveryToken = localStorage.getItem(sessionRecoveryStorageKey) || getToken();
+  if (!recoveryToken) return null;
+  const response = await fetch("/api/auth/recover-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: recoveryToken }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.token) return null;
+  localStorage.setItem("tyee_token", payload.token);
+  localStorage.setItem(sessionRecoveryStorageKey, payload.token);
+  return payload.user || null;
+}
+
+function getVenueBackup() {
+  try {
+    return JSON.parse(localStorage.getItem(venueBackupStorageKey) || "null");
+  } catch (_error) {
+    return null;
+  }
+}
+
+function hasMeaningfulVenueSettings(settings = {}) {
+  return Boolean(
+    settings.businessName ||
+      settings.details?.category ||
+      settings.contact?.phone ||
+      settings.location?.address ||
+      (Array.isArray(settings.areas) && settings.areas.length),
+  );
+}
+
+function saveVenueBackup() {
+  if (!venueState.dashboard?.settings) return;
+  const user = venueState.dashboard.user || {};
+  const backup = {
+    venueId: venueState.venueId || venueState.dashboard.id || "",
+    userId: user.id || "",
+    email: user.email || "",
+    settings: venueState.dashboard.settings,
+    savedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(venueBackupStorageKey, JSON.stringify(backup));
+}
+
 async function venueApiRequest(url, options = {}) {
   const response = await fetch(url, {
     ...options,
@@ -1355,6 +1403,11 @@ async function requireVenueAccess() {
   });
 
   if (!response.ok) {
+    const recoveredUser = await recoverAuthSession().catch(() => null);
+    if (recoveredUser?.canManageVenue) {
+      renderGlobalAccount(recoveredUser);
+      return recoveredUser;
+    }
     renderGlobalAccount(null);
     authWall.classList.remove("hidden");
     localStorage.removeItem("tyee_token");
@@ -4553,6 +4606,7 @@ async function saveVenueSettings() {
     body: JSON.stringify({ venueId: venueState.venueId, settings }),
   });
   venueState.dashboard.settings = normalizeSettings(payload.settings);
+  saveVenueBackup();
   venueState.pendingFacilitySelections = {};
   renderVenueIdentity();
   renderSettingsTabs(venueState.dashboard.settings.tabs);
@@ -4565,6 +4619,25 @@ async function saveVenueSettings() {
   refreshCalendarOps().catch(() => renderCalendarOperations());
   setSaveStatus("[data-settings-status]", "Ayarlar kaydedildi");
   showVenueToast("Ayarlar kaydedildi");
+}
+
+async function restoreVenueSettingsFromBackup(payload, user) {
+  const backup = getVenueBackup();
+  if (!backup?.settings || !hasMeaningfulVenueSettings(backup.settings)) return payload;
+  const sameVenue = backup.venueId && payload.id && backup.venueId === payload.id;
+  const sameUser = backup.userId && user?.id && backup.userId === user.id;
+  const sameEmail = backup.email && user?.email && backup.email === user.email;
+  if (!sameVenue && !sameUser && !sameEmail) return payload;
+  if (hasMeaningfulVenueSettings(payload.settings || {})) return payload;
+
+  const restored = await venueApiRequest("/api/venue/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ venueId: payload.id, settings: backup.settings }),
+  });
+  return {
+    ...payload,
+    settings: normalizeSettings(restored.settings || backup.settings),
+  };
 }
 
 function setSaveStatus(selector, message, isError = false) {
@@ -4755,7 +4828,7 @@ function imageFileToProfileItem(file) {
 }
 
 async function loadVenueDashboard() {
-  await requireVenueAccess();
+  const user = await requireVenueAccess();
   const response = await fetch("/api/venue/bootstrap", {
     headers: getAuthHeaders(),
   });
@@ -4763,13 +4836,15 @@ async function loadVenueDashboard() {
     authWall.classList.remove("hidden");
     throw new Error("İşletme paneli verisi yüklenemedi.");
   }
-  const payload = await response.json();
+  let payload = await response.json();
   payload.settings = normalizeSettings(payload.settings || {});
+  payload = await restoreVenueSettingsFromBackup(payload, user).catch(() => payload);
   venueState.dashboard = payload;
   venueState.venueId = payload.id || "";
   venueState.slotModes = payload.slotState?.slotModes || {};
   venueState.manualEntries = payload.slotState?.manualEntries || {};
   venueState.slotServices = payload.slotState?.slotServices || {};
+  saveVenueBackup();
 
   renderVenueIdentity();
   renderGuidanceRail(payload);
@@ -4878,6 +4953,8 @@ function bindVenueInteractions() {
           keepalive: true,
         }).catch(() => {});
         localStorage.removeItem("tyee_token");
+        localStorage.removeItem(sessionRecoveryStorageKey);
+        localStorage.removeItem(venueBackupStorageKey);
         window.location.href = "/index.html";
         return;
       }
