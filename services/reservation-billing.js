@@ -31,7 +31,20 @@ function formatCurrency(value = 0) {
   }).format(Number(value || 0));
 }
 
-function calculateReservationBilling({ totalAmount = 0, paymentMode = PAYMENT_MODES.COMMISSION_DEPOSIT } = {}) {
+function normalizeDepositAmount({ totalAmount = 0, depositType = "percent", depositValue = "" } = {}) {
+  const safeTotal = toMoney(totalAmount);
+  const rawValue = Number(String(depositValue || "").replace(/[^\d,.-]/g, "").replace(",", "."));
+  if (!Number.isFinite(rawValue) || rawValue <= 0) return toMoney(safeTotal * COMMISSION_RATE);
+  const amount = depositType === "fixed" ? rawValue : safeTotal * (rawValue / 100);
+  return toMoney(Math.min(Math.max(amount, 0), safeTotal));
+}
+
+function calculateReservationBilling({
+  totalAmount = 0,
+  paymentMode = PAYMENT_MODES.COMMISSION_DEPOSIT,
+  depositType = "percent",
+  depositValue = "",
+} = {}) {
   const safeTotal = toMoney(totalAmount);
   const commissionAmount = toMoney(safeTotal * COMMISSION_RATE);
   const venueNetAmount = toMoney(Math.max(safeTotal - commissionAmount, 0));
@@ -72,19 +85,27 @@ function calculateReservationBilling({ totalAmount = 0, paymentMode = PAYMENT_MO
     };
   }
 
+  const depositAmount = normalizeDepositAmount({ totalAmount: safeTotal, depositType, depositValue });
+  const platformCommissionCollected = toMoney(Math.min(commissionAmount, depositAmount));
+  const venuePayoutAmount = toMoney(Math.max(depositAmount - commissionAmount, 0));
+  const venueCommissionDebt = toMoney(Math.max(commissionAmount - depositAmount, 0));
+  const customerVenuePayment = toMoney(Math.max(safeTotal - depositAmount, 0));
+
   return {
     paymentMode: PAYMENT_MODES.COMMISSION_DEPOSIT,
     paymentModeLabel: PAYMENT_MODE_LABELS[PAYMENT_MODES.COMMISSION_DEPOSIT],
     totalAmount: safeTotal,
     commissionRate: COMMISSION_RATE,
     commissionAmount,
-    customerOnlinePayment: commissionAmount,
-    customerVenuePayment: venueNetAmount,
-    depositAmount: commissionAmount,
-    platformCollectedAmount: commissionAmount,
-    platformCommissionCollected: commissionAmount,
-    venuePayoutAmount: 0,
-    venueCommissionDebt: 0,
+    customerOnlinePayment: depositAmount,
+    customerVenuePayment,
+    depositAmount,
+    depositType,
+    depositValue,
+    platformCollectedAmount: depositAmount,
+    platformCommissionCollected,
+    venuePayoutAmount,
+    venueCommissionDebt,
     settlement: "Ön ödeme online alınır; kalan tutar işletmede tahsil edilir.",
   };
 }

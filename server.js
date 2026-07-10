@@ -1326,13 +1326,33 @@ function normalizePaymentMode(value = "") {
   return PAYMENT_MODES.COMMISSION_DEPOSIT;
 }
 
-function resolveVenuePaymentPolicy(venueId) {
+function normalizeDepositType(value = "") {
+  return String(value || "").trim() === "fixed" ? "fixed" : "percent";
+}
+
+function normalizeAreaPaymentPolicy(area = {}) {
+  return {
+    paymentMode: normalizePaymentMode(area.paymentMode || area.paymentRule || ""),
+    depositType: normalizeDepositType(area.depositType || "percent"),
+    depositValue: String(area.depositValue || "").trim(),
+  };
+}
+
+function resolveVenuePaymentPolicy(venueId, serviceName = "") {
   const overlay = venueId ? getVenueOverlay(venueId) : {};
   const payment = overlay.settings?.payment || {};
+  const serviceKey = String(serviceName || "").trim().toLocaleLowerCase("tr-TR");
+  const serviceArea = serviceKey && Array.isArray(overlay.settings?.areas)
+    ? overlay.settings.areas.find((area) => String(area?.name || "").trim().toLocaleLowerCase("tr-TR") === serviceKey)
+    : null;
+  if (serviceArea) return normalizeAreaPaymentPolicy(serviceArea);
+
   const paymentMode = normalizePaymentMode(payment.paymentMethod || "");
 
   return {
     paymentMode,
+    depositType: "percent",
+    depositValue: "",
   };
 }
 
@@ -1617,6 +1637,9 @@ function getVenueServiceOptions(payload = {}) {
           name: String(area.name || "Ana hizmet").trim(),
           type: String(area.type || "Hizmet").trim(),
           duration: String(area.capacity || "60 dk").trim(),
+          paymentMode: normalizePaymentMode(area.paymentMode || ""),
+          depositType: normalizeDepositType(area.depositType || "percent"),
+          depositValue: String(area.depositValue || "").trim(),
         }))
     : [];
 
@@ -3703,6 +3726,9 @@ function getActiveVenueAreas(settings = {}) {
       type: String(area.type || "").trim(),
       capacity: String(area.capacity || "").trim(),
       numericPrice: parseMoney(area.price),
+      paymentMode: normalizePaymentMode(area.paymentMode || ""),
+      depositType: normalizeDepositType(area.depositType || "percent"),
+      depositValue: String(area.depositValue || "").trim(),
     }))
     .filter((area) => area.name);
 }
@@ -3905,6 +3931,9 @@ function getRuntimeVenueServiceCatalog(venueId) {
       duration: area.capacity || "60 dk",
       price: area.numericPrice || 0,
       priceLabel: area.numericPrice ? formatPriceLabel(area.numericPrice) : "0",
+      paymentMode: area.paymentMode,
+      depositType: area.depositType,
+      depositValue: area.depositValue,
     }))
     .filter((area) => !isGenericServiceLabel(area.name));
 
@@ -4149,12 +4178,14 @@ app.get("/api/reservations/payment-options", (req, res) => {
 
 app.get("/api/reservations/payment-policy", (req, res) => {
   const venueId = String(req.query.venueId || req.query.listingId || "").trim();
+  const serviceName = String(req.query.service || req.query.serviceLabel || "").trim();
   const totalAmount = Math.max(parseMoney(req.query.totalAmount || req.query.total || 0), 0);
-  const policy = resolveVenuePaymentPolicy(venueId);
+  const policy = resolveVenuePaymentPolicy(venueId, serviceName);
   const billing = calculateReservationBilling({ totalAmount, ...policy });
 
   res.json({
     venueId,
+    serviceName,
     commissionRate: 0.07,
     ...policy,
     paymentModeLabel: billing.paymentModeLabel,
@@ -4204,7 +4235,8 @@ app.post("/api/reservations", async (req, res) => {
   const user = getUserFromRequest(req);
   const venueId = String(body.venueId || body.listingId || "").trim();
   const totalAmount = Math.max(parseMoney(body.totalAmount), 0);
-  const policy = resolveVenuePaymentPolicy(venueId);
+  const serviceLabel = String(body.serviceLabel || body.categoryLabel || "Rezervasyon").trim();
+  const policy = resolveVenuePaymentPolicy(venueId, serviceLabel);
   const billing = calculateReservationBilling({ totalAmount, ...policy });
   const paymentMode = policy.paymentMode;
   const customerName = String(body.customerName || user?.name || "").trim();
@@ -4247,7 +4279,7 @@ app.post("/api/reservations", async (req, res) => {
     venueName: String(body.venueName || body.listingName || "İşletme").trim(),
     category: String(body.category || "").trim(),
     categoryLabel: String(body.categoryLabel || "").trim(),
-    serviceLabel: String(body.serviceLabel || body.categoryLabel || "Rezervasyon").trim(),
+    serviceLabel,
     serviceDate,
     serviceTime,
     customerId: user?.id || "",

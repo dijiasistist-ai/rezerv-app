@@ -314,6 +314,9 @@ function getServiceCatalog(listing) {
       type: String(service?.type || "").trim(),
       duration: String(service?.duration || "").trim(),
       price: Number(service?.price || 0),
+      paymentMode: String(service?.paymentMode || "").trim(),
+      depositType: String(service?.depositType || "").trim(),
+      depositValue: String(service?.depositValue || "").trim(),
     }))
     .filter((service) => service.name);
 }
@@ -529,6 +532,7 @@ async function loadPolicy() {
   const query = new URLSearchParams({
     venueId: state.listing.venueId || state.listing.id,
     totalAmount: String(selectedTotal || 0),
+    service: serviceSelect.value || "",
   });
   const payload = await fetchJson(`/api/reservations/payment-policy?${query.toString()}`);
   state.policy = payload;

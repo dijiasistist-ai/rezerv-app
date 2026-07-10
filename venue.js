@@ -1959,6 +1959,26 @@ function renderSalesProducts(settings) {
 }
 
 function serviceEditorFields(area = {}, index = 0) {
+  const paymentMode = area.paymentMode || "commission_deposit";
+  const depositType = area.depositType || "percent";
+  const depositValue = area.depositValue || "";
+  const price = parseFinanceAmount(area.price);
+  const rawDeposit = parseFinanceAmount(depositValue);
+  const depositAmount =
+    paymentMode === "full_online"
+      ? price
+      : paymentMode === "venue_payment"
+        ? 0
+        : depositValue
+          ? Math.min(depositType === "fixed" ? rawDeposit : price * (rawDeposit / 100), price)
+          : price * 0.07;
+  const venueAmount = Math.max(price - depositAmount, 0);
+  const paymentSummary =
+    paymentMode === "full_online"
+      ? `Müşteri online ${formatCurrency(price)} öder, işletmede ödeme kalmaz.`
+      : paymentMode === "venue_payment"
+        ? `Online ödeme alınmaz, müşteri işletmede ${formatCurrency(price)} öder.`
+        : `Müşteri online ${formatCurrency(depositAmount)} öder, işletmede ${formatCurrency(venueAmount)} kalır.`;
   return `
     <label class="settings-input-field service-field-wide">
       <span>Hizmet adı</span>
@@ -1976,6 +1996,34 @@ function serviceEditorFields(area = {}, index = 0) {
       <span>Satış fiyatı</span>
       <input data-area-price="${index}" type="text" value="${escapeHtml(area.price || "")}" placeholder="₺0" inputmode="decimal" />
     </label>
+    <div class="service-payment-box service-field-wide">
+      <div class="service-payment-head">
+        <strong>Ödeme kuralı</strong>
+        <span>Bu hizmet için müşteriden ne zaman, ne kadar alınacağını belirler.</span>
+      </div>
+      <div class="service-payment-grid">
+        <label class="settings-input-field">
+          <span>Tahsilat modeli</span>
+          <select data-area-payment-mode="${index}">
+            <option value="venue_payment" ${paymentMode === "venue_payment" ? "selected" : ""}>Sadece rezervasyon</option>
+            <option value="commission_deposit" ${paymentMode === "commission_deposit" ? "selected" : ""}>Kapora al</option>
+            <option value="full_online" ${paymentMode === "full_online" ? "selected" : ""}>Tam ödeme al</option>
+          </select>
+        </label>
+        <label class="settings-input-field">
+          <span>Kapora tipi</span>
+          <select data-area-deposit-type="${index}">
+            <option value="percent" ${depositType === "percent" ? "selected" : ""}>Yüzde</option>
+            <option value="fixed" ${depositType === "fixed" ? "selected" : ""}>Sabit tutar</option>
+          </select>
+        </label>
+        <label class="settings-input-field">
+          <span>Kapora değeri</span>
+          <input data-area-deposit-value="${index}" type="text" value="${escapeHtml(depositValue)}" placeholder="${depositType === "fixed" ? "₺500" : "20"}" inputmode="decimal" />
+        </label>
+      </div>
+      <div class="service-payment-summary">${escapeHtml(paymentSummary)}</div>
+    </div>
     <div class="service-editor-helper">
       <strong>Marketplace görünümü</strong>
       <span>Aktif hizmetler müşteriye gösterilir. Hizmet adı ve fiyat ya da süre bilgisi girildiğinde kurulum adımı tamamlanır.</span>
@@ -4582,6 +4630,9 @@ function collectSettingsPayload() {
         type: scopedValueOf(card, `[data-area-type="${index}"]`),
         capacity: scopedValueOf(card, `[data-area-capacity="${index}"]`),
         price: scopedValueOf(card, `[data-area-price="${index}"]`),
+        paymentMode: scopedValueOf(card, `[data-area-payment-mode="${index}"]`) || currentArea.paymentMode || "commission_deposit",
+        depositType: scopedValueOf(card, `[data-area-deposit-type="${index}"]`) || currentArea.depositType || "percent",
+        depositValue: scopedValueOf(card, `[data-area-deposit-value="${index}"]`) || currentArea.depositValue || "",
         isActive: scopedChecked(visibleAreaScope, `[data-area-active="${index}"]`, currentArea.isActive !== false),
       };
     });
@@ -4625,6 +4676,9 @@ function addSalesProductDraft() {
     type: selectedCategory,
     capacity: "",
     price: "",
+    paymentMode: "commission_deposit",
+    depositType: "percent",
+    depositValue: "",
     isActive: true,
   });
   venueState.selectedServiceIndex = settings.areas.length - 1;
@@ -5610,6 +5664,9 @@ function bindVenueInteractions() {
         type: categoryName.trim(),
         capacity: "",
         price: "",
+        paymentMode: "commission_deposit",
+        depositType: "percent",
+        depositValue: "",
         isActive: true,
       });
       venueState.selectedServiceCategory = categoryName.trim();
@@ -5676,6 +5733,13 @@ function bindVenueInteractions() {
       const length = nextSearchInput.value.length;
       nextSearchInput.setSelectionRange?.(length, length);
     }
+  });
+
+  document.querySelector("#sales-products-view")?.addEventListener("change", (event) => {
+    const paymentField = event.target.closest("[data-area-payment-mode], [data-area-deposit-type], [data-area-deposit-value], [data-area-price]");
+    if (!paymentField || !venueState.dashboard) return;
+    venueState.dashboard.settings = collectSettingsPayload();
+    renderSalesProducts(venueState.dashboard.settings);
   });
 
   settingsOnboardingForm?.addEventListener("change", async (event) => {

@@ -9099,6 +9099,63 @@ textarea:focus {
   line-height: 1.45;
 }
 
+.service-payment-box {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fbff;
+}
+
+.service-payment-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.service-payment-head strong {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.service-payment-head span {
+  max-width: 430px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.service-payment-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr;
+  gap: 12px;
+}
+
+.service-payment-grid select {
+  min-height: 48px;
+  border: 1px solid #dfe5ee;
+  border-radius: 12px;
+  padding: 0 12px;
+  color: #111827;
+  background: #ffffff;
+  font: inherit;
+}
+
+.service-payment-summary {
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.45;
+}
+
 @media (max-width: 760px) {
   #sales-products-view .service-editor-head,
   #sales-products-view .service-editor-actions {
@@ -9107,6 +9164,19 @@ textarea:focus {
   }
 
   .service-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .service-payment-head {
+    display: grid;
+  }
+
+  .service-payment-head span {
+    max-width: none;
+    text-align: left;
+  }
+
+  .service-payment-grid {
     grid-template-columns: 1fr;
   }
 }
