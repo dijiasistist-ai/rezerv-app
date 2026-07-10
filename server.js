@@ -52,7 +52,7 @@ const app = express();
 const port = Number(process.env.PORT || 8091);
 const sessions = new Map();
 const adaLiveSessions = new Map();
-const SESSION_TTL_MS = 30 * 60 * 1000;
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const ADA_LIVE_SESSION_TTL_MS = 20 * 60 * 1000;
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
 const HIDE_PUBLIC_VENUES = process.env.HIDE_PUBLIC_VENUES === "1";
@@ -121,15 +121,76 @@ function signSessionPayload(payload) {
   return crypto.createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
 }
 
+function getSessionEncryptionKey() {
+  return crypto.createHash("sha256").update(SESSION_SECRET).digest();
+}
+
+function encryptSessionPayload(value) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", getSessionEncryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(JSON.stringify(value), "utf8"), cipher.final()]);
+  return [
+    "v2",
+    iv.toString("base64url"),
+    cipher.getAuthTag().toString("base64url"),
+    encrypted.toString("base64url"),
+  ].join(".");
+}
+
+function decryptSessionPayload(token = "") {
+  const [, iv, tag, encrypted] = String(token).split(".");
+  if (!iv || !tag || !encrypted) return null;
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    getSessionEncryptionKey(),
+    Buffer.from(iv, "base64url"),
+  );
+  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(encrypted, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
+  return JSON.parse(decrypted);
+}
+
+function getSessionUserSnapshot(user = {}) {
+  return {
+    id: user.id || "",
+    name: user.name || "",
+    email: normalizeEmail(user.email || ""),
+    phone: user.phone || "",
+    passwordHash: user.passwordHash || "",
+    canManageVenue: Boolean(user.canManageVenue),
+    isAdmin: Boolean(user.isAdmin),
+    venueId: user.venueId || getUserVenueId(user) || "",
+    emailVerified: Boolean(user.emailVerified),
+    phoneVerified: Boolean(user.phoneVerified),
+    emailVerificationToken: user.emailVerificationToken || "",
+    phoneVerificationCode: user.phoneVerificationCode || "",
+    passwordResetToken: "",
+    restoredFromSession: true,
+  };
+}
+
 function createSignedSessionToken(user) {
-  const payload = encodeSessionPart({
+  return encryptSessionPayload({
     userId: user.id,
     exp: Date.now() + SESSION_TTL_MS,
+    user: getSessionUserSnapshot(user),
   });
-  return `${payload}.${signSessionPayload(payload)}`;
 }
 
 function parseSignedSessionToken(token = "") {
+  if (String(token).startsWith("v2.")) {
+    try {
+      const parsed = decryptSessionPayload(token);
+      if (!parsed?.userId || Number(parsed.exp || 0) < Date.now()) return null;
+      return parsed;
+    } catch (_error) {
+      return null;
+    }
+  }
+
   const [payload, signature] = String(token).split(".");
   if (!payload || !signature) return null;
   const expected = signSessionPayload(payload);
@@ -1005,12 +1066,28 @@ function getUserFromRequest(req) {
       sessions.delete(token);
       return null;
     }
-    return findUserById(session.userId);
+    const sessionUser = findUserById(session.userId);
+    if (sessionUser) return sessionUser;
   }
 
   const signedSession = parseSignedSessionToken(token);
   if (!signedSession) return null;
-  return findUserById(signedSession.userId);
+  const existingUser = findUserById(signedSession.userId);
+  if (existingUser) return existingUser;
+  if (!signedSession.user || signedSession.user.id !== signedSession.userId) return null;
+
+  const restoredUser = upsertUser({
+    ...signedSession.user,
+    isAdmin: false,
+    restoredAt: new Date().toISOString(),
+  });
+  sessions.set(token, {
+    userId: restoredUser.id,
+    createdAt: Date.now(),
+    expiresAt: Number(signedSession.exp || 0),
+  });
+  console.warn(`[auth] restored user ${restoredUser.email || restoredUser.id} from signed session`);
+  return restoredUser;
 }
 
 function requireAuth(req, res, next) {
