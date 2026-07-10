@@ -44,34 +44,18 @@
           <details class="header-popover-shell customer-header-only" id="notification-shell">
             <summary class="bell-button" aria-label="Bildirimler">
               <span>🔔</span>
-              <em id="notification-count" aria-live="polite">3</em>
+              <em id="notification-count" class="is-hidden" aria-live="polite">0</em>
             </summary>
             <div class="header-popover notification-menu">
               <div class="popover-head">
                 <strong>Bildirimler</strong>
-                <span id="notification-status">Rezervasyon ve hesap akışı bildirimleri.</span>
+                <span id="notification-status">Yeni bildirim yok.</span>
               </div>
-              <button class="notification-item" type="button" data-notification-id="location-permission">
-                <span>✓</span>
-                <div>
-                  <strong>Konum izni hazır</strong>
-                  <small>Yakınımdaki işletmeleri listelemek için konumunu kullanabiliriz.</small>
-                </div>
-              </button>
-              <button class="notification-item" type="button" data-notification-id="reservation-roadmap">
-                <span>R</span>
-                <div>
-                  <strong>Rezervasyon altyapısı sırada</strong>
-                  <small>Takvim ve müsaitlik akışı local geliştirme listesine eklendi.</small>
-                </div>
-              </button>
-              <button class="notification-item" type="button" data-notification-id="profile-completion">
-                <span>!</span>
-                <div>
-                  <strong>Profil bilgilerini tamamla</strong>
-                  <small>İşletme ve bireysel hesap ayrımı admin panelinden yönetilecek.</small>
-                </div>
-              </button>
+              <div class="popover-empty notification-empty">
+                <span>🔕</span>
+                <strong>Henüz bildirim yok</strong>
+                <small>Rezervasyon veya hesap hareketi olduğunda burada görünür.</small>
+              </div>
             </div>
           </details>
           <div class="account-shell">

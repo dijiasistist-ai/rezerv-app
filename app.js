@@ -415,8 +415,6 @@ function saveReadNotificationIds(readIds) {
 }
 
 function updateNotificationUi() {
-  if (!notificationItems.length) return;
-
   const readIds = getReadNotificationIds();
   let unreadCount = 0;
 
@@ -441,9 +439,11 @@ function updateNotificationUi() {
   }
 
   if (notificationStatus) {
-    notificationStatus.textContent = unreadCount
-      ? `${unreadCount} okunmamış bildirim var.`
-      : "Tüm bildirimler okundu.";
+    notificationStatus.textContent = notificationItems.length
+      ? unreadCount
+        ? `${unreadCount} okunmamış bildirim var.`
+        : "Tüm bildirimler okundu."
+      : "Yeni bildirim yok.";
   }
 }
 
