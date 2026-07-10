@@ -104,6 +104,8 @@ const venueState = {
   dashboard: null,
   activeAppointment: null,
   selectedServiceIndex: 0,
+  selectedServiceCategory: "all",
+  serviceSearch: "",
   customerSubview: "list",
   selectedCustomerIndex: 0,
   customerSearch: "",
@@ -1781,6 +1783,23 @@ function renderSalesProducts(settings) {
   const normalized = normalizeSettings(settings);
   const activeAreas = normalized.areas.filter((area) => area.isActive);
   const totalCount = normalized.areas.length;
+  const categories = [...new Set(normalized.areas.map((area) => String(area.type || "Hizmet").trim() || "Hizmet"))];
+  if (venueState.selectedServiceCategory !== "all" && !categories.includes(venueState.selectedServiceCategory)) {
+    venueState.selectedServiceCategory = "all";
+  }
+  const searchQuery = foldSearchValue(venueState.serviceSearch || "");
+  const visibleAreas = normalized.areas
+    .map((area, index) => ({ area, index }))
+    .filter(({ area }) => {
+      const matchesCategory =
+        venueState.selectedServiceCategory === "all" ||
+        String(area.type || "Hizmet").trim() === venueState.selectedServiceCategory;
+      const haystack = foldSearchValue([area.name, area.type, area.capacity, area.price].filter(Boolean).join(" "));
+      return matchesCategory && (!searchQuery || haystack.includes(searchQuery));
+    });
+  if (visibleAreas.length && !visibleAreas.some((item) => item.index === venueState.selectedServiceIndex)) {
+    venueState.selectedServiceIndex = visibleAreas[0].index;
+  }
   const selectedIndex = Math.min(venueState.selectedServiceIndex, Math.max(totalCount - 1, 0));
   venueState.selectedServiceIndex = selectedIndex;
   const selectedArea = normalized.areas[selectedIndex] || normalized.areas[0];
@@ -1791,8 +1810,26 @@ function renderSalesProducts(settings) {
     .map((module) => `<span>${escapeHtml(module.label)}</span>`)
     .join("");
   const summary = `${activeAreas.length} / ${totalCount} kalem satışta`;
-  const cardsMarkup = normalized.areas
-    .map((area, index) => {
+  const categoryButtons = [
+    { id: "all", label: "Tüm kategoriler", count: totalCount },
+    ...categories.map((category) => ({
+      id: category,
+      label: category,
+      count: normalized.areas.filter((area) => String(area.type || "Hizmet").trim() === category).length,
+    })),
+  ]
+    .map(
+      (category) => `
+        <button class="service-category-item ${venueState.selectedServiceCategory === category.id ? "is-active" : ""}" type="button" data-service-category="${escapeHtml(category.id)}">
+          <span>${escapeHtml(category.label)}</span>
+          <em>${category.count}</em>
+        </button>
+      `,
+    )
+    .join("");
+  const cardsMarkup = visibleAreas.length
+    ? visibleAreas
+    .map(({ area, index }) => {
       const priceLabel = area.price ? `₺${String(area.price).replace(/^₺\s*/, "")}` : "";
       const durationLabel = area.capacity || "60 dk";
       const meta = [area.type || "Hizmet", durationLabel].filter(Boolean).join(" · ");
@@ -1804,30 +1841,24 @@ function renderSalesProducts(settings) {
             <span>${escapeHtml(meta)}</span>
           </div>
           <div class="service-row-price">${escapeHtml(priceLabel || "₺0")}</div>
-          <button class="service-row-more" type="button" aria-label="Hizmet seçenekleri">⋮</button>
         </article>
       `;
     })
-    .join("");
+    .join("")
+    : `<div class="service-empty-state">Bu filtrede hizmet bulunamadı.</div>`;
 
-  const categoryName = activeAreas[0]?.type || normalized.details?.category || "Tüm kategoriler";
+  const categoryName =
+    venueState.selectedServiceCategory === "all"
+      ? activeAreas[0]?.type || normalized.details?.category || "Tüm kategoriler"
+      : venueState.selectedServiceCategory;
   const selectedMeta = [selectedArea?.type || "Hizmet", selectedArea?.capacity || "60 dk"].filter(Boolean).join(" · ");
 
   salesProductsLayout.innerHTML = `
     <aside class="service-catalog-sidebar">
       <div class="service-catalog-card">
         <strong>Kategoriler</strong>
-        <div class="service-category-list">
-          <button class="service-category-item is-active" type="button">
-            <span>Tüm kategoriler</span>
-            <em>${totalCount}</em>
-          </button>
-          <button class="service-category-item" type="button">
-            <span>${escapeHtml(categoryName)}</span>
-            <em>${activeAreas.length}</em>
-          </button>
-        </div>
-        <button class="service-link-button" type="button">Kategori ekle</button>
+        <div class="service-category-list">${categoryButtons}</div>
+        <button class="service-link-button" type="button" data-service-category-add>Kategori ekle</button>
       </div>
       <div class="service-blueprint-card">
         <span>Sektör akışı</span>
@@ -1839,10 +1870,8 @@ function renderSalesProducts(settings) {
     <section class="service-catalog-main">
       <div class="service-catalog-toolbar">
         <div class="service-search-shell">
-          <input class="service-search-input" type="text" placeholder="Hizmet ara" />
-          <button class="ghost-button" type="button">Filtreler</button>
+          <input class="service-search-input" type="search" placeholder="Hizmet ara" value="${escapeHtml(venueState.serviceSearch || "")}" data-service-search />
         </div>
-        <button class="ghost-button" type="button">Sırayı yönet</button>
       </div>
 
       <div class="service-catalog-summary">
@@ -1850,7 +1879,6 @@ function renderSalesProducts(settings) {
           <strong>${escapeHtml(categoryName)}</strong>
           <span>${summary}</span>
         </div>
-        <button class="ghost-button" type="button">Aksiyonlar</button>
       </div>
 
       <div class="service-catalog-rows">${cardsMarkup}</div>
@@ -2285,16 +2313,6 @@ function renderCustomersView() {
         <button class="solid-button" type="button" data-customer-add>Müşteri ekle</button>
       </div>
     </div>
-    <article class="clients-import-banner">
-      <div>
-        <strong>Müşteri listesini içe aktar</strong>
-        <p>Eski kayıtlarını birkaç dakikada ekle, tekrar gelen müşterileri doğrudan Tyee CRM’e taşı.</p>
-      </div>
-      <div class="clients-import-actions">
-        <button class="ghost-button" type="button" data-customer-import>İçe aktar</button>
-        <button class="text-button" type="button">Daha fazla bilgi</button>
-      </div>
-    </article>
     <div class="clients-toolbar">
       <label class="clients-search-field">
         <span>Arama</span>
@@ -3074,14 +3092,24 @@ function getGuideSteps(payload) {
   const completedSales = transactions.filter((item) => item.status === "Tamamlandı");
   const manualEntries = payload?.slotState?.manualEntries || venueState.manualEntries || {};
   const firstBooking = transactions.length > 0 || Object.keys(manualEntries).length > 0;
+  const category = settings.details?.category || "";
+  const hasCategory = Boolean(category && category !== "Kategori seçilmedi");
+  const hasContactPhone = Boolean(settings.contact?.phone || settings.contact?.whatsapp || payload?.user?.phone);
+  const hasLocation = Boolean(
+    settings.locationStatus === "Girilmiş" ||
+      settings.location?.address ||
+      (settings.location?.lat && settings.location?.lng) ||
+      settings.details?.district,
+  );
+  const hasCriticalProfile = Boolean(settings.businessName && hasCategory && hasContactPhone && hasLocation);
 
   return [
     {
       title: "İşletme profilini tamamla",
       shortTitle: "Profil",
-      detail: "Açıklama, kategori, iletişim ve konum bilgileri dolu olmalı.",
-      shortDetail: "Bilgi, iletişim, konum",
-      done: Boolean(settings.businessName && settings.details?.description && settings.contact?.phone),
+      detail: "İşletme adı, kategori, telefon ve bölge/konum bilgisi yeterli.",
+      shortDetail: "Ad, kategori, telefon, konum",
+      done: hasCriticalProfile,
       view: "settings",
       tab: "İşletme Bilgileri",
       focus: "#settings-business-name",
@@ -3094,16 +3122,6 @@ function getGuideSteps(payload) {
       done: activeAreas.length > 0,
       view: "sales-products",
       focus: "#sales-products-view [data-area-add]",
-    },
-    {
-      title: "Çalışma saatlerini belirle",
-      shortTitle: "Çalışma saatleri",
-      detail: "Müşterinin göreceği çalışma saatleri ve iptal politikası açık olsun.",
-      shortDetail: "Açık gün ve iptal kuralı",
-      done: Boolean(settings.details?.workingHours && settings.details?.cancellationPolicy),
-      view: "settings",
-      tab: "İşletme Bilgileri",
-      focus: "#settings-detail-working-hours",
     },
     {
       title: "İlk rezervasyonu oluştur",
@@ -4493,9 +4511,12 @@ function addSalesProductDraft() {
   if (!venueState.dashboard) return;
   venueState.dashboard.settings = collectSettingsPayload();
   const settings = normalizeSettings(venueState.dashboard.settings);
+  const selectedCategory = venueState.selectedServiceCategory && venueState.selectedServiceCategory !== "all"
+    ? venueState.selectedServiceCategory
+    : "Hizmet";
   settings.areas.push({
     name: `Hizmet ${settings.areas.length + 1}`,
-    type: "Hizmet",
+    type: selectedCategory,
     capacity: "",
     price: "",
     isActive: true,
@@ -5236,22 +5257,17 @@ function bindVenueInteractions() {
       return;
     }
 
-    const actionButton = event.target.closest("[data-customer-add], [data-customer-import], [data-customer-options]");
+    const actionButton = event.target.closest("[data-customer-add], [data-customer-options]");
     if (actionButton) {
       const copy = actionButton.hasAttribute("data-customer-add")
         ? {
             title: "Yeni müşteri ekle",
             notes: "Ad, telefon, e-posta ve pazarlama izni ile yeni müşteri kartı oluşturulur.",
           }
-        : actionButton.hasAttribute("data-customer-import")
-          ? {
-              title: "Müşteri içe aktar",
-              notes: "CSV veya eski CRM listesini içe aktararak tekrar gelen müşterileri Tyee içine taşı.",
-            }
-          : {
-              title: "Müşteri seçenekleri",
-              notes: "Sıralama, export, toplu etiketleme ve kampanya izni aksiyonları burada toplanır.",
-            };
+        : {
+            title: "Müşteri seçenekleri",
+            notes: "Sıralama, export, toplu etiketleme ve kampanya izni aksiyonları burada toplanır.",
+          };
       openAppointmentDrawer({
         title: copy.title,
         service: "Müşteri operasyonu",
@@ -5422,6 +5438,36 @@ function bindVenueInteractions() {
   });
 
   document.querySelector("#sales-products-view")?.addEventListener("click", async (event) => {
+    const categoryButton = event.target.closest("[data-service-category]");
+    if (categoryButton && venueState.dashboard) {
+      venueState.dashboard.settings = collectSettingsPayload();
+      venueState.selectedServiceCategory = categoryButton.dataset.serviceCategory || "all";
+      renderSalesProducts(venueState.dashboard.settings);
+      return;
+    }
+
+    const addCategoryButton = event.target.closest("[data-service-category-add]");
+    if (addCategoryButton && venueState.dashboard) {
+      const categoryName = window.prompt("Yeni kategori adı", "Yeni kategori");
+      if (!categoryName?.trim()) return;
+      venueState.dashboard.settings = collectSettingsPayload();
+      const settings = normalizeSettings(venueState.dashboard.settings);
+      settings.areas.push({
+        name: `${categoryName.trim()} hizmeti`,
+        type: categoryName.trim(),
+        capacity: "",
+        price: "",
+        isActive: true,
+      });
+      venueState.selectedServiceCategory = categoryName.trim();
+      venueState.selectedServiceIndex = settings.areas.length - 1;
+      venueState.dashboard.settings = settings;
+      renderSalesProducts(settings);
+      renderCalendarFieldPills();
+      renderGuidanceRail(venueState.dashboard);
+      return;
+    }
+
     const productCard = event.target.closest("[data-product-card]");
     if (productCard && venueState.dashboard) {
       venueState.selectedServiceIndex = Number(productCard.dataset.productCard) || 0;
@@ -5445,6 +5491,20 @@ function bindVenueInteractions() {
     } catch (error) {
       setSaveStatus("[data-settings-status]", error.message, true);
       showVenueToast(error.message || "Ayarlar kaydedilemedi.", true);
+    }
+  });
+
+  document.querySelector("#sales-products-view")?.addEventListener("input", (event) => {
+    const searchInput = event.target.closest("[data-service-search]");
+    if (!searchInput || !venueState.dashboard) return;
+    venueState.serviceSearch = searchInput.value || "";
+    venueState.dashboard.settings = collectSettingsPayload();
+    renderSalesProducts(venueState.dashboard.settings);
+    const nextSearchInput = document.querySelector("[data-service-search]");
+    nextSearchInput?.focus();
+    if (nextSearchInput) {
+      const length = nextSearchInput.value.length;
+      nextSearchInput.setSelectionRange?.(length, length);
     }
   });
 

@@ -1088,6 +1088,12 @@ function mergeVenuePayload(venueId, user = null) {
     payload.settings = {
       ...(payload.settings || {}),
       businessName: user?.name || "",
+      contact: {
+        ...((payload.settings || {}).contact || {}),
+        authorizedName: user?.name || ((payload.settings || {}).contact || {}).authorizedName || "",
+        phone: user?.phone || ((payload.settings || {}).contact || {}).phone || "",
+        email: user?.email || ((payload.settings || {}).contact || {}).email || "",
+      },
       locationStatus: "Girilmemiş",
     };
     payload.subscriptions = [];
@@ -1098,7 +1104,24 @@ function mergeVenuePayload(venueId, user = null) {
     payload.isFreshVenue = false;
   }
 
-  if (overlay.settings) payload.settings = overlay.settings;
+  if (overlay.settings) {
+    payload.settings = {
+      ...(payload.settings || {}),
+      ...overlay.settings,
+      contact: {
+        ...((payload.settings || {}).contact || {}),
+        ...(overlay.settings.contact || {}),
+      },
+      details: {
+        ...((payload.settings || {}).details || {}),
+        ...(overlay.settings.details || {}),
+      },
+      location: {
+        ...((payload.settings || {}).location || {}),
+        ...(overlay.settings.location || {}),
+      },
+    };
+  }
   if (overlay.profile) payload.profile = overlay.profile;
   if (overlay.billingAddresses) payload.billingAddresses = overlay.billingAddresses;
   if (overlay.media) payload.media = overlay.media;
