@@ -2154,17 +2154,12 @@ function updateAuthUi() {
 }
 
 async function loadCurrentUser() {
-  if (!state.token) {
-    updateAuthUi();
-    return;
-  }
-
   try {
     const payload = await apiRequest("/api/auth/me", { method: "GET" });
     state.user = payload.user;
     updateAuthUi();
   } catch (error) {
-    localStorage.removeItem("tyee_token");
+    if (state.token) localStorage.removeItem("tyee_token");
     state.token = "";
     state.user = null;
     updateAuthUi();
@@ -2754,13 +2749,13 @@ authForm.addEventListener("submit", async (event) => {
         return;
       }
 
-      if (state.authEntry === "venue") {
-        if (response.user.canManageVenue) {
-          closeAuthModal();
-          window.location.href = "/venue.html";
-          return;
-        }
+      if (response.user.canManageVenue) {
+        closeAuthModal();
+        window.location.href = "/venue.html";
+        return;
+      }
 
+      if (state.authEntry === "venue") {
         setAuthFeedback("Bu hesap bireysel müşteri hesabı. İşletme paneli için işletme hesabı ile giriş yapmalısın.");
         return;
       }

@@ -4294,13 +4294,6 @@ app.post("/api/auth/login", (req, res) => {
     return;
   }
 
-  if (loginType === "customer" && user.canManageVenue && !user.isAdmin) {
-    res.status(403).json({
-      error: "Bu e-posta işletme hesabı olarak kayıtlı. Lütfen İşletme girişi ile devam et.",
-    });
-    return;
-  }
-
   if (loginType === "venue" && !user.canManageVenue && !user.isAdmin) {
     res.status(403).json({
       error: "Bu e-posta bireysel müşteri hesabı olarak kayıtlı. İşletme paneli için işletme hesabı gerekli.",
