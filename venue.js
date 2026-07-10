@@ -1124,8 +1124,8 @@ function normalizeSettings(settings = {}) {
       ...(settings.media || {}),
       gallery: normalizeMediaGallery(settings.media?.gallery),
     },
-    areas: Array.isArray(settings.areas) && settings.areas.length
-      ? settings.areas
+    areas: Object.prototype.hasOwnProperty.call(settings, "areas")
+      ? (Array.isArray(settings.areas) ? settings.areas : [])
       : [{ name: "Ana hizmet", type: "Hizmet", capacity: "", price: "", isActive: true }],
     facilities: FACILITY_FEATURES.map((feature) => ({
       ...feature,
@@ -1788,7 +1788,7 @@ function renderSalesProducts(settings) {
   if (visibleAreas.length && !visibleAreas.some((item) => item.index === venueState.selectedServiceIndex)) {
     venueState.selectedServiceIndex = visibleAreas[0].index;
   }
-  const selectedIndex = Math.min(venueState.selectedServiceIndex, Math.max(totalCount - 1, 0));
+  const selectedIndex = totalCount ? Math.min(venueState.selectedServiceIndex, totalCount - 1) : 0;
   venueState.selectedServiceIndex = selectedIndex;
   const selectedArea = normalized.areas[selectedIndex] || normalized.areas[0];
   const operations = getOperationsBlueprint(normalized);
@@ -1871,20 +1871,34 @@ function renderSalesProducts(settings) {
 
       <div class="service-catalog-rows">${cardsMarkup}</div>
 
-      <div class="service-editor-shell">
-        <div class="service-editor-head">
-          <div>
-            <strong>${escapeHtml(selectedArea?.name || "Hizmet")}</strong>
-            <span>${escapeHtml(selectedMeta)}</span>
-          </div>
-          <label class="settings-switch">
-            <input type="checkbox" data-area-active="${selectedIndex}" ${selectedArea?.isActive ? "checked" : ""} />
-            <span>Aktif</span>
-          </label>
-        </div>
-        <div class="settings-note">Seçilen hizmetin detaylarını güncelle. Liste görünümü solda, detay düzenleme sağda kalır.</div>
-        <div class="sales-products-editor-grid">${areaSettingsFields({ ...normalized, areas: [selectedArea] }, selectedIndex)}</div>
-      </div>
+      ${
+        selectedArea
+          ? `
+            <div class="service-editor-shell">
+              <div class="service-editor-head">
+                <div>
+                  <strong>${escapeHtml(selectedArea.name || "Hizmet")}</strong>
+                  <span>${escapeHtml(selectedMeta)}</span>
+                </div>
+                <div class="service-editor-actions">
+                  <label class="settings-switch">
+                    <input type="checkbox" data-area-active="${selectedIndex}" ${selectedArea.isActive ? "checked" : ""} />
+                    <span>Aktif</span>
+                  </label>
+                  <button class="ghost-button danger" type="button" data-area-delete="${selectedIndex}">Sil</button>
+                </div>
+              </div>
+              <div class="settings-note">Seçilen hizmetin detaylarını güncelle. Liste görünümü solda, detay düzenleme sağda kalır.</div>
+              <div class="sales-products-editor-grid">${areaSettingsFields({ ...normalized, areas: [selectedArea] }, selectedIndex)}</div>
+            </div>
+          `
+          : `
+            <div class="service-editor-shell">
+              <div class="settings-empty-box">Henüz hizmet yok. Yeni hizmet ekleyip ad, fiyat veya süre bilgisi gir.</div>
+              <button class="solid-button" type="button" data-area-add>Hizmet ekle</button>
+            </div>
+          `
+      }
     </section>
   `;
 }
@@ -3685,6 +3699,7 @@ function areaSettingsFields(settings, startIndex = 0) {
         <article class="settings-area-card" data-area-card="${index}">
           <div class="settings-area-head">
             <strong>Satış kalemi ${index + 1}</strong>
+            <button class="ghost-button danger" type="button" data-area-delete="${index}">Sil</button>
           </div>
           <div class="settings-form-grid">
             <label class="settings-input-field">
@@ -4095,10 +4110,13 @@ function renderAreaSettings(settings) {
         <article class="settings-area-card" data-area-card="${index}">
           <div class="settings-area-head">
             <strong>Alan ${index + 1}</strong>
-            <label class="settings-switch">
-              <input type="checkbox" data-area-active="${index}" ${area.isActive ? "checked" : ""} />
-              <span>Aktif</span>
-            </label>
+            <div class="settings-area-actions">
+              <label class="settings-switch">
+                <input type="checkbox" data-area-active="${index}" ${area.isActive ? "checked" : ""} />
+                <span>Aktif</span>
+              </label>
+              <button class="ghost-button danger" type="button" data-area-delete="${index}">Sil</button>
+            </div>
           </div>
           <div class="settings-form-grid">
             <label class="settings-input-field">
@@ -5429,6 +5447,23 @@ function bindVenueInteractions() {
       return;
     }
 
+    const deleteAreaButton = event.target.closest("[data-area-delete]");
+    if (deleteAreaButton && venueState.dashboard) {
+      venueState.dashboard.settings = collectSettingsPayload();
+      const settings = normalizeSettings(venueState.dashboard.settings);
+      const deleteIndex = Number(deleteAreaButton.dataset.areaDelete);
+      if (!Number.isInteger(deleteIndex) || !settings.areas[deleteIndex]) return;
+      settings.areas.splice(deleteIndex, 1);
+      venueState.selectedServiceIndex = Math.max(0, Math.min(deleteIndex, settings.areas.length - 1));
+      venueState.dashboard.settings = settings;
+      renderSettingsOnboarding(settings);
+      renderSalesProducts(settings);
+      renderCalendarFieldPills();
+      renderGuidanceRail(venueState.dashboard);
+      setSaveStatus("[data-settings-status]", "Hizmet silindi. Kaydetmeyi unutma.");
+      return;
+    }
+
     const button = event.target.closest("[data-settings-save]");
     if (!button || !venueState.dashboard) return;
 
@@ -5484,6 +5519,23 @@ function bindVenueInteractions() {
     const addAreaButton = event.target.closest("[data-area-add]");
     if (addAreaButton && venueState.dashboard) {
       addSalesProductDraft();
+      return;
+    }
+
+    const deleteAreaButton = event.target.closest("[data-area-delete]");
+    if (deleteAreaButton && venueState.dashboard) {
+      venueState.dashboard.settings = collectSettingsPayload();
+      const settings = normalizeSettings(venueState.dashboard.settings);
+      const deleteIndex = Number(deleteAreaButton.dataset.areaDelete);
+      if (!Number.isInteger(deleteIndex) || !settings.areas[deleteIndex]) return;
+      settings.areas.splice(deleteIndex, 1);
+      venueState.selectedServiceIndex = Math.max(0, Math.min(deleteIndex, settings.areas.length - 1));
+      venueState.dashboard.settings = settings;
+      renderSalesProducts(settings);
+      renderCalendarFieldPills();
+      renderGuidanceRail(venueState.dashboard);
+      setSaveStatus("[data-settings-status]", "Hizmet silindi. Kaydetmeyi unutma.");
+      showVenueToast("Hizmet silindi. Kaydetmeyi unutma.");
       return;
     }
 
