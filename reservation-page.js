@@ -30,6 +30,11 @@ const feedback = document.querySelector("#booking-feedback");
 const servicePreviewTitle = document.querySelector("#booking-service-preview-title");
 const servicePreviewCopy = document.querySelector("#booking-service-preview-copy");
 const servicePrice = document.querySelector("#booking-service-price");
+const servicePicker = document.querySelector("#booking-service-picker");
+const serviceTrigger = document.querySelector("#booking-service-trigger");
+const serviceTriggerTitle = document.querySelector("#booking-service-trigger-title");
+const serviceTriggerMeta = document.querySelector("#booking-service-trigger-meta");
+const serviceOptions = document.querySelector("#booking-service-options");
 const loginTrigger = document.querySelector("#login-trigger");
 const accountLabel = document.querySelector(".account-label");
 const accountAvatar = document.querySelector(".avatar-mini");
@@ -323,6 +328,65 @@ function getSelectedServicePrice(listing = state.listing) {
   return selectedService?.price || getListingBasePrice(listing);
 }
 
+function getServiceMeta(serviceName = "", listing = state.listing) {
+  const catalogItem = getServiceCatalog(listing).find((service) => service.name === serviceName);
+  const price = catalogItem?.price || getListingBasePrice(listing);
+  const meta = [price ? formatCurrency(price) : "", catalogItem?.type, catalogItem?.duration].filter(Boolean);
+  return {
+    item: catalogItem,
+    price,
+    metaLabel: meta.join(" · ") || "Detaylar işletmede netleşir",
+  };
+}
+
+function closeServicePicker() {
+  serviceOptions?.classList.add("hidden");
+  serviceTrigger?.setAttribute("aria-expanded", "false");
+}
+
+function openServicePicker() {
+  if (!serviceOptions || !serviceTrigger) return;
+  serviceOptions.classList.remove("hidden");
+  serviceTrigger.setAttribute("aria-expanded", "true");
+}
+
+function renderServicePicker(listing = state.listing) {
+  if (!serviceOptions || !serviceTrigger || !serviceSelect) return;
+  const services = buildServices(listing || {});
+  const selectedService = serviceSelect.value || services[0] || "";
+  const selectedMeta = getServiceMeta(selectedService, listing);
+
+  if (serviceTriggerTitle) serviceTriggerTitle.textContent = selectedService || "Hizmet seç";
+  if (serviceTriggerMeta) serviceTriggerMeta.textContent = selectedMeta.metaLabel;
+
+  serviceOptions.innerHTML = services
+    .map((serviceName) => {
+      const isSelected = serviceName === selectedService;
+      const serviceMeta = getServiceMeta(serviceName, listing);
+      return `
+        <button class="booking-service-option ${isSelected ? "is-selected" : ""}" type="button" role="option" aria-selected="${isSelected ? "true" : "false"}" data-service-option="${escapeHtml(serviceName)}">
+          <span>
+            <strong>${escapeHtml(serviceName)}</strong>
+            <small>${escapeHtml(serviceMeta.metaLabel)}</small>
+          </span>
+          <em>${isSelected ? "✓" : ""}</em>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function selectBookingService(serviceName = "") {
+  if (!serviceName || !serviceSelect) return;
+  serviceSelect.value = serviceName;
+  state.selectedSlot = "";
+  renderServicePicker();
+  updateServicePreview();
+  closeServicePicker();
+  loadAvailability();
+  loadPolicy();
+}
+
 function updateServicePreview() {
   if (!state.listing) return;
   const selectedService = serviceSelect.value || state.listing.categoryLabel || "Hizmet";
@@ -339,6 +403,7 @@ function updateServicePreview() {
     const meta = [selectedServiceItem?.type, selectedServiceItem?.duration].filter(Boolean).join(" · ");
     servicePrice.textContent = [formatCurrency(getSelectedServicePrice()), meta].filter(Boolean).join(" · ");
   }
+  renderServicePicker();
 }
 
 function isTimeValue(value = "") {
@@ -515,6 +580,7 @@ function renderListing(listing) {
   serviceSelect.innerHTML = buildServices(listing)
     .map((item) => `<option>${escapeHtml(item)}</option>`)
     .join("");
+  renderServicePicker(listing);
   const nextAvailableDate = listing.availability?.nextDate || listing.nextDate || "";
   if (nextAvailableDate && (!dateInput.min || nextAvailableDate >= dateInput.min)) {
     dateInput.value = nextAvailableDate;
@@ -550,8 +616,22 @@ nextDay.addEventListener("click", () => {
   loadAvailability();
 });
 dateInput.addEventListener("change", () => loadAvailability());
-serviceSelect.addEventListener("change", () => loadAvailability());
-serviceSelect.addEventListener("change", () => loadPolicy());
+serviceSelect.addEventListener("change", () => selectBookingService(serviceSelect.value));
+
+serviceTrigger?.addEventListener("click", () => {
+  const willOpen = serviceOptions?.classList.contains("hidden");
+  if (willOpen) {
+    openServicePicker();
+    return;
+  }
+  closeServicePicker();
+});
+
+serviceOptions?.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-service-option]");
+  if (!option) return;
+  selectBookingService(option.dataset.serviceOption || "");
+});
 
 bookingGallery?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-gallery-index]");
@@ -650,10 +730,17 @@ accountLogout?.addEventListener("click", () => {
 });
 
 document.addEventListener("click", (event) => {
+  if (!event.target.closest(".booking-service-picker")) {
+    closeServicePicker();
+  }
   if (event.target.closest(".account-shell")) return;
   if (event.target.closest(".header-popover-shell")) return;
   closeAccountMenu();
   closeHeaderPopovers();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeServicePicker();
 });
 
 loadPage().catch((error) => {

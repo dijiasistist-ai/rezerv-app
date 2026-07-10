@@ -130,10 +130,20 @@
                 </div>
                 <span class="booking-flow-badge" id="booking-service-price">-</span>
               </div>
-              <label class="booking-select-label booking-select-panel">
+              <div class="booking-select-label booking-select-panel">
                 <span>Seçilebilir hizmetler</span>
                 <select id="booking-service"></select>
-              </label>
+                <div class="booking-service-picker" id="booking-service-picker">
+                  <button class="booking-service-trigger" type="button" id="booking-service-trigger" aria-expanded="false" aria-controls="booking-service-options">
+                    <span>
+                      <strong id="booking-service-trigger-title">Hizmet seçiliyor</strong>
+                      <small id="booking-service-trigger-meta">Fiyat ve süre hazırlanıyor</small>
+                    </span>
+                    <em aria-hidden="true">⌄</em>
+                  </button>
+                  <div class="booking-service-options hidden" id="booking-service-options" role="listbox" aria-label="Seçilebilir hizmetler"></div>
+                </div>
+              </div>
               <div class="booking-service-preview">
                 <div>
                   <strong id="booking-service-preview-title">Hizmet seçiliyor</strong>
