@@ -2687,6 +2687,7 @@ function getFinancePayload(finance = {}) {
           { label: "Net kalan", value: "₺0" },
         ],
     expenses: Array.isArray(finance.expenses) ? finance.expenses : [],
+    allExpenses: Array.isArray(finance.allExpenses) ? finance.allExpenses : Array.isArray(finance.expenses) ? finance.expenses : [],
   };
 }
 
@@ -2724,8 +2725,13 @@ function renderFinanceView(finance = venueState.dashboard?.finance || {}) {
   }
 
   if (financeCardStack) {
-    const expenseRows = financePayload.expenses.length
-      ? financePayload.expenses
+    const visibleExpenses = financePayload.expenses.length ? financePayload.expenses : financePayload.allExpenses.slice(0, 8);
+    const expenseListTitle = financePayload.expenses.length ? "Bu ay gider kalemleri" : "Son gider kalemleri";
+    const expenseEmptyCopy = financePayload.allExpenses.length
+      ? "Bu ay için gider yok. Son kayıtların aşağıda listelendi."
+      : "Henüz gider girilmedi.";
+    const expenseRows = visibleExpenses.length
+      ? visibleExpenses
           .map(
             (item) => `
               <div class="finance-expense-row">
@@ -2738,7 +2744,7 @@ function renderFinanceView(finance = venueState.dashboard?.finance || {}) {
             `,
           )
           .join("")
-      : `<p class="finance-empty-copy">Bu ay için henüz gider girilmedi.</p>`;
+      : `<p class="finance-empty-copy">${expenseEmptyCopy}</p>`;
 
     financeCardStack.innerHTML = `
       <article class="finance-insight-card finance-expense-entry">
@@ -2777,7 +2783,7 @@ function renderFinanceView(finance = venueState.dashboard?.finance || {}) {
         </div>
       </article>
       <article class="finance-insight-card finance-expense-list">
-        <strong>Bu ay gider kalemleri</strong>
+        <strong>${expenseListTitle}</strong>
         <div>${expenseRows}</div>
       </article>
     `;
