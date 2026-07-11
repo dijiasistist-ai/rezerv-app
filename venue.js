@@ -4562,7 +4562,7 @@ function renderReviews(items, summary = {}) {
                   <strong>${escapeHtml(item.author)}</strong>
                   <small>${escapeHtml(item.service || "Rezervasyon")} · ${escapeHtml(item.date)}</small>
                 </div>
-                <span>${escapeHtml(item.rating)}/5</span>
+                <span>${escapeHtml(item.rating)} / 5</span>
               </div>
               <p>${escapeHtml(item.comment)}</p>
               <label class="review-note-editor">

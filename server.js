@@ -2925,16 +2925,18 @@ function applyVenueReviewNotes(reviews = [], overlay = {}) {
 }
 
 function buildReviewSummary(reviews = [], reservations = []) {
-  const ratedReviews = reviews.filter((review) => Number(review.rating) > 0);
+  const ratedReviews = reviews
+    .map((review) => ({ ...review, rating: Math.min(5, Math.max(0, Number(review.rating || 0))) }))
+    .filter((review) => review.rating > 0);
   const average = ratedReviews.length
-    ? ratedReviews.reduce((total, review) => total + Number(review.rating || 0), 0) / ratedReviews.length
+    ? ratedReviews.reduce((total, review) => total + review.rating, 0) / ratedReviews.length
     : 0;
   const waitingRequests = reservations.filter(
     (reservation) => reservation.status === "completed" && reservation.reviewStatus !== "received",
   ).length;
 
   return {
-    average: average ? average.toFixed(1) : "-",
+    average: average ? String(Math.round(average)) : "-",
     total: ratedReviews.length,
     waitingRequests,
   };
