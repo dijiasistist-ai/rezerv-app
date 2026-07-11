@@ -2884,6 +2884,96 @@ function getAdaGalleryCount(settings = {}) {
   return normalizeMediaGallery(normalized.media?.gallery).length;
 }
 
+const TYEE_ASSISTANT_TOPIC_KEYWORDS = {
+  marketplace: ["marketplace", "pazar", "müşteri bul", "yakınımda", "arama", "liste", "vitrin", "profil", "yayın"],
+  setup: ["kurulum", "profil", "işletme bilg", "adres", "konum", "telefon", "tamamla", "ayar"],
+  services: ["hizmet", "fiyat", "ücret", "kapora", "ödeme", "satış", "menü", "aktif", "pasif", "sil", "süre"],
+  calendar: ["takvim", "slot", "saat", "müsait", "boş", "rezervasyon aç", "çalışma saati", "randevu"],
+  reservations: ["rezervasyon", "checkout", "tamamla", "işlem", "iptal", "müşteri geldi", "ödendi"],
+  customers: ["müşteri", "crm", "sadakat", "tekrar", "not", "segment", "liste"],
+  campaigns: ["sms", "kampanya", "pazarlama", "reklam", "geri çağır", "mesaj"],
+  finance: ["gider", "gelir", "performans", "rapor", "kar", "kâr", "komisyon", "muhasebe"],
+  reviews: ["yorum", "değerlendirme", "puan", "şikayet", "memnuniyet"],
+  media: ["görsel", "foto", "resim", "galeri", "kapak", "logo"],
+  help: ["ne yap", "nasıl çalış", "neler var", "anlat", "yardım", "özellik"],
+};
+
+function adaTextIncludesAny(text = "", keywords = []) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function matchTyeeAssistantTopic(question = "") {
+  const normalized = String(question || "").toLocaleLowerCase("tr-TR");
+  return Object.entries(TYEE_ASSISTANT_TOPIC_KEYWORDS).find(([, keywords]) => adaTextIncludesAny(normalized, keywords))?.[0] || "help";
+}
+
+function getTyeeAssistantWelcome(payload = venueState.dashboard || {}) {
+  const settings = normalizeSettings(payload.settings || {});
+  const venueName = settings.businessName || payload.venue?.name || "işletmen";
+  const activeServices = getAdaActiveServices(settings).length;
+  const openSlots = getAdaOpenSlotCount(payload);
+  const servicePart = activeServices ? `${activeServices} aktif hizmetini` : "hizmet menünü";
+  const slotPart = openSlots ? `${openSlots} satışa açık saatini` : "takvimde satışa açılacak saatlerini";
+
+  return `Tyee.app işletme paneline hoş geldin. Ben Tyee; ${venueName} için ${servicePart}, ${slotPart}, müşteri akışını ve rezervasyon hazırlığını birlikte yönetmene yardım ederim. Bana "hizmet nasıl eklenir", "kapora nasıl ayarlanır" veya "marketplace'te nasıl görünürüm" diye sorabilirsin.`;
+}
+
+function getTyeeAssistantOverview() {
+  return "Tyee.app, müşterinin yakındaki işletmeleri bulup hizmet seçerek rezervasyon oluşturduğu; işletmenin ise takvim, hizmet menüsü, ödeme modeli, müşteri listesi, kampanya, yorum, görsel ve performans akışını tek panelden yönettiği bir rezervasyon altyapısıdır. Ben burada adım adım eşlik ederim: önce vitrini ve hizmeti netleştiririz, sonra takvimi satışa açar, rezervasyonları ve müşteri iletişimini düzenli tutarız.";
+}
+
+function buildTyeeTopicAnswer(topic = "help", context = {}) {
+  const { openSlots = 0, activeServices = 0, expenseCount = 0, waitingReviews = 0, galleryCount = 0, venueName = "işletmen" } = context;
+
+  if (topic === "marketplace") {
+    return "Marketplace tarafında müşteri kategori, konum ve arama üzerinden işletmeleri görür; işletme kartında görseller, hizmetler, fiyat, süre, uygun saatler, puanlar ve rezervasyon akışı öne çıkar. İyi bir vitrin için net işletme bilgisi, doğru kategori, güçlü görseller, fiyatı belli hizmetler ve satışa açık takvim gerekir.";
+  }
+
+  if (topic === "setup") {
+    return "İşletme kurulumunda kritik alanlar işletme adı, sektör/kategori, telefon, adres/konum, en az bir yayınlanabilir hizmet ve müşterinin rezervasyon yapabileceği saatlerdir. Çalışma saatleri faydalıdır ama tek başına engel olmamalı; asıl amaç müşteriye güven veren bir profil ve rezerve edilebilir hizmet oluşturmaktır.";
+  }
+
+  if (topic === "services") {
+    return `${activeServices} aktif hizmet görünüyor. Hizmet menüsünde her hizmet için ad, tür/kategori, süre, satış fiyatı ve ödeme modeli net olmalı. Ödeme modelinde işletmede ödenecek tutar, kapora veya tamamı online ödeme gibi seçenekleri tüm sektörlerde aynı mantıkla kullanırız; aktif/pasif ayarı da hizmetin marketplace'te görünüp görünmeyeceğini belirler.`;
+  }
+
+  if (topic === "calendar") {
+    return openSlots
+      ? `${venueName} için ${openSlots} satışa açık saat var. Takvimde amaç müşterinin gerçek uygunluk görmesi: açık saatleri düzenli tut, dolan saatleri kapat, manuel rezervasyonları da panele işle ki çakışma olmasın.`
+      : `${venueName} için şu an satışa açık saat görünmüyor. Takvimden müşterinin alabileceği gün ve saatleri açınca marketplace'teki hizmetlerin gerçek rezervasyona dönüşebilir.`;
+  }
+
+  if (topic === "reservations") {
+    return "Rezervasyon akışında müşteri hizmeti ve saati seçer; ödeme modeline göre kapora, tamamı online ödeme veya işletmede ödeme uygulanır. İşletme panelinde rezervasyonları takip edip hizmet tamamlandığında işlemi kapatmak, gelir ve yorum akışının doğru çalışmasını sağlar.";
+  }
+
+  if (topic === "customers") {
+    return "Müşteri alanı tekrar gelenleri, son ziyaretleri, notları ve sadakat sinyallerini düzenli tutmak için var. Buradan müşteri geçmişini görüp uygun kampanya veya geri çağırma fikri çıkarabiliriz; amaç sadece liste tutmak değil, ilişkiyi canlı bırakmak.";
+  }
+
+  if (topic === "campaigns") {
+    return "Pazarlama tarafında boş saat, geri çağırma ve sadakat kampanyaları için SMS taslakları hazırlanır. Tyee metni ve alıcı segmentini önerebilir; gönderim ise işletme sahibi son onayı vermeden yapılmaz.";
+  }
+
+  if (topic === "finance") {
+    return expenseCount
+      ? `Bu ay ${expenseCount} gider kaydı var. Performans ekranı rezervasyon geliri, giderler, net kalan ve platform payı gibi işletmenin karar almasını kolaylaştıran özetleri gösterir.`
+      : "Performans ekranının doğru konuşması için kira, personel, sarf ve reklam gibi giderleri eklemek gerekir. Gelir rezervasyonlardan gelir; giderler tamamlanınca net tablo daha güvenilir olur.";
+  }
+
+  if (topic === "reviews") {
+    return waitingReviews
+      ? `${waitingReviews} değerlendirme isteği bekliyor. Yorumlar sadece puan toplamak için değil; müşterinin güvenini artırmak ve işletmenin neyi iyileştireceğini görmek için de önemli.`
+      : "Rezervasyon tamamlandıktan sonra müşteri değerlendirme bırakabilir. Güçlü yorumlar marketplace vitrininin güvenini artırır; olumsuz yorumlar da nerede iyileştirme gerektiğini gösterir.";
+  }
+
+  if (topic === "media") {
+    return `Şu anda ${galleryCount}/6 görsel hazır. Kapak ve galeri görselleri müşterinin ilk güven temasını oluşturur; dış cephe, iç mekan, ekip/ekipman ve hizmet sonucunu gösteren net fotoğraflar en iyi çalışır.`;
+  }
+
+  return getTyeeAssistantOverview();
+}
+
 function buildAdaInsights(payload = venueState.dashboard || {}) {
   if (!payload) return [];
   const settings = normalizeSettings(payload.settings || {});
@@ -3026,18 +3116,18 @@ function renderAdaAssistant(assistantPayload = {}) {
   venueState.adaInsights = insights;
 
   if (adaLauncherHint) {
-    adaLauncherHint.textContent = primary?.title || "Paneli okuyorum";
+    adaLauncherHint.textContent = primary?.title || "Yardımcı olmaya hazırım";
   }
   if (adaSpeech) {
-    adaSpeech.textContent = primary?.message || "Panelini izliyorum. Sıradaki en iyi aksiyonu birlikte seçebiliriz.";
+    adaSpeech.textContent = primary?.message || getTyeeAssistantOverview();
   }
   if (adaStatusTitle) {
-    adaStatusTitle.textContent = assistantPayload.summary?.title || "İşletmeni izliyorum";
+    adaStatusTitle.textContent = assistantPayload.summary?.title || "Tyee işletme paneline hoş geldin";
   }
   if (adaStatus) {
     adaStatus.textContent =
       assistantPayload.summary?.detail ||
-      `${insights.length} aksiyon önerisi hazır. Takvim, gider, yorum ve kampanya sinyallerini takip ediyorum.`;
+      `${insights.length} öneri hazır. Takvim, hizmet, ödeme, müşteri, yorum ve kampanya akışını birlikte toparlayabiliriz.`;
   }
   if (adaActions) {
     adaActions.innerHTML = insights
@@ -3080,7 +3170,8 @@ function openAdaPanel() {
   adaPanel?.classList.remove("hidden");
   adaLauncher?.setAttribute("aria-expanded", "true");
   if (adaChatLog && !adaChatLog.dataset.ready) {
-    appendAdaChatMessage("ada", "Ben Tyee. Takvim, hizmet, gider, yorum ve kampanya tarafında seni yönlendirebilirim.");
+    appendAdaChatMessage("ada", getTyeeAssistantWelcome());
+    appendAdaChatMessage("ada", getTyeeAssistantOverview());
     adaChatLog.dataset.ready = "true";
   }
 }
@@ -3144,44 +3235,23 @@ function appendAdaChatMessage(role = "ada", message = "") {
 }
 
 function answerAdaQuestion(question = "") {
-  const normalized = question.toLocaleLowerCase("tr-TR");
   const payload = venueState.dashboard || {};
   const openSlots = getAdaOpenSlotCount(payload);
   const activeServices = getAdaActiveServices(payload.settings || {});
   const expenseCount = payload.finance?.expenses?.length || 0;
   const waitingReviews = Number(payload.reviewSummary?.waitingRequests || 0);
+  const galleryCount = getAdaGalleryCount(payload.settings || {});
+  const venueName = normalizeSettings(payload.settings || {}).businessName || payload.venue?.name || "işletmen";
+  const topic = matchTyeeAssistantTopic(question);
 
-  if (normalized.includes("boş") || normalized.includes("slot") || normalized.includes("takvim")) {
-    return openSlots
-      ? `${openSlots} satışa açık slot var. Düşük doluluk varsa Pazarlama ekranından SMS akışı hazırlayabiliriz.`
-      : "Şu anda satışa açık slot görünmüyor. Takvim ekranında uygun saatleri Tyee olarak satışa açmalısın.";
-  }
-
-  if (normalized.includes("sms") || normalized.includes("reklam") || normalized.includes("kampanya")) {
-    return "Pazarlama ekranında geri çağırma ve boş saat kampanyalarını yönetebiliriz. Özellikle açık slot varsa yakın müşterilere kısa SMS iyi çalışır.";
-  }
-
-  if (normalized.includes("gider") || normalized.includes("gelir") || normalized.includes("performans")) {
-    return expenseCount
-      ? `Bu ay ${expenseCount} gider kaydı var. Performans ekranı gelir, gider ve net kalan hesabını buradan çıkarıyor.`
-      : "Bu ay gider kaydı yok. Performans ekranında Gider ekle ile kira, personel ve sarf giderlerini girmelisin.";
-  }
-
-  if (normalized.includes("hizmet") || normalized.includes("fiyat") || normalized.includes("kapora") || normalized.includes("ödeme")) {
-    return `${activeServices.length} aktif hizmet görünüyor. Her hizmet için süre, fiyat ve ödeme modelini Hizmet Menüsü veya İşletme Ayarları ekranından tamamlayabilirsin.`;
-  }
-
-  if (normalized.includes("yorum") || normalized.includes("değerlendirme") || normalized.includes("puan")) {
-    return waitingReviews
-      ? `${waitingReviews} değerlendirme isteği bekliyor. Değerlendirmeler ekranında yorumları ve iç notlarını takip edebilirsin.`
-      : "Bekleyen değerlendirme görünmüyor. Rezervasyon tamamlanınca yorum isteği akışı buraya düşer.";
-  }
-
-  if (normalized.includes("resim") || normalized.includes("foto") || normalized.includes("görsel")) {
-    return "İşletme Ayarları içinde en fazla 6 görsel ekleyebilirsin. Dış görünüş, dükkan içi ve çalışan görselleri rezervasyon sayfasında daha güvenli durur.";
-  }
-
-  return "Panelde takvim, hizmet, gider, yorum, müşteri ve kampanya tarafını okuyabiliyorum. İstersen bana belirli bir ekranı sor ya da önerilerden birini aç.";
+  return buildTyeeTopicAnswer(topic, {
+    openSlots,
+    activeServices: activeServices.length,
+    expenseCount,
+    waitingReviews,
+    galleryCount,
+    venueName,
+  });
 }
 
 async function connectAdaLive() {
