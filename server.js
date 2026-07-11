@@ -1855,8 +1855,10 @@ function getVenueExpenseItems(overlay = {}) {
 }
 
 function buildVenueFinancePayload({ payload = {}, overlay = {}, reservations = [] } = {}) {
-  const month = getMonthKey();
+  const currentMonth = getMonthKey();
   const expenses = getVenueExpenseItems(overlay);
+  const currentMonthExpenses = expenses.filter((expense) => expense.month === currentMonth);
+  const month = currentMonthExpenses.length || !expenses.length ? currentMonth : expenses[0].month;
   const monthlyExpenses = expenses.filter((expense) => expense.month === month);
   const reservationIncome = reservations.reduce((total, reservation) => {
     const billing = reservation.billing || calculateReservationBilling(reservation);
@@ -1872,10 +1874,10 @@ function buildVenueFinancePayload({ payload = {}, overlay = {}, reservations = [
   return {
     month,
     kpis: [
-      { label: "Bu ay gelir", value: formatCurrency(transactionIncome), meta: `${reservations.length || (payload.transactions || []).length} işlem` },
-      { label: "Bu ay gider", value: formatCurrency(expenseTotal), meta: `${monthlyExpenses.length} gider` },
+      { label: "Gelir", value: formatCurrency(transactionIncome), meta: `${reservations.length || (payload.transactions || []).length} işlem · ${month}` },
+      { label: "Gider", value: formatCurrency(expenseTotal), meta: `${monthlyExpenses.length} gider · ${month}` },
       { label: "Net kalan", value: formatCurrency(netTotal), meta: "Gelir - gider" },
-      { label: "Kar marjı", value: `%${margin}`, meta: "Bu ay" },
+      { label: "Kar marjı", value: `%${margin}`, meta: month },
     ],
     rows: [
       { label: "Rezervasyon geliri", value: formatCurrency(transactionIncome), type: "income" },
