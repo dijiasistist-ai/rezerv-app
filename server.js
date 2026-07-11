@@ -4804,7 +4804,7 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
           sourcePayload: payload,
           avatarName: req.body?.avatarName || ASSISTANT_DISPLAY_NAME,
           simliFaceId,
-          greetingText: `Merhaba, ben ${ASSISTANT_DISPLAY_NAME}. İşletme panelini okuyorum; boş saat, müşteri ve kampanya tarafında sana yardımcı olacağım.`,
+          greetingText: `${buildVenueAssistantWelcome(payload)} Sana nasıl yardımcı olabilirim?`,
         }),
       );
       return;
