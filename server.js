@@ -4739,6 +4739,7 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
   const configuredStageUrl = String(process.env.SIMLI_STAGE_URL || "").trim();
   const payload = mergeVenuePayload(venueId, req.user);
   const assistantContext = buildVenueAssistantPayload(payload);
+  const venueGreetingText = `${buildVenueAssistantWelcome(payload)} Sana nasıl yardımcı olabilirim?`;
 
   if (!simliEnabled) {
     res.json({
@@ -4767,7 +4768,15 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
           avatarVoice: req.body?.avatarVoice || "shimmer",
           simliFaceId,
           language: "tr",
-          context: assistantContext,
+          greetingText: venueGreetingText,
+          initialMessage: venueGreetingText,
+          welcomeMessage: venueGreetingText,
+          context: {
+            ...assistantContext,
+            greetingText: venueGreetingText,
+            initialMessage: venueGreetingText,
+            welcomeMessage: venueGreetingText,
+          },
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -4804,7 +4813,7 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
           sourcePayload: payload,
           avatarName: req.body?.avatarName || ASSISTANT_DISPLAY_NAME,
           simliFaceId,
-          greetingText: `${buildVenueAssistantWelcome(payload)} Sana nasıl yardımcı olabilirim?`,
+          greetingText: venueGreetingText,
         }),
       );
       return;
@@ -4819,15 +4828,24 @@ app.post("/api/venue/avatar/session", requireVenueAccess, async (req, res) => {
   }
 
   if (configuredStageUrl) {
+    const stageUrl = new URL(configuredStageUrl, "https://tyee.app");
+    stageUrl.searchParams.set("greetingText", venueGreetingText);
+    stageUrl.searchParams.set("initialMessage", venueGreetingText);
+    const resolvedStageUrl = configuredStageUrl.startsWith("/") ? `${stageUrl.pathname}${stageUrl.search}` : stageUrl.toString();
     res.json({
       provider: "simli",
       status: "ready",
       assistantName: ASSISTANT_DISPLAY_NAME,
-      stageUrl: configuredStageUrl,
+      stageUrl: resolvedStageUrl,
       message: `${ASSISTANT_DISPLAY_NAME} canlı avatar sahnesi hazır.`,
       contextEndpoint: "/api/venue/assistant",
       chatEndpoint: "/api/venue/assistant/chat",
-      assistantContext,
+      assistantContext: {
+        ...assistantContext,
+        greetingText: venueGreetingText,
+        initialMessage: venueGreetingText,
+        welcomeMessage: venueGreetingText,
+      },
     });
     return;
   }
