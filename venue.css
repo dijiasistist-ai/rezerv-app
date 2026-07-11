@@ -10613,11 +10613,16 @@ body[data-venue-view="overview"] #venue-branch {
 }
 
 .ada-assistant.is-live .ada-close {
-  border-color: rgba(255, 255, 255, 0.38);
-  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(7, 21, 58, 0.18);
+  background: rgba(7, 21, 58, 0.88);
   color: #ffffff;
-  box-shadow: 0 12px 28px rgba(3, 15, 38, 0.18);
+  box-shadow: 0 14px 34px rgba(3, 15, 38, 0.32);
   backdrop-filter: blur(14px);
+}
+
+.ada-assistant.is-live .ada-close:hover {
+  background: #07153a;
+  border-color: rgba(255, 255, 255, 0.72);
 }
 
 .ada-assistant.is-live .ada-stage {

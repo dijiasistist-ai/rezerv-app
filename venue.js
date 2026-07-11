@@ -3116,7 +3116,7 @@ function renderAdaAssistant(assistantPayload = {}) {
   venueState.adaInsights = insights;
 
   if (adaLauncherHint) {
-    adaLauncherHint.textContent = primary?.title || "Yardımcı olmaya hazırım";
+    adaLauncherHint.textContent = "Sana nasıl yardımcı olayım?";
   }
   if (adaSpeech) {
     adaSpeech.textContent = primary?.message || getTyeeAssistantOverview();
