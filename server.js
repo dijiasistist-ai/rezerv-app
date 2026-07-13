@@ -210,6 +210,11 @@ function parseSignedSessionToken(token = "") {
 }
 
 function normalizeUser(user) {
+  const venueId = getUserVenueId(user);
+  const overlay = user?.canManageVenue ? getVenueOverlay(venueId) : {};
+  const settings = overlay.settings || {};
+  const venueProfileImage = user?.canManageVenue ? getVenueMediaUrl(settings) : "";
+
   return {
     id: user.id,
     name: user.name,
@@ -220,7 +225,9 @@ function normalizeUser(user) {
     isAdmin: Boolean(user.isAdmin),
     emailVerified: Boolean(user.emailVerified),
     phoneVerified: Boolean(user.phoneVerified),
-    venueId: getUserVenueId(user),
+    venueId,
+    venueName: settings.businessName || user.name || "",
+    venueProfileImage,
   };
 }
 
@@ -3744,10 +3751,10 @@ function getVenueMediaUrl(settings = {}) {
   const media = settings.media || {};
   const gallery = getVenueGallery(settings);
   return (
-    gallery[0]?.src ||
     getSafeMediaUrl(media.coverUrl) ||
     getSafeMediaUrl(media.profileUrl) ||
-    getSafeMediaUrl(media.logoUrl)
+    getSafeMediaUrl(media.logoUrl) ||
+    gallery[0]?.src
   );
 }
 

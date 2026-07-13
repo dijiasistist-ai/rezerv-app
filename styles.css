@@ -855,9 +855,23 @@ button {
   font-weight: var(--weight-bold);
 }
 
+.avatar-mini.has-image,
+.account-menu-avatar.has-image {
+  background-color: #eef7ff;
+  background-position: center;
+  background-size: cover;
+  color: transparent;
+}
+
 .account-button:hover .avatar-mini {
   background: #ddf6ff;
   color: var(--brand-dark);
+}
+
+.account-button:hover .avatar-mini.has-image {
+  background-position: center;
+  background-size: cover;
+  color: transparent;
 }
 
 .account-button:hover .account-label {

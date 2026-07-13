@@ -342,6 +342,22 @@ function mediaStyleAttribute(value = "") {
   return ` style="background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.24)), url('${escapeHtml(cssUrl)}')"`;
 }
 
+function renderAccountAvatar(label = "", imageUrl = "", className = "avatar-mini") {
+  const safeUrl = safeMediaUrl(imageUrl);
+  const initials = getInitials(label);
+  if (!safeUrl) return `<span class="${className}">${escapeHtml(initials)}</span>`;
+  const cssUrl = safeUrl.replace(/["\\]/g, "");
+  return `<span class="${className} has-image" style="background-image: url('${escapeHtml(cssUrl)}')" aria-label="${escapeHtml(label)}"></span>`;
+}
+
+function setAccountAvatarNode(node, label = "", imageUrl = "") {
+  if (!node) return;
+  const safeUrl = safeMediaUrl(imageUrl);
+  node.classList.toggle("has-image", Boolean(safeUrl));
+  node.style.backgroundImage = safeUrl ? `url('${safeUrl.replace(/["\\]/g, "")}')` : "";
+  node.textContent = safeUrl ? "" : getInitials(label);
+}
+
 function getListingGallerySources(item = {}) {
   const seen = new Set();
   const urls = [];
@@ -2117,16 +2133,18 @@ function updateAuthUi() {
   if (state.user) {
     const needsVerification = !state.user.emailVerified;
     const isVenueUser = Boolean(state.user.canManageVenue);
+    const accountName = isVenueUser ? state.user.venueName || state.user.name : state.user.name;
+    const accountImage = isVenueUser ? state.user.venueProfileImage || "" : "";
     accountLabel.textContent = state.user.name;
-    avatarMini.textContent = getInitials(state.user.name);
+    setAccountAvatarNode(avatarMini, accountName, accountImage);
     avatarMini.classList.remove("hidden");
     loginTrigger.classList.add("is-authenticated");
     accountMenuCopy.innerHTML = `
       <div class="account-menu-profile">
-        <span class="account-menu-avatar">${getInitials(state.user.name)}</span>
+        ${renderAccountAvatar(accountName, accountImage, "account-menu-avatar")}
         <div>
           <strong>${state.user.name}</strong>
-          <span>${isVenueUser ? "İşletme hesabı" : "Bireysel hesap"}</span>
+          <span>${isVenueUser ? `${escapeHtml(accountName)} · İşletme hesabı` : "Bireysel hesap"}</span>
         </div>
       </div>
       ${
