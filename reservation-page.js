@@ -27,6 +27,7 @@ const onlineAmount = document.querySelector("#booking-online-amount");
 const totalAmount = document.querySelector("#booking-total-amount");
 const policy = document.querySelector("#booking-policy");
 const feedback = document.querySelector("#booking-feedback");
+const bookingSubmit = document.querySelector("#booking-submit");
 const servicePreviewTitle = document.querySelector("#booking-service-preview-title");
 const servicePreviewCopy = document.querySelector("#booking-service-preview-copy");
 const servicePrice = document.querySelector("#booking-service-price");
@@ -264,10 +265,12 @@ function renderAccountState() {
 function renderReservationAccess() {
   const isAnonymous = !state.user;
   const isVenueUser = Boolean(state.user?.canManageVenue);
-  const isBlocked = isAnonymous || isVenueUser;
-  form?.classList.toggle("hidden", isBlocked);
+  form?.classList.toggle("hidden", isVenueUser);
+  if (bookingSubmit) {
+    bookingSubmit.textContent = isAnonymous ? "Giriş Yap ve Devam Et" : "Rezervasyonu Oluştur";
+  }
 
-  if (!isBlocked) {
+  if (!isVenueUser) {
     venueReservationNotice?.remove();
     venueReservationNotice = null;
     return;
@@ -276,22 +279,27 @@ function renderReservationAccess() {
   if (!venueReservationNotice) {
     venueReservationNotice = document.createElement("div");
     venueReservationNotice.className = "booking-venue-reservation-notice";
-    if (isAnonymous) {
-      const returnPath = `${window.location.pathname}${window.location.search}`;
-      venueReservationNotice.innerHTML = `
-        <strong>Rezervasyon için bireysel hesabınla giriş yap.</strong>
-        <p>Hizmet ve saat seçimine devam etmek için giriş yapabilir veya ücretsiz hesap oluşturabilirsin.</p>
-        <a class="solid-button" href="/index.html?auth=login&next=${encodeURIComponent(returnPath)}">Giriş Yap / Kayıt Ol</a>
-      `;
-    } else {
-      venueReservationNotice.innerHTML = `
-        <strong>İşletme hesapları marketplace üzerinden rezervasyon yapamaz.</strong>
-        <p>Müşteri adına kayıt oluşturmak için işletme panelindeki takvimden manuel rezervasyon ekleyebilirsin.</p>
-        <a class="solid-button" href="/venue.html#calendar">İşletme paneline git</a>
-      `;
-    }
+    venueReservationNotice.innerHTML = `
+      <strong>İşletme hesapları marketplace üzerinden rezervasyon yapamaz.</strong>
+      <p>Müşteri adına kayıt oluşturmak için işletme panelindeki takvimden manuel rezervasyon ekleyebilirsin.</p>
+      <a class="solid-button" href="/venue.html#calendar">İşletme paneline git</a>
+    `;
     form?.insertAdjacentElement("beforebegin", venueReservationNotice);
   }
+}
+
+function continueToReservationLogin() {
+  const returnPath = `${window.location.pathname}${window.location.search}`;
+  sessionStorage.setItem(
+    "tyee_booking_intent",
+    JSON.stringify({
+      listingId: state.listing?.id || listingId,
+      serviceLabel: serviceSelect?.value || "",
+      serviceDate: dateInput?.value || "",
+      serviceTime: state.selectedSlot || "",
+    }),
+  );
+  window.location.href = `/index.html?auth=login&next=${encodeURIComponent(returnPath)}`;
 }
 
 function prefillCustomerFields() {
@@ -697,7 +705,8 @@ form.addEventListener("submit", async (event) => {
   feedback.classList.remove("is-success");
   try {
     if (!state.user) {
-      throw new Error("Rezervasyon için bireysel hesabınla giriş yapmalısın.");
+      continueToReservationLogin();
+      return;
     }
     if (state.user?.canManageVenue) {
       throw new Error("İşletme hesapları marketplace üzerinden rezervasyon yapamaz.");
@@ -732,6 +741,12 @@ form.addEventListener("submit", async (event) => {
   } catch (error) {
     feedback.textContent = error.message;
   }
+});
+
+bookingSubmit?.addEventListener("click", (event) => {
+  if (state.user) return;
+  event.preventDefault();
+  continueToReservationLogin();
 });
 
 document.querySelectorAll(".header-popover-shell").forEach((shell) => {
