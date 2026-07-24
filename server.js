@@ -4023,19 +4023,27 @@ function getRuntimeVenueServiceCatalog(venueId) {
     })
     .filter((area) => !isGenericServiceLabel(area.name));
 
-  if (areaCatalog.length) return areaCatalog;
-
   const slotOptions = Object.values(overlay?.slotServices || {})
     .map((item) => String(item?.name || "").trim())
     .filter((name) => name && !isGenericServiceLabel(name));
 
-  return [...new Set(slotOptions)].map((name) => ({
-    name,
-    type: "Hizmet",
-    duration: "60 dk",
-    price: 0,
-    priceLabel: "0",
-  }));
+  const catalogByName = new Map(areaCatalog.map((item) => [normalizeSearchText(item.name), item]));
+  slotOptions.forEach((name) => {
+    const normalizedName = normalizeSearchText(name);
+    if (!normalizedName || catalogByName.has(normalizedName)) return;
+    catalogByName.set(normalizedName, {
+      name,
+      type: "Hizmet",
+      duration: "60 dk",
+      price: 0,
+      priceLabel: "0",
+      paymentMode: "venue_payment",
+      depositType: "percent",
+      depositValue: "",
+    });
+  });
+
+  return [...catalogByName.values()];
 }
 
 function isGenericServiceLabel(value = "") {
