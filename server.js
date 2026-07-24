@@ -4320,6 +4320,14 @@ app.get("/api/customer/dashboard", requireAuth, (req, res) => {
 app.post("/api/reservations", async (req, res) => {
   const body = req.body || {};
   const user = getUserFromRequest(req);
+
+  if (user?.canManageVenue) {
+    res.status(403).json({
+      error: "İşletme hesapları marketplace üzerinden rezervasyon yapamaz. Müşteri adına kayıt için işletme panelindeki manuel rezervasyonu kullan.",
+    });
+    return;
+  }
+
   const venueId = String(body.venueId || body.listingId || "").trim();
   const totalAmount = Math.max(parseMoney(body.totalAmount), 0);
   const serviceLabel = String(body.serviceLabel || body.categoryLabel || "Rezervasyon").trim();

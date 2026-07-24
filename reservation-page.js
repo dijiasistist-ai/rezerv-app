@@ -46,6 +46,7 @@ const accountLogout = document.querySelector("#account-logout");
 const customerHeaderOnlyItems = document.querySelectorAll(".customer-header-only");
 const customerAccountOnlyItems = document.querySelectorAll(".customer-account-only");
 const customerPanelTriggers = document.querySelectorAll("[data-customer-panel]");
+let venueReservationNotice = null;
 
 const state = {
   listing: null,
@@ -227,6 +228,7 @@ function renderAccountState() {
         <span>Rezervasyonlarını ve oturumunu yönet.</span>
       `;
     }
+    renderReservationAccess();
     closeAccountMenu();
     return;
   }
@@ -255,6 +257,29 @@ function renderAccountState() {
           : `<em class="account-verify-note is-ok">Hesap doğrulandı</em>`
       }
     `;
+  }
+  renderReservationAccess();
+}
+
+function renderReservationAccess() {
+  const isVenueUser = Boolean(state.user?.canManageVenue);
+  form?.classList.toggle("hidden", isVenueUser);
+
+  if (!isVenueUser) {
+    venueReservationNotice?.remove();
+    venueReservationNotice = null;
+    return;
+  }
+
+  if (!venueReservationNotice) {
+    venueReservationNotice = document.createElement("div");
+    venueReservationNotice.className = "booking-venue-reservation-notice";
+    venueReservationNotice.innerHTML = `
+      <strong>İşletme hesapları marketplace üzerinden rezervasyon yapamaz.</strong>
+      <p>Müşteri adına kayıt oluşturmak için işletme panelindeki takvimden manuel rezervasyon ekleyebilirsin.</p>
+      <a class="solid-button" href="/venue.html#calendar">İşletme paneline git</a>
+    `;
+    form?.insertAdjacentElement("beforebegin", venueReservationNotice);
   }
 }
 
@@ -660,6 +685,9 @@ form.addEventListener("submit", async (event) => {
   feedback.textContent = "";
   feedback.classList.remove("is-success");
   try {
+    if (state.user?.canManageVenue) {
+      throw new Error("İşletme hesapları marketplace üzerinden rezervasyon yapamaz.");
+    }
     if (!state.selectedSlot) throw new Error("Lütfen işletme takviminden açık bir saat seç.");
     await loadPolicy();
     const selectedSlot = state.slots.find((slot) => slot.time === state.selectedSlot);

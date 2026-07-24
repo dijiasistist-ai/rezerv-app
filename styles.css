@@ -6716,6 +6716,31 @@ button {
   background: #f7f9fc;
 }
 
+.booking-venue-reservation-notice {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid #dce8f5;
+  border-radius: 24px;
+  background: #f7fbff;
+  color: #101828;
+}
+
+.booking-venue-reservation-notice strong {
+  font-size: 1.08rem;
+}
+
+.booking-venue-reservation-notice p {
+  margin: 0;
+  color: #586174;
+  line-height: 1.55;
+}
+
+.booking-venue-reservation-notice .solid-button {
+  justify-self: start;
+  text-decoration: none;
+}
+
 .booking-submit {
   min-height: 58px;
   border-radius: 999px;
