@@ -4033,7 +4033,22 @@ function getRuntimeVenueServiceOptions(venueId) {
 function getRuntimeVenueServiceCatalog(venueId) {
   const overlay = getVenueOverlay(venueId);
   const settings = overlay?.settings || {};
-  const areaCatalog = getActiveVenueAreas(settings)
+  const activeAreas = getActiveVenueAreas(settings);
+  if (venueId === DOGA_VENUE_ID) {
+    const activeNames = new Set(activeAreas.map((area) => normalizeSearchText(area.name)));
+    DOGA_DEFAULT_SERVICE_AREAS.forEach((area) => {
+      if (activeNames.has(normalizeSearchText(area.name))) return;
+      activeAreas.push({
+        ...area,
+        numericPrice: parseMoney(area.price),
+        paymentMode: "venue_payment",
+        depositType: "percent",
+        depositValue: "",
+      });
+    });
+  }
+
+  const areaCatalog = activeAreas
     .map((area) => {
       const policy = resolveVenuePaymentPolicy(venueId, area.name);
       return {
