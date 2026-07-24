@@ -467,6 +467,15 @@ function createReservationSmsMessages(reservation) {
 
 const DEMO_MARKETPLACE_SEED_VERSION = "2026-06-23-marketplace-v3-closed-calendar";
 const NEMO_DETAIL_SEED_VERSION = "2026-06-24-nemo-gallery-v1";
+const DOGA_SERVICE_CATALOG_VERSION = "2026-07-24-doga-service-catalog-v1";
+const DOGA_VENUE_ID = "venue-d7aa7820-733b-4b72-8779-0b53604c0cf1";
+const DOGA_DEFAULT_SERVICE_AREAS = [
+  { name: "Küçük Irk Banyo & Tıraş", type: "Köpek bakımı", capacity: "1", price: "900", isActive: true },
+  { name: "Büyük Irk Bakım Paketi", type: "Köpek bakımı", capacity: "1", price: "1600", isActive: true },
+  { name: "Kedi Tüy Bakımı", type: "Kedi bakımı", capacity: "1", price: "1300", isActive: true },
+  { name: "Tırnak Kesimi", type: "Hızlı bakım", capacity: "1", price: "250", isActive: true },
+  { name: "Kulak ve Göz Temizliği", type: "Hızlı bakım", capacity: "1", price: "300", isActive: true },
+];
 const NEMO_DEFAULT_GALLERY = [
   {
     src: "/assets/pet-kuafor-grooming.png",
@@ -795,7 +804,7 @@ function seedDemoVenues() {
 }
 
 function seedExistingNemoVenue() {
-  const venueId = "venue-d7aa7820-733b-4b72-8779-0b53604c0cf1";
+  const venueId = DOGA_VENUE_ID;
   const existingOverlay = getVenueOverlay(venueId);
   const existingName = String(existingOverlay.settings?.businessName || "").toLocaleLowerCase("tr-TR");
   if (existingOverlay._nemoDetailVersion === NEMO_DETAIL_SEED_VERSION && hasUsableGallery(existingOverlay.settings?.media)) return;
@@ -837,13 +846,7 @@ function seedExistingNemoVenue() {
         coverUrl: existingMedia.coverUrl || getValidGallerySource(nemoGallery[0]) || "",
         gallery: nemoGallery,
       },
-      areas: [
-        { name: "Küçük Irk Banyo & Tıraş", type: "Köpek bakımı", capacity: "1", price: "900", isActive: true },
-        { name: "Büyük Irk Bakım Paketi", type: "Köpek bakımı", capacity: "1", price: "1600", isActive: true },
-        { name: "Kedi Tüy Bakımı", type: "Kedi bakımı", capacity: "1", price: "1300", isActive: true },
-        { name: "Tırnak Kesimi", type: "Hızlı bakım", capacity: "1", price: "250", isActive: true },
-        { name: "Kulak ve Göz Temizliği", type: "Hızlı bakım", capacity: "1", price: "300", isActive: true },
-      ],
+      areas: DOGA_DEFAULT_SERVICE_AREAS,
       facilities: createDemoFacilities([
         { id: "pet-safe", label: "Pet güvenli ekipman", icon: "✓" },
         { id: "waiting", label: "Bekleme alanı", icon: "⌖" },
@@ -870,6 +873,28 @@ function seedExistingNemoVenue() {
       slotStepMinutes: 60,
       openDays: [],
       publicBookingEnabled: true,
+    },
+  });
+}
+
+function restoreDogaServiceCatalog() {
+  const overlay = getVenueOverlay(DOGA_VENUE_ID);
+  if (overlay._dogaServiceCatalogVersion === DOGA_SERVICE_CATALOG_VERSION) return;
+
+  const settings = overlay.settings || {};
+  const businessName = normalizeSearchText(settings.businessName || "");
+  if (businessName !== "doga pet kuafor" && businessName !== "nemo") return;
+
+  const areas = Array.isArray(settings.areas) ? settings.areas : [];
+  const existingNames = new Set(areas.map((area) => normalizeSearchText(area?.name || "")).filter(Boolean));
+  const missingAreas = DOGA_DEFAULT_SERVICE_AREAS.filter((area) => !existingNames.has(normalizeSearchText(area.name)));
+
+  saveVenueOverlay(DOGA_VENUE_ID, {
+    ...overlay,
+    _dogaServiceCatalogVersion: DOGA_SERVICE_CATALOG_VERSION,
+    settings: {
+      ...settings,
+      areas: [...areas, ...missingAreas],
     },
   });
 }
@@ -916,6 +941,7 @@ function seedUsers() {
 
   seedDemoVenues();
   seedExistingNemoVenue();
+  restoreDogaServiceCatalog();
 }
 
 app.use(express.json({ limit: "16mb" }));
