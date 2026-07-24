@@ -262,10 +262,12 @@ function renderAccountState() {
 }
 
 function renderReservationAccess() {
+  const isAnonymous = !state.user;
   const isVenueUser = Boolean(state.user?.canManageVenue);
-  form?.classList.toggle("hidden", isVenueUser);
+  const isBlocked = isAnonymous || isVenueUser;
+  form?.classList.toggle("hidden", isBlocked);
 
-  if (!isVenueUser) {
+  if (!isBlocked) {
     venueReservationNotice?.remove();
     venueReservationNotice = null;
     return;
@@ -274,11 +276,20 @@ function renderReservationAccess() {
   if (!venueReservationNotice) {
     venueReservationNotice = document.createElement("div");
     venueReservationNotice.className = "booking-venue-reservation-notice";
-    venueReservationNotice.innerHTML = `
-      <strong>İşletme hesapları marketplace üzerinden rezervasyon yapamaz.</strong>
-      <p>Müşteri adına kayıt oluşturmak için işletme panelindeki takvimden manuel rezervasyon ekleyebilirsin.</p>
-      <a class="solid-button" href="/venue.html#calendar">İşletme paneline git</a>
-    `;
+    if (isAnonymous) {
+      const returnPath = `${window.location.pathname}${window.location.search}`;
+      venueReservationNotice.innerHTML = `
+        <strong>Rezervasyon için bireysel hesabınla giriş yap.</strong>
+        <p>Hizmet ve saat seçimine devam etmek için giriş yapabilir veya ücretsiz hesap oluşturabilirsin.</p>
+        <a class="solid-button" href="/index.html?auth=login&next=${encodeURIComponent(returnPath)}">Giriş Yap / Kayıt Ol</a>
+      `;
+    } else {
+      venueReservationNotice.innerHTML = `
+        <strong>İşletme hesapları marketplace üzerinden rezervasyon yapamaz.</strong>
+        <p>Müşteri adına kayıt oluşturmak için işletme panelindeki takvimden manuel rezervasyon ekleyebilirsin.</p>
+        <a class="solid-button" href="/venue.html#calendar">İşletme paneline git</a>
+      `;
+    }
     form?.insertAdjacentElement("beforebegin", venueReservationNotice);
   }
 }
@@ -685,6 +696,9 @@ form.addEventListener("submit", async (event) => {
   feedback.textContent = "";
   feedback.classList.remove("is-success");
   try {
+    if (!state.user) {
+      throw new Error("Rezervasyon için bireysel hesabınla giriş yapmalısın.");
+    }
     if (state.user?.canManageVenue) {
       throw new Error("İşletme hesapları marketplace üzerinden rezervasyon yapamaz.");
     }

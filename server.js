@@ -4321,6 +4321,11 @@ app.post("/api/reservations", async (req, res) => {
   const body = req.body || {};
   const user = getUserFromRequest(req);
 
+  if (!user) {
+    res.status(401).json({ error: "Rezervasyon oluşturmak için bireysel hesabınla giriş yapmalısın." });
+    return;
+  }
+
   if (user?.canManageVenue) {
     res.status(403).json({
       error: "İşletme hesapları marketplace üzerinden rezervasyon yapamaz. Müşteri adına kayıt için işletme panelindeki manuel rezervasyonu kullan.",

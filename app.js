@@ -2746,6 +2746,11 @@ authForm.addEventListener("submit", async (event) => {
             window.location.href = "/venue.html";
             return;
           }
+          const returnPath = getSafeAuthReturnPath();
+          if (returnPath) {
+            window.location.href = returnPath;
+            return;
+          }
           closeAuthModal();
         }, 900);
       }
@@ -2802,6 +2807,12 @@ authForm.addEventListener("submit", async (event) => {
         return;
       }
 
+      const returnPath = getSafeAuthReturnPath();
+      if (returnPath) {
+        window.location.href = returnPath;
+        return;
+      }
+
       closeAuthModal();
     }, 500);
   } catch (error) {
@@ -2832,6 +2843,10 @@ const resetEmailParam = initialParams.get("resetEmail") || "";
 const resetTokenParam = initialParams.get("resetToken") || "";
 const authParam = initialParams.get("auth") || "";
 const verifiedState = initialParams.get("verified");
+function getSafeAuthReturnPath() {
+  const value = initialParams.get("next") || "";
+  return value.startsWith("/") && !value.startsWith("//") ? value : "";
+}
 if (resetEmailParam || resetTokenParam) {
   openPasswordResetStep({ email: resetEmailParam, token: resetTokenParam });
   initialParams.delete("resetEmail");
@@ -2840,6 +2855,11 @@ if (resetEmailParam || resetTokenParam) {
   window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
 } else if (authParam === "venue-login") {
   openVenueLoginModal("İşletme paneline girmek için işletme hesabı ile giriş yapmalısın.");
+  initialParams.delete("auth");
+  const nextQuery = initialParams.toString();
+  window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
+} else if (authParam === "login") {
+  openAuthModal("login");
   initialParams.delete("auth");
   const nextQuery = initialParams.toString();
   window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
