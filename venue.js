@@ -1959,7 +1959,7 @@ function renderSalesProducts(settings) {
 }
 
 function serviceEditorFields(area = {}, index = 0) {
-  const paymentMode = area.paymentMode || "commission_deposit";
+  const paymentMode = "venue_payment";
   const depositType = area.depositType || "percent";
   const depositValue = area.depositValue || "";
   const price = parseFinanceAmount(area.price);
@@ -1999,29 +1999,11 @@ function serviceEditorFields(area = {}, index = 0) {
     <div class="service-payment-box service-field-wide">
       <div class="service-payment-head">
         <strong>Ödeme kuralı</strong>
-        <span>Bu hizmet için müşteriden ne zaman, ne kadar alınacağını belirler.</span>
+        <span>Online tahsilat şu anda kapalıdır. Müşteri yalnızca rezervasyon yapar ve hizmet bedelini işletmede öder.</span>
       </div>
-      <div class="service-payment-grid">
-        <label class="settings-input-field">
-          <span>Tahsilat modeli</span>
-          <select data-area-payment-mode="${index}">
-            <option value="venue_payment" ${paymentMode === "venue_payment" ? "selected" : ""}>Sadece rezervasyon</option>
-            <option value="commission_deposit" ${paymentMode === "commission_deposit" ? "selected" : ""}>Kapora al</option>
-            <option value="full_online" ${paymentMode === "full_online" ? "selected" : ""}>Tam ödeme al</option>
-          </select>
-        </label>
-        <label class="settings-input-field">
-          <span>Kapora tipi</span>
-          <select data-area-deposit-type="${index}">
-            <option value="percent" ${depositType === "percent" ? "selected" : ""}>Yüzde</option>
-            <option value="fixed" ${depositType === "fixed" ? "selected" : ""}>Sabit tutar</option>
-          </select>
-        </label>
-        <label class="settings-input-field">
-          <span>Kapora değeri</span>
-          <input data-area-deposit-value="${index}" type="text" value="${escapeHtml(depositValue)}" placeholder="${depositType === "fixed" ? "₺500" : "20"}" inputmode="decimal" />
-        </label>
-      </div>
+      <input data-area-payment-mode="${index}" type="hidden" value="venue_payment" />
+      <input data-area-deposit-type="${index}" type="hidden" value="percent" />
+      <input data-area-deposit-value="${index}" type="hidden" value="" />
       <div class="service-payment-summary">${escapeHtml(paymentSummary)}</div>
     </div>
     <div class="service-editor-helper">
@@ -4710,7 +4692,7 @@ function collectSettingsPayload() {
         type: scopedValueOf(card, `[data-area-type="${index}"]`),
         capacity: scopedValueOf(card, `[data-area-capacity="${index}"]`),
         price: scopedValueOf(card, `[data-area-price="${index}"]`),
-        paymentMode: scopedValueOf(card, `[data-area-payment-mode="${index}"]`) || currentArea.paymentMode || "commission_deposit",
+        paymentMode: scopedValueOf(card, `[data-area-payment-mode="${index}"]`) || "venue_payment",
         depositType: scopedValueOf(card, `[data-area-deposit-type="${index}"]`) || currentArea.depositType || "percent",
         depositValue: scopedValueOf(card, `[data-area-deposit-value="${index}"]`) || currentArea.depositValue || "",
         isActive: scopedChecked(visibleAreaScope, `[data-area-active="${index}"]`, currentArea.isActive !== false),
@@ -4756,7 +4738,7 @@ function addSalesProductDraft() {
     type: selectedCategory,
     capacity: "",
     price: "",
-    paymentMode: "commission_deposit",
+    paymentMode: "venue_payment",
     depositType: "percent",
     depositValue: "",
     isActive: true,
@@ -5744,7 +5726,7 @@ function bindVenueInteractions() {
         type: categoryName.trim(),
         capacity: "",
         price: "",
-        paymentMode: "commission_deposit",
+        paymentMode: "venue_payment",
         depositType: "percent",
         depositValue: "",
         isActive: true,

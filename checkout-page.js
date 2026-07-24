@@ -28,6 +28,12 @@ const contractAccept = document.querySelector("#checkout-contract-accept");
 const checkoutContract = document.querySelector("#checkout-contract");
 const cardForm = document.querySelector("#checkout-card-form");
 const transferBox = document.querySelector("#checkout-transfer");
+const checkoutIntro = document.querySelector("#checkout-intro");
+const choiceSection = document.querySelector("#checkout-choice-section");
+const methodSection = document.querySelector("#checkout-method-section");
+const invoiceSection = document.querySelector("#checkout-invoice-section");
+const payRow = document.querySelector("#checkout-pay-row");
+const timerBox = document.querySelector("#checkout-timer");
 const checkoutLogin = document.querySelector(".checkout-login");
 const paymentTabs = document.querySelectorAll("[data-payment-tab]");
 const paymentChoices = document.querySelectorAll("[data-payment-choice]");
@@ -158,6 +164,7 @@ function renderSummary() {
   const total = billing.totalAmount || draft.totalAmount || 0;
   const online = billing.customerOnlinePayment || 0;
   const venue = billing.customerVenuePayment || 0;
+  const venuePaymentOnly = billing.paymentMode === "venue_payment" || (online <= 0 && venue >= total);
   venueName.textContent = draft.venueName || "İşletme";
   serviceName.textContent = draft.serviceLabel || "Hizmet";
   serviceSubline.textContent = draft.categoryLabel || "Seçilen hizmet";
@@ -168,7 +175,7 @@ function renderSummary() {
   if (summaryMedia) {
     summaryMedia.className = `checkout-summary-media ${draft.mediaClass || "media-field"}`;
   }
-  onlineLabel.textContent = online > 0 ? "Kartınızdan çekilecek tutar" : "Online tahsilat";
+  onlineLabel.textContent = venuePaymentOnly ? "Online ödeme" : "Kartınızdan çekilecek tutar";
   onlineAmount.textContent = formatCurrency(online);
   venueAmount.textContent = formatCurrency(venue);
   totalAmount.textContent = formatCurrency(total);
@@ -179,6 +186,30 @@ function renderSummary() {
   choiceDepositCopy.textContent = venue > 0 ? "Minimum tutar tahsil edilir" : "Şimdi ödeyerek tamamla";
   payLaterAmount.textContent = venue > 0 ? formatCurrency(venue) : "Tesiste ödeme yok";
   payLaterCopy.textContent = venue > 0 ? "Kalan tutarı tesiste ödersin" : "Rezervasyonun tamamen ödenmiş olur";
+  choiceSection?.classList.add("hidden");
+  methodSection?.classList.toggle("hidden", venuePaymentOnly);
+  invoiceSection?.classList.toggle("hidden", venuePaymentOnly);
+  payRow?.classList.toggle("hidden", venuePaymentOnly);
+  timerBox?.classList.toggle("hidden", venuePaymentOnly);
+
+  selectedPaymentChoice =
+    billing.paymentMode === "full_online"
+      ? "full"
+      : billing.paymentMode === "commission_deposit"
+        ? "deposit"
+        : "venue";
+
+  if (venuePaymentOnly) {
+    if (checkoutIntro) {
+      checkoutIntro.textContent = "Ödeme bilgisi gerekmiyor. Rezervasyonunu onayla, hizmet bedelini işletmede öde.";
+    }
+    payNowAmount.textContent = formatCurrency(0);
+    payLaterAmount.textContent = formatCurrency(total);
+    payLaterCopy.textContent = "Hizmet bedelini işletmede ödersin";
+    submitButton.textContent = "Rezervasyonu Onayla";
+    return;
+  }
+
   setPaymentChoice(selectedPaymentChoice);
 }
 
@@ -254,7 +285,8 @@ submitButton?.addEventListener("click", async () => {
   } catch (error) {
     feedback.textContent = error.message;
     submitButton.disabled = false;
-    submitButton.textContent = "Rezervasyonu Onayla";
+    submitButton.textContent =
+      draft?.billing?.paymentMode === "venue_payment" ? "Rezervasyonu Onayla" : "Ödemeyi Tamamla";
   }
 });
 

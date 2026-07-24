@@ -538,10 +538,13 @@ async function loadPolicy() {
   state.policy = payload;
 
   const billing = payload.billing || {};
-  onlineLabel.textContent = billing.customerOnlinePayment > 0 ? "Online ödenecek" : "Online ödeme";
-  onlineAmount.textContent = formatCurrency(billing.customerOnlinePayment || 0);
+  const venuePaymentOnly = billing.paymentMode === "venue_payment";
+  onlineLabel.textContent = venuePaymentOnly ? "Ödeme yeri" : "Online ödenecek";
+  onlineAmount.textContent = venuePaymentOnly ? "İşletmede" : formatCurrency(billing.customerOnlinePayment || 0);
   totalAmount.textContent = formatCurrency(billing.totalAmount || selectedTotal || 0);
-  policy.textContent = billing.settlement || payload.paymentModeLabel || "İşletme ödeme politikası hazır.";
+  policy.textContent = venuePaymentOnly
+    ? "Rezervasyon sırasında ödeme alınmaz. Hizmet bedelini işletmede ödersin."
+    : billing.settlement || payload.paymentModeLabel || "İşletme ödeme politikası hazır.";
 }
 
 async function loadAvailability() {

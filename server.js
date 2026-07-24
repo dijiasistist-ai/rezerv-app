@@ -56,6 +56,7 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const ADA_LIVE_SESSION_TTL_MS = 20 * 60 * 1000;
 const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_SHARED_SECRET || "tyee-local-session-secret";
 const HIDE_PUBLIC_VENUES = process.env.HIDE_PUBLIC_VENUES === "1";
+const ONLINE_PAYMENTS_ENABLED = process.env.ONLINE_PAYMENTS_ENABLED === "1";
 const ASSISTANT_DISPLAY_NAME = "Tyee";
 const DEFAULT_SIMLI_FACE_ID = "b1f6ad8f-ed78-430b-85ef-2ec672728104";
 const OPENAI_TTS_SAMPLE_RATE = 24000;
@@ -1346,6 +1347,14 @@ function normalizeAreaPaymentPolicy(area = {}) {
 }
 
 function resolveVenuePaymentPolicy(venueId, serviceName = "") {
+  if (!ONLINE_PAYMENTS_ENABLED) {
+    return {
+      paymentMode: PAYMENT_MODES.VENUE_PAYMENT,
+      depositType: "percent",
+      depositValue: "",
+    };
+  }
+
   const overlay = venueId ? getVenueOverlay(venueId) : {};
   const payment = overlay.settings?.payment || {};
   const serviceKey = String(serviceName || "").trim().toLocaleLowerCase("tr-TR");
@@ -3999,16 +4008,19 @@ function getRuntimeVenueServiceCatalog(venueId) {
   const overlay = getVenueOverlay(venueId);
   const settings = overlay?.settings || {};
   const areaCatalog = getActiveVenueAreas(settings)
-    .map((area) => ({
-      name: area.name,
-      type: area.type || "Hizmet",
-      duration: area.capacity || "60 dk",
-      price: area.numericPrice || 0,
-      priceLabel: area.numericPrice ? formatPriceLabel(area.numericPrice) : "0",
-      paymentMode: area.paymentMode,
-      depositType: area.depositType,
-      depositValue: area.depositValue,
-    }))
+    .map((area) => {
+      const policy = resolveVenuePaymentPolicy(venueId, area.name);
+      return {
+        name: area.name,
+        type: area.type || "Hizmet",
+        duration: area.capacity || "60 dk",
+        price: area.numericPrice || 0,
+        priceLabel: area.numericPrice ? formatPriceLabel(area.numericPrice) : "0",
+        paymentMode: policy.paymentMode,
+        depositType: policy.depositType,
+        depositValue: policy.depositValue,
+      };
+    })
     .filter((area) => !isGenericServiceLabel(area.name));
 
   if (areaCatalog.length) return areaCatalog;
@@ -4237,14 +4249,14 @@ app.get("/api/reservations/billing-preview", (_req, res) => {
 
 app.get("/api/reservations/payment-options", (req, res) => {
   const totalAmount = Math.max(parseMoney(req.query.totalAmount || req.query.total || 0), 0);
-  const examples = [
-    PAYMENT_MODES.VENUE_PAYMENT,
-    PAYMENT_MODES.COMMISSION_DEPOSIT,
-    PAYMENT_MODES.FULL_ONLINE,
-  ].map((paymentMode) => calculateReservationBilling({ totalAmount, paymentMode }));
+  const availableModes = ONLINE_PAYMENTS_ENABLED
+    ? [PAYMENT_MODES.VENUE_PAYMENT, PAYMENT_MODES.COMMISSION_DEPOSIT, PAYMENT_MODES.FULL_ONLINE]
+    : [PAYMENT_MODES.VENUE_PAYMENT];
+  const examples = availableModes.map((paymentMode) => calculateReservationBilling({ totalAmount, paymentMode }));
 
   res.json({
     commissionRate: 0.07,
+    onlinePaymentsEnabled: ONLINE_PAYMENTS_ENABLED,
     totalAmount,
     options: examples,
   });
@@ -4261,6 +4273,7 @@ app.get("/api/reservations/payment-policy", (req, res) => {
     venueId,
     serviceName,
     commissionRate: 0.07,
+    onlinePaymentsEnabled: ONLINE_PAYMENTS_ENABLED,
     ...policy,
     paymentModeLabel: billing.paymentModeLabel,
     billing,

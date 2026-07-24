@@ -24,12 +24,12 @@
         <div class="checkout-title-block">
           <p class="eyebrow">Review and confirm</p>
           <h1>Rezervasyonunu onayla</h1>
-          <p class="checkout-intro">
+          <p class="checkout-intro" id="checkout-intro">
             Ödeme yöntemini seç, bilgilerini tamamla ve rezervasyonunu birkaç adımda bitir.
           </p>
         </div>
 
-        <section class="checkout-section checkout-choice-section">
+        <section class="checkout-section checkout-choice-section" id="checkout-choice-section">
           <h2>Ödeme seçeneği</h2>
           <div class="checkout-payment-choices" role="radiogroup" aria-label="Ödeme seçeneği">
             <button class="checkout-choice-card" id="checkout-choice-full" type="button" data-payment-choice="full">
@@ -51,7 +51,7 @@
           </div>
         </section>
 
-        <section class="checkout-section checkout-method-section">
+        <section class="checkout-section checkout-method-section" id="checkout-method-section">
           <h2>Ödeme yöntemi</h2>
 
           <div class="checkout-tabs" role="tablist" aria-label="Ödeme tipi">
@@ -130,7 +130,7 @@
           </div>
         </section>
 
-        <section class="checkout-section">
+        <section class="checkout-section" id="checkout-invoice-section">
           <h2>Fatura adresi</h2>
           <div class="checkout-address-row">
             <select>
@@ -185,7 +185,7 @@
           <span>İndirim ve avantajlar</span>
           <button class="checkout-promo" type="button">Ekle</button>
         </div>
-        <div class="checkout-pay-row">
+        <div class="checkout-pay-row" id="checkout-pay-row">
           <div>
             <strong>Şimdi öde</strong>
             <p id="checkout-pay-later-copy">Kalan tutarı tesiste ödersin</p>
@@ -195,7 +195,7 @@
             <span id="checkout-pay-later-amount">-</span>
           </div>
         </div>
-        <div class="checkout-timer">
+        <div class="checkout-timer" id="checkout-timer">
           <span>Kalan süre</span>
           <strong id="checkout-countdown">05:00</strong>
           <button type="button" id="checkout-extend">uzat</button>
@@ -205,6 +205,6 @@
       </aside>
     </main>
 
-    <script src="/checkout-page.js?v=20260630-checkout-account-1"></script>
+    <script src="/checkout-page.js?v=20260724-venue-payment-only-1"></script>
   </body>
 </html>
