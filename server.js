@@ -1066,12 +1066,12 @@ function restoreDogaAccountIdentity() {
   const overlay = getVenueOverlay(DOGA_VENUE_ID);
   const settings = overlay.settings || {};
   const hasLocation = Boolean(settings.location?.lat && settings.location?.lng);
-  if (settings.businessName === "Doğa Pet Kuaför" && hasLocation) return;
+  if (settings.businessName && hasLocation) return;
   saveVenueOverlay(DOGA_VENUE_ID, {
     ...overlay,
     settings: {
       ...settings,
-      businessName: "Doğa Pet Kuaför",
+      businessName: settings.businessName || "Doğa Pet Kuaför",
       contact: {
         ...(settings.contact || {}),
         email: normalizeEmail(user.email),
@@ -1132,7 +1132,6 @@ function removeSeededDemoData() {
 
 function seedUsers() {
   migrateLegacyUsers();
-  removeSeededDemoData();
   ensureSeedUser("admin@tyee.app", {
     name: "admin",
     password: "123456",
@@ -1151,8 +1150,6 @@ function seedUsers() {
     });
   }
 
-  removeNemoSeedImages();
-  restoreDogaServiceCatalog();
 }
 
 app.use(express.json({ limit: "16mb" }));
@@ -3899,8 +3896,8 @@ app.get("/api/bootstrap", (_req, res) => {
   const runtimeFeaturedListings = getRuntimeVenueListingsForSearch({ city: "istanbul" }).slice(0, 8);
   res.json({
     ...payload,
-    featuredListings: HIDE_PUBLIC_VENUES ? [] : mergeListingItems(runtimeFeaturedListings, payload.featuredListings),
-    hotSlots: HIDE_PUBLIC_VENUES ? [] : payload.hotSlots,
+    featuredListings: HIDE_PUBLIC_VENUES ? [] : runtimeFeaturedListings,
+    hotSlots: [],
     categories: withActiveVenueCategoryCounts(payload.categories || []),
     brand: {
       name: "tyee",
@@ -3923,19 +3920,12 @@ app.get("/api/listings", (req, res) => {
     return;
   }
 
-  const items = filterListings({
-    category: String(req.query.category || "all"),
-    city: String(req.query.city || "all"),
-    query: String(req.query.query || ""),
-    time: String(req.query.time || ""),
-  });
   const runtimeItems = getRuntimeVenueListingsForSearch({
     category: String(req.query.category || "all"),
     city: String(req.query.city || "all"),
     query: String(req.query.query || ""),
   });
-  const mergedItems = mergeListingItems(runtimeItems, items);
-  res.json({ total: mergedItems.length, items: mergedItems });
+  res.json({ total: runtimeItems.length, items: runtimeItems });
 });
 
 app.get("/api/listings/:id", (req, res) => {
@@ -4392,8 +4382,6 @@ function withActiveVenueCategoryCounts(categories = []) {
 
   const listings = mergeListingItems(
     getRuntimeVenueListingsForSearch({ city: "istanbul" }),
-    filterListings({ city: "istanbul" }),
-    filterListings({ city: "all" }),
   );
   const businessCounts = listings.reduce((totals, item) => {
     if (!item.category) return totals;
@@ -6117,16 +6105,24 @@ app.use((req, res, next) => {
 
 async function startServer() {
   await initializeRuntimeStore();
-  await recoverVenueFromRuntimeBackup({
+  await recoverVenueFromRuntimeHistory({
     venueId: "inkline-tattoo",
-    venueCommit: "7548903498c053e94ceda30d7254ebefd39f4a4c",
-    userCommit: "99c25a92cadc35ed0cd4b94fa877591c7f1f1bd7",
-    recoveryVersion: "2026-07-25-tattocu-direct-v4",
+    preferLargestGallery: true,
+    excludedGallerySources: [
+      "https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1400&q=82",
+    ],
+    recoveryVersion: "2026-07-25-tattocu-uploaded-gallery-v6",
   });
-  await recoverVenueFromRuntimeBackup({
+  await recoverVenueFromRuntimeHistory({
     venueId: DOGA_VENUE_ID,
-    venueCommit: "7548903498c053e94ceda30d7254ebefd39f4a4c",
-    recoveryVersion: "2026-07-25-doga-direct-v4",
+    preferLargestGallery: true,
+    excludedGallerySources: NEMO_DEFAULT_GALLERY.map((item) => getValidGallerySource(item)),
+    recoveryVersion: "2026-07-25-doga-uploaded-gallery-v6",
+  });
+  await recoverVenueFromRuntimeHistory({
+    venueId: "venue-c783cdbf-132e-4a7d-a374-c5e70796879d",
+    preferLargestGallery: true,
+    recoveryVersion: "2026-07-25-nemo-uploaded-gallery-v6",
   });
   seedUsers();
   migrateTattocuOwnerEmail();

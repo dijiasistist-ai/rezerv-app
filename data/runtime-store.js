@@ -164,10 +164,24 @@ async function getRuntimeBackupFile(config, filePath) {
   }
 }
 
+async function readRuntimeBackupContent(config, backupFile) {
+  if (backupFile?.content) {
+    return Buffer.from(String(backupFile.content).replace(/\s/g, ""), "base64").toString("utf8");
+  }
+  if (!backupFile?.download_url) return "";
+  const response = await fetch(backupFile.download_url, {
+    headers: runtimeBackupHeaders(config),
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub backup download failed (${response.status})`);
+  }
+  return response.text();
+}
+
 async function restoreRuntimeBackupFile(config, filePath) {
   const backupFile = await getRuntimeBackupFile(config, filePath);
-  if (!backupFile?.content) return false;
-  const encrypted = Buffer.from(String(backupFile.content).replace(/\s/g, ""), "base64").toString("utf8");
+  const encrypted = await readRuntimeBackupContent(config, backupFile);
+  if (!encrypted) return false;
   const decoded = decryptRuntimeBackup(encrypted, config);
   JSON.parse(decoded);
   ensureRuntimeDir();
@@ -262,7 +276,7 @@ async function recoverVenueFromRuntimeBackup({
       config,
       `/contents/${backupPath}?ref=${encodeURIComponent(commit)}`,
     );
-    const encrypted = Buffer.from(String(backupFile.content || "").replace(/\s/g, ""), "base64").toString("utf8");
+    const encrypted = await readRuntimeBackupContent(config, backupFile);
     return JSON.parse(decryptRuntimeBackup(encrypted, config));
   }
 
@@ -326,7 +340,7 @@ async function recoverVenueFromRuntimeHistory({
         config,
         `/contents/${backupPath}?ref=${encodeURIComponent(commit.sha)}`,
       );
-      const encrypted = Buffer.from(String(backupFile.content || "").replace(/\s/g, ""), "base64").toString("utf8");
+      const encrypted = await readRuntimeBackupContent(config, backupFile);
       const venues = JSON.parse(decryptRuntimeBackup(encrypted, config));
       const candidate = venues?.[id];
       if (!candidate) continue;
