@@ -937,27 +937,29 @@ function restoreTattocuBusinessName() {
   });
 }
 
-function logNemoAccountDiagnostic() {
+function repairNemoMarketplaceListing() {
   const user = findUserByEmail("huseyin.yildiz@hotmail.com.tr");
-  if (!user) {
-    console.log("[nemo-diagnostic] account=missing");
-    return;
-  }
+  if (!user?.canManageVenue) return;
   const venueId = getUserVenueId(user);
-  const settings = getVenueOverlay(venueId).settings || {};
-  const media = settings.media || {};
-  console.log(
-    "[nemo-diagnostic]",
-    JSON.stringify({
-      venueId,
-      canManageVenue: Boolean(user.canManageVenue),
-      businessName: settings.businessName || "",
-      galleryCount: Array.isArray(media.gallery) ? media.gallery.length : 0,
-      hasProfile: Boolean(media.profileUrl),
-      hasCover: Boolean(media.coverUrl),
-      hasLocation: Boolean(settings.location?.lat && settings.location?.lng),
-    }),
-  );
+  const overlay = getVenueOverlay(venueId);
+  const settings = overlay.settings || {};
+  if (settings.location?.lat && settings.location?.lng) return;
+  const legacyLocation = getVenueOverlay(DOGA_VENUE_ID).settings?.location;
+  if (!legacyLocation?.lat || !legacyLocation?.lng) return;
+  saveVenueOverlay(venueId, {
+    ...overlay,
+    settings: {
+      ...settings,
+      locationStatus: "Girilmiş",
+      location: {
+        ...legacyLocation,
+        ...(settings.location || {}),
+        lat: settings.location?.lat || legacyLocation.lat,
+        lng: settings.location?.lng || legacyLocation.lng,
+        address: settings.location?.address || legacyLocation.address || "",
+      },
+    },
+  });
 }
 
 function restoreDogaServiceCatalog() {
@@ -3953,10 +3955,12 @@ function getRuntimeVenueMapItems(origin) {
   if (HIDE_PUBLIC_VENUES) return [];
 
   const deletedVenueIds = new Set(getDeletedVenueIds());
+  const activeNemoVenueId = getUserVenueId(findUserByEmail("huseyin.yildiz@hotmail.com.tr"));
   return getUsers()
     .filter((user) => user.canManageVenue && !user.isAdmin)
     .map((user) => {
       const venueId = getUserVenueId(user);
+      if (venueId === DOGA_VENUE_ID && activeNemoVenueId && activeNemoVenueId !== DOGA_VENUE_ID) return null;
       if (deletedVenueIds.has(venueId)) return null;
       const overlay = getVenueOverlay(venueId);
       const settings = overlay.settings || {};
@@ -5918,7 +5922,7 @@ async function startServer() {
   });
   seedUsers();
   restoreTattocuBusinessName();
-  logNemoAccountDiagnostic();
+  repairNemoMarketplaceListing();
   app.listen(port, () => {
     console.log(`tyee local server: http://127.0.0.1:${port}`);
   });
