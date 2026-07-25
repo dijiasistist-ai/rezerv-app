@@ -969,6 +969,16 @@ function migrateTattocuOwnerEmail() {
   }
 }
 
+function setTattocuOwnerPassword() {
+  const user = findUserByEmail("huseyyil79@gmail.com");
+  if (!user || user._passwordMigrationVersion === "2026-07-25-tattocu-123456-v1") return;
+  upsertUser({
+    ...user,
+    passwordHash: hashPassword("123456"),
+    _passwordMigrationVersion: "2026-07-25-tattocu-123456-v1",
+  });
+}
+
 function repairNemoMarketplaceListing() {
   const user = findUserByEmail("huseyin.yildiz@hotmail.com.tr");
   if (!user?.canManageVenue) return;
@@ -5970,6 +5980,7 @@ async function startServer() {
   });
   seedUsers();
   migrateTattocuOwnerEmail();
+  setTattocuOwnerPassword();
   restoreTattocuBusinessName();
   restoreDogaAccountIdentity();
   repairNemoMarketplaceListing();
