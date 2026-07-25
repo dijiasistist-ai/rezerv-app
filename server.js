@@ -23,6 +23,7 @@ const {
   findUserByEmailVerificationToken,
   findUserById,
   getAdminAccessRules,
+  getAvaxPaperSnapshots,
   getDeletedVenueIds,
   getReservations,
   getReviews,
@@ -37,6 +38,7 @@ const {
   migrateLegacyUsers,
   normalizeEmail,
   saveVenueOverlay,
+  saveAvaxPaperSnapshots,
   upsertAdminAccessRule,
   upsertUser,
   updateReservation,
@@ -68,6 +70,8 @@ const SIMLI_AUDIO_SAMPLE_RATE = 16000;
 const SIMLI_AUDIO_CHUNK_BYTES = 6000;
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
 const VENUE_GALLERY_LIMIT = 6;
+const AVAX_PAPER_MAX_POINTS = 96 * 35;
+const AVAX_PAPER_STRATEGIES = new Set(["trend_breakout", "pullback_reclaim", "liquidity_sweep"]);
 const CALENDAR_SLOT_TIMES = [
   "08:00",
   "09:00",
@@ -100,7 +104,7 @@ app.use((req, res, next) => {
   if (allowedOrigin) {
     res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
     res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-AVAX-Ingest-Token");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   }
   if (req.method === "OPTIONS") {
@@ -1088,6 +1092,9 @@ const publicStaticFiles = new Set([
   "admin.css",
   "admin.html",
   "admin.js",
+  "avax-lab.css",
+  "avax-lab.html",
+  "avax-lab.js",
   "app.js",
   "checkout.html",
   "checkout-page.js",
@@ -1306,6 +1313,45 @@ function requireAdmin(req, res, next) {
   req.user = user;
   req.adminAccess = { local: isLocalDemoRequest(req), ipAddress: getClientIp(req) };
   next();
+}
+
+function secureStringEqual(left = "", right = "") {
+  const leftBuffer = Buffer.from(String(left));
+  const rightBuffer = Buffer.from(String(right));
+  return (
+    leftBuffer.length > 0 &&
+    leftBuffer.length === rightBuffer.length &&
+    crypto.timingSafeEqual(leftBuffer, rightBuffer)
+  );
+}
+
+function validAvaxPaperSnapshot(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const requiredNumbers = ["market_candle", "market_price", "started_at", "ends_at"];
+  if (!requiredNumbers.every((key) => Number.isFinite(Number(value[key])))) return false;
+  const strategies = value.strategies;
+  return (
+    strategies &&
+    typeof strategies === "object" &&
+    [...AVAX_PAPER_STRATEGIES].every((key) => strategies[key] && typeof strategies[key] === "object")
+  );
+}
+
+function saveAvaxPaperSnapshot(snapshot) {
+  const receivedAt = Date.now();
+  const stored = { ...snapshot, received_at: receivedAt };
+  const marketCandle = Number(stored.market_candle);
+  const snapshots = getAvaxPaperSnapshots();
+  const existingIndex = snapshots.findIndex((item) => Number(item.market_candle) === marketCandle);
+  if (existingIndex >= 0) {
+    snapshots[existingIndex] = stored;
+  } else {
+    snapshots.push(stored);
+  }
+  snapshots.sort((left, right) => Number(left.market_candle) - Number(right.market_candle));
+  const limited = snapshots.slice(-AVAX_PAPER_MAX_POINTS);
+  saveAvaxPaperSnapshots(limited);
+  return limited;
 }
 
 function createSession(user) {
@@ -5617,6 +5663,30 @@ app.post("/api/venue/billing-addresses", requireVenueAccess, (req, res) => {
 
 app.get("/api/admin/bootstrap", requireAdmin, (req, res) => {
   res.json(buildAdminBootstrap(req));
+});
+
+app.get("/api/admin/avax-dashboard", requireAdmin, (_req, res) => {
+  const history = getAvaxPaperSnapshots();
+  res.json({
+    generated_at: Date.now(),
+    latest: history.at(-1) || null,
+    history,
+  });
+});
+
+app.post("/api/snapshot", (req, res) => {
+  const configuredToken = String(process.env.AVAX_DASHBOARD_INGEST_TOKEN || "").trim();
+  const submittedToken = String(req.get("x-avax-ingest-token") || "").trim();
+  if (!configuredToken || !secureStringEqual(submittedToken, configuredToken)) {
+    res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
+    return;
+  }
+  if (!validAvaxPaperSnapshot(req.body)) {
+    res.status(400).json({ error: "Geçersiz AVAX snapshot verisi." });
+    return;
+  }
+  const history = saveAvaxPaperSnapshot(req.body);
+  res.status(202).json({ accepted: true, history_points: history.length });
 });
 
 app.get("/api/admin/search", requireAdmin, (req, res) => {

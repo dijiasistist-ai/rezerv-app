@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>AVAX Futures Laboratuvarı</title>
+  <link rel="stylesheet" href="/avax-lab.css">
+</head>
+<body>
+  <main class="shell">
+    <section id="dashboard">
+      <div class="topbar">
+        <div class="brand"><span class="brandMark">A</span><div><strong>AVAX LAB</strong><small>Futures paper terminal</small></div></div>
+        <div class="topActions"><span id="updated">Veri bekleniyor</span><a class="ghost backLink" href="/admin.html">← Admin paneli</a></div>
+      </div>
+
+      <section class="overview">
+        <article class="marketHero">
+          <div class="heroTop"><div><span class="eyebrow">AVAX / USDT Perpetual</span><div class="priceLine"><strong id="mainPrice">—</strong><span id="priceDelta">—</span></div><p>Binance Futures · Son tamamlanan 15 dakikalık mum</p></div><div id="status" class="status"><i></i><span>Veri bekleniyor</span></div></div>
+          <canvas id="priceSpark"></canvas>
+          <div id="marketFlow" class="flowGrid"></div>
+        </article>
+        <article class="summaryCard">
+          <span class="eyebrow">48 saatlik deney</span>
+          <div id="countdown" class="countdown">—</div>
+          <p id="experimentText">Başlangıç verisi bekleniyor</p>
+          <div class="progress"><i id="progressBar"></i></div>
+          <div class="summaryMetrics"><div><span>Aktif pozisyon</span><strong id="activePositions">0</strong></div><div><span>Toplam işlem</span><strong id="totalTrades">0</strong></div></div>
+        </article>
+        <article class="summaryCard leader">
+          <span class="eyebrow">Şu an önde</span>
+          <div id="leaderName" class="leaderName">Henüz yok</div>
+          <div id="leaderRoi" class="leaderRoi">0,00%</div>
+          <p id="leaderNote">Stratejilerin sonuçları eşit.</p>
+          <span class="notice">Kısa dönem lideri, kalıcı başarı anlamına gelmez.</span>
+        </article>
+      </section>
+
+      <div class="sectionHead">
+        <div><span class="eyebrow">Canlı sanal hesaplar</span><h2>Stratejiler ne yapıyor?</h2><p>Her kart aynı 1.000 USDT başlangıç bakiyesiyle bağımsız çalışır.</p></div>
+        <div class="ranges"><button data-days="1">24 saat</button><button data-days="7" class="active">7 gün</button><button data-days="30">30 gün</button></div>
+      </div>
+      <section id="cards" class="cards"></section>
+
+      <section class="primaryCharts">
+        <article class="panel marketPanel">
+          <div class="panelTitle"><div><span class="eyebrow">Fiyat ve risk haritası</span><h2>AVAX fiyatı · giriş / stop / hedef</h2></div><div id="strategySelector" class="selector"></div></div>
+          <canvas id="marketChart"></canvas>
+          <div class="chartKey"><span><i class="white"></i>AVAX</span><span><i class="blue"></i>Giriş</span><span><i class="red"></i>Stop</span><span><i class="green"></i>Hedef</span></div>
+        </article>
+        <article class="panel">
+          <div class="panelTitle"><div><span class="eyebrow">Net performans</span><h2>Cüzdan ROI eğrisi</h2><p>Spread ve komisyon düşülmüş toplam sonuç.</p></div><div class="legend"><span><i class="green"></i>Kırılım</span><span><i class="cyan"></i>Geri çekilme</span><span><i class="amber"></i>Likidite</span></div></div>
+          <canvas id="roiChart"></canvas>
+        </article>
+      </section>
+
+      <section class="secondaryCharts">
+        <article class="panel"><div class="panelTitle"><div><span class="eyebrow">İsabet kalitesi</span><h2>Başarı oranı</h2><p>Kapanan işlemlerin yüzde kaçı kârda?</p></div></div><canvas id="winChart"></canvas></article>
+        <article class="panel"><div class="panelTitle"><div><span class="eyebrow">Risk görünümü</span><h2>Maksimum düşüş</h2><p>Stratejinin gördüğü en kötü cüzdan gerilemesi.</p></div></div><canvas id="drawdownChart"></canvas></article>
+      </section>
+
+      <section class="bottomGrid">
+        <article class="panel">
+          <div class="panelTitle"><div><span class="eyebrow">Denetim izi</span><h2>Son kapanan işlemler</h2><p>Giriş, çıkış ve kapanma gerekçesi.</p></div></div>
+          <div id="trades" class="tableWrap"></div>
+        </article>
+        <article class="panel">
+          <div class="panelTitle"><div><span class="eyebrow">Dönem analizi</span><h2>Günlük / haftalık ROI</h2><p>Dönem başı ile sonu arasındaki net değişim.</p></div></div>
+          <div id="periods"></div>
+        </article>
+      </section>
+    </section>
+  </main>
+  <script src="/avax-lab.js"></script>
+</body>
+</html>
