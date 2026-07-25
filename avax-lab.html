@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="light">
   <title>AVAX Futures Laboratuvarı</title>
   <link rel="stylesheet" href="/internal/avax-lab.css">
 </head>
@@ -12,7 +12,14 @@
     <section id="dashboard">
       <div class="topbar">
         <div class="brand"><span class="brandMark">A</span><div><strong>AVAX LAB</strong><small>Futures paper terminal</small></div></div>
-        <div class="topActions"><span id="updated">Veri bekleniyor</span><a class="ghost backLink" href="/admin.html">← Admin paneli</a></div>
+        <div class="topActions">
+          <div id="botHealth" class="botHealth waiting" role="status" aria-live="polite">
+            <span class="botPulse"><i></i></span>
+            <span><strong id="botHealthLabel">BOT KONTROL EDİLİYOR</strong><small id="botHealthDetail">5 sn piyasa taraması</small></span>
+          </div>
+          <span id="updated">Veri bekleniyor</span>
+          <a class="ghost backLink" href="/admin.html">← Admin paneli</a>
+        </div>
       </div>
 
       <section class="overview">
@@ -38,11 +45,11 @@
                 "symbol": "BINANCE:AVAXUSDT",
                 "interval": "15",
                 "timezone": "Europe/Istanbul",
-                "theme": "dark",
+                "theme": "light",
                 "style": "1",
                 "locale": "tr",
-                "backgroundColor": "#07100e",
-                "gridColor": "rgba(82, 225, 160, 0.08)",
+                "backgroundColor": "#ffffff",
+                "gridColor": "rgba(30, 41, 59, 0.08)",
                 "allow_symbol_change": false,
                 "calendar": false,
                 "details": false,
