@@ -989,20 +989,37 @@ function repairNemoMarketplaceListing() {
   const venueId = getUserVenueId(user);
   const overlay = getVenueOverlay(venueId);
   const settings = overlay.settings || {};
-  if (settings.location?.lat && settings.location?.lng) return;
   const legacyLocation = getVenueOverlay(DOGA_VENUE_ID).settings?.location;
-  if (!legacyLocation?.lat || !legacyLocation?.lng) return;
+  const hasLocation = Boolean(settings.location?.lat && settings.location?.lng);
+  const needsBaseSettings = !settings.businessName;
+  if (!needsBaseSettings && hasLocation) return;
   saveVenueOverlay(venueId, {
     ...overlay,
     settings: {
       ...settings,
+      businessName: settings.businessName || "Nemo Pet Kuaför",
+      contact: {
+        ...(settings.contact || {}),
+        authorizedName: settings.contact?.authorizedName || user.name || "Hüseyin Yıldız",
+        email: normalizeEmail(user.email),
+      },
+      details: {
+        category: "Pet kuaför",
+        district: "Balmumcu",
+        description: "Kedi ve köpekler için bakım, banyo ve tıraş hizmetleri.",
+        ...(settings.details || {}),
+      },
+      areas: Array.isArray(settings.areas) && settings.areas.length ? settings.areas : DOGA_DEFAULT_SERVICE_AREAS,
       locationStatus: "Girilmiş",
       location: {
-        ...legacyLocation,
+        ...(legacyLocation || {}),
         ...(settings.location || {}),
-        lat: settings.location?.lat || legacyLocation.lat,
-        lng: settings.location?.lng || legacyLocation.lng,
-        address: settings.location?.address || legacyLocation.address || "",
+        lat: settings.location?.lat || legacyLocation?.lat || "41.075764",
+        lng: settings.location?.lng || legacyLocation?.lng || "29.019785",
+        address:
+          settings.location?.address ||
+          legacyLocation?.address ||
+          "Balmumcu Mah. Barbaros Bulvarı, Beşiktaş / İstanbul",
       },
     },
   });
@@ -6052,38 +6069,12 @@ async function startServer() {
     venueId: "inkline-tattoo",
     venueCommit: "7548903498c053e94ceda30d7254ebefd39f4a4c",
     userCommit: "99c25a92cadc35ed0cd4b94fa877591c7f1f1bd7",
-    recoveryVersion: "2026-07-25-tattocu-pre-delete-v2",
+    recoveryVersion: "2026-07-25-tattocu-direct-v4",
   });
   await recoverVenueFromRuntimeBackup({
     venueId: DOGA_VENUE_ID,
     venueCommit: "7548903498c053e94ceda30d7254ebefd39f4a4c",
-    recoveryVersion: "2026-07-25-doga-gallery-pre-delete-v1",
-  });
-  await recoverVenueFromRuntimeHistory({
-    venueId: "inkline-tattoo",
-    expectedName: "ronaldo",
-    recoveryVersion: "2026-07-25-tattocu-history-v1",
-  });
-  await recoverVenueFromRuntimeHistory({
-    venueId: DOGA_VENUE_ID,
-    preferLargestGallery: true,
-    excludedGallerySources: NEMO_DEFAULT_GALLERY.map((item) => getValidGallerySource(item)),
-    recoveryVersion: "2026-07-25-doga-uploaded-gallery-v2",
-  });
-  await recoverVenueFromRuntimeHistory({
-    venueId: "inkline-tattoo",
-    preferMostComplete: true,
-    recoveryVersion: "2026-07-25-tattocu-complete-v3",
-  });
-  await recoverVenueFromRuntimeHistory({
-    venueId: DOGA_VENUE_ID,
-    preferMostComplete: true,
-    recoveryVersion: "2026-07-25-doga-complete-v3",
-  });
-  await recoverVenueFromRuntimeHistory({
-    venueId: "venue-c783cdbf-132e-4a7d-a374-c5e70796879d",
-    preferMostComplete: true,
-    recoveryVersion: "2026-07-25-nemo-complete-v1",
+    recoveryVersion: "2026-07-25-doga-direct-v4",
   });
   seedUsers();
   migrateTattocuOwnerEmail();
