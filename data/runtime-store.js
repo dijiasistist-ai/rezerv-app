@@ -242,6 +242,51 @@ async function initializeRuntimeStore() {
   }
 }
 
+async function recoverVenueFromRuntimeBackup({
+  venueId,
+  venueCommit,
+  userCommit,
+}) {
+  const id = String(venueId || "").trim();
+  const config = getRuntimeBackupConfig();
+  if (!id || !config || getVenueOverlay(id).settings) return false;
+
+  async function readHistoricalFile(fileName, commit) {
+    const backupPath = runtimeBackupPath(config, path.join(runtimeDir, fileName));
+    const backupFile = await githubRequest(
+      config,
+      `/contents/${backupPath}?ref=${encodeURIComponent(commit)}`,
+    );
+    const encrypted = Buffer.from(String(backupFile.content || "").replace(/\s/g, ""), "base64").toString("utf8");
+    return JSON.parse(decryptRuntimeBackup(encrypted, config));
+  }
+
+  try {
+    const [historicalVenues, historicalUsers] = await Promise.all([
+      readHistoricalFile("venues.json", venueCommit),
+      readHistoricalFile("users.json", userCommit),
+    ]);
+    const venue = historicalVenues?.[id];
+    const user = Array.isArray(historicalUsers)
+      ? historicalUsers.find((item) => String(item?.venueId || "") === id)
+      : null;
+    if (!venue || !user) return false;
+
+    const venues = getVenues();
+    venues[id] = venue;
+    writeJson(venuesPath, venues);
+    const users = getUsers();
+    if (!users.some((item) => String(item?.venueId || "") === id)) {
+      saveUsers([user, ...users]);
+    }
+    console.log(`[runtime-backup] restored protected venue ${id} from history`);
+    return true;
+  } catch (error) {
+    console.warn(`[runtime-backup] protected venue recovery failed: ${error.message}`);
+    return false;
+  }
+}
+
 const bundledLegacyUsers = [
   {
     id: "d7aa7820-733b-4b72-8779-0b53604c0cf1",
@@ -657,6 +702,7 @@ module.exports = {
   getVenueOverlay,
   hashPassword,
   initializeRuntimeStore,
+  recoverVenueFromRuntimeBackup,
   normalizeEmail,
   migrateLegacyUsers,
   saveVenueOverlay,

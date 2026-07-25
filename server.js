@@ -32,6 +32,7 @@ const {
   getVenueOverlay,
   hashPassword,
   initializeRuntimeStore,
+  recoverVenueFromRuntimeBackup,
   migrateLegacyUsers,
   normalizeEmail,
   saveVenueOverlay,
@@ -481,7 +482,6 @@ const DOGA_DEFAULT_SERVICE_AREAS = [
 const SEEDED_DEMO_VENUE_IDS = [
   "mira-makeup-studio",
   "masa-34-restaurant",
-  "inkline-tattoo",
   "barber-republic",
   "kadikoy-prime-hali-saha",
   "tenislab-kort-hoca",
@@ -492,7 +492,6 @@ const SEEDED_DEMO_EMAILS = new Set([
   "firma@tyee.app",
   "mira@tyee.app",
   "masa34@tyee.app",
-  "inkline@tyee.app",
   "barber@tyee.app",
   "primefield@tyee.app",
   "tenislab@tyee.app",
@@ -899,6 +898,29 @@ function seedExistingNemoVenue() {
   });
 }
 
+function removeNemoSeedImages() {
+  const overlay = getVenueOverlay(DOGA_VENUE_ID);
+  const settings = overlay.settings || {};
+  const media = settings.media || {};
+  const seedSources = new Set(NEMO_DEFAULT_GALLERY.map((item) => getValidGallerySource(item)));
+  const gallery = (Array.isArray(media.gallery) ? media.gallery : []).filter(
+    (item) => !seedSources.has(getValidGallerySource(item)),
+  );
+  const coverUrl = seedSources.has(media.coverUrl) ? getValidGallerySource(gallery[0]) || "" : media.coverUrl || "";
+  if (gallery.length === (media.gallery || []).length && coverUrl === (media.coverUrl || "")) return;
+  saveVenueOverlay(DOGA_VENUE_ID, {
+    ...overlay,
+    settings: {
+      ...settings,
+      media: {
+        ...media,
+        coverUrl,
+        gallery,
+      },
+    },
+  });
+}
+
 function restoreDogaServiceCatalog() {
   const overlay = getVenueOverlay(DOGA_VENUE_ID);
   if (overlay._dogaServiceCatalogVersion === DOGA_SERVICE_CATALOG_VERSION) return;
@@ -955,6 +977,7 @@ function seedUsers() {
   }
 
   seedExistingNemoVenue();
+  removeNemoSeedImages();
   restoreDogaServiceCatalog();
 }
 
@@ -5832,6 +5855,11 @@ app.use((req, res, next) => {
 
 async function startServer() {
   await initializeRuntimeStore();
+  await recoverVenueFromRuntimeBackup({
+    venueId: "inkline-tattoo",
+    venueCommit: "875f22b4e72a66153cd5a7db9e9d4f01b93b1c91",
+    userCommit: "99c25a92cadc35ed0cd4b94fa877591c7f1f1bd7",
+  });
   seedUsers();
   app.listen(port, () => {
     console.log(`tyee local server: http://127.0.0.1:${port}`);
