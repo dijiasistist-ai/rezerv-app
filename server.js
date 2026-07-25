@@ -33,6 +33,7 @@ const {
   hashPassword,
   initializeRuntimeStore,
   recoverVenueFromRuntimeBackup,
+  recoverVenueFromRuntimeHistory,
   migrateLegacyUsers,
   normalizeEmail,
   saveVenueOverlay,
@@ -5865,6 +5866,16 @@ async function startServer() {
     venueId: DOGA_VENUE_ID,
     venueCommit: "7548903498c053e94ceda30d7254ebefd39f4a4c",
     recoveryVersion: "2026-07-25-doga-gallery-pre-delete-v1",
+  });
+  await recoverVenueFromRuntimeHistory({
+    venueId: "inkline-tattoo",
+    expectedName: "ronaldo",
+    recoveryVersion: "2026-07-25-tattocu-history-v1",
+  });
+  await recoverVenueFromRuntimeHistory({
+    venueId: DOGA_VENUE_ID,
+    preferLargestGallery: true,
+    recoveryVersion: "2026-07-25-doga-largest-gallery-v1",
   });
   seedUsers();
   app.listen(port, () => {

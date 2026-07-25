@@ -295,6 +295,66 @@ async function recoverVenueFromRuntimeBackup({
   }
 }
 
+async function recoverVenueFromRuntimeHistory({
+  venueId,
+  expectedName = "",
+  preferLargestGallery = false,
+  recoveryVersion,
+}) {
+  const id = String(venueId || "").trim();
+  const config = getRuntimeBackupConfig();
+  if (!id || !config) return false;
+  if (getVenueOverlay(id)._historicalRecoveryVersion === recoveryVersion) return false;
+
+  try {
+    const backupPath = runtimeBackupPath(config, path.join(runtimeDir, "venues.json"));
+    const commits = await githubRequest(
+      config,
+      `/commits?sha=${encodeURIComponent(config.branch)}&path=${encodeURIComponent(backupPath)}&per_page=40`,
+    );
+    let selected = null;
+    let selectedScore = -1;
+    const normalizedExpectedName = String(expectedName).trim().toLocaleLowerCase("tr-TR");
+
+    for (const commit of commits || []) {
+      const backupFile = await githubRequest(
+        config,
+        `/contents/${backupPath}?ref=${encodeURIComponent(commit.sha)}`,
+      );
+      const encrypted = Buffer.from(String(backupFile.content || "").replace(/\s/g, ""), "base64").toString("utf8");
+      const venues = JSON.parse(decryptRuntimeBackup(encrypted, config));
+      const candidate = venues?.[id];
+      if (!candidate) continue;
+      const businessName = String(candidate.settings?.businessName || "").toLocaleLowerCase("tr-TR");
+      const galleryCount = Array.isArray(candidate.settings?.media?.gallery)
+        ? candidate.settings.media.gallery.length
+        : 0;
+      if (normalizedExpectedName && businessName.includes(normalizedExpectedName)) {
+        selected = candidate;
+        break;
+      }
+      if (preferLargestGallery && galleryCount > selectedScore) {
+        selected = candidate;
+        selectedScore = galleryCount;
+        if (galleryCount >= 3) break;
+      }
+    }
+
+    if (!selected) return false;
+    const venues = getVenues();
+    venues[id] = {
+      ...selected,
+      _historicalRecoveryVersion: recoveryVersion,
+    };
+    writeJson(venuesPath, venues);
+    console.log(`[runtime-backup] restored ${id} from matching backup history`);
+    return true;
+  } catch (error) {
+    console.warn(`[runtime-backup] history recovery failed for ${id}: ${error.message}`);
+    return false;
+  }
+}
+
 const bundledLegacyUsers = [
   {
     id: "d7aa7820-733b-4b72-8779-0b53604c0cf1",
@@ -711,6 +771,7 @@ module.exports = {
   hashPassword,
   initializeRuntimeStore,
   recoverVenueFromRuntimeBackup,
+  recoverVenueFromRuntimeHistory,
   normalizeEmail,
   migrateLegacyUsers,
   saveVenueOverlay,
