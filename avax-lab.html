@@ -67,20 +67,31 @@
           </div>
           <div id="marketFlow" class="flowGrid"></div>
         </article>
-        <article class="summaryCard">
-          <span class="eyebrow">48 saatlik deney</span>
-          <div id="countdown" class="countdown">—</div>
-          <p id="experimentText">Başlangıç verisi bekleniyor</p>
-          <div class="progress"><i id="progressBar"></i></div>
-          <div class="summaryMetrics"><div><span>Aktif pozisyon</span><strong id="activePositions">0</strong></div><div><span>Toplam işlem</span><strong id="totalTrades">0</strong></div></div>
-        </article>
-        <article class="summaryCard leader">
-          <span class="eyebrow">Şu an önde</span>
-          <div id="leaderName" class="leaderName">Henüz yok</div>
-          <div id="leaderRoi" class="leaderRoi">0,00%</div>
-          <p id="leaderNote">Stratejilerin sonuçları eşit.</p>
-          <span class="notice">Kısa dönem lideri, kalıcı başarı anlamına gelmez.</span>
-        </article>
+        <aside class="overviewSide">
+          <article class="summaryCard">
+            <span class="eyebrow">48 saatlik deney</span>
+            <div id="countdown" class="countdown">—</div>
+            <p id="experimentText">Başlangıç verisi bekleniyor</p>
+            <div class="progress"><i id="progressBar"></i></div>
+            <div class="summaryMetrics"><div><span>Aktif pozisyon</span><strong id="activePositions">0</strong></div><div><span>Toplam işlem</span><strong id="totalTrades">0</strong></div></div>
+          </article>
+          <article class="summaryCard leader">
+            <span class="eyebrow">Şu an önde</span>
+            <div id="leaderName" class="leaderName">Henüz yok</div>
+            <div id="leaderRoi" class="leaderRoi">0,00%</div>
+            <p id="leaderNote">Stratejilerin sonuçları eşit.</p>
+            <span class="notice">Kısa dönem lideri, kalıcı başarı anlamına gelmez.</span>
+          </article>
+          <article class="summaryCard botRules">
+            <span class="eyebrow">Bot çalışma düzeni</span>
+            <div class="ruleGrid">
+              <div><strong>5 saniye</strong><span>Fiyat ve pozisyon kontrolü</span></div>
+              <div><strong>PAPER · 2x</strong><span>Canlı fiyat, sanal işlem</span></div>
+              <div><strong>%20</strong><span>Strateji başına sermaye</span></div>
+              <div><strong>Tek pozisyon</strong><span>Kapanmadan yenisi açılmaz</span></div>
+            </div>
+          </article>
+        </aside>
       </section>
 
       <div class="sectionHead">
