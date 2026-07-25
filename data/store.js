@@ -289,10 +289,6 @@ const hotSlots = [
 ];
 
 function getPublicListings() {
-  if (!marketplaceRecords.approvedBusinesses.length) {
-    return listings;
-  }
-
   return marketplaceRecords.approvedBusinesses.map((business) => ({
     id: business.id,
     name: business.name,
@@ -596,26 +592,7 @@ const venueDashboard = {
     identityNumber: "",
     birthDate: "",
   },
-  reviews: [
-    {
-      id: "review-demo-1",
-      author: "Ayşe K.",
-      rating: 5,
-      comment: "Rezervasyon saatinde başladı, tesis temizdi ve ekip ilgiliydi.",
-      date: "08.06.2026 17:20",
-      service: "Pet Kuaför",
-      status: "Yayınlandı",
-    },
-    {
-      id: "review-demo-2",
-      author: "Mert A.",
-      rating: 4,
-      comment: "Genel deneyim iyi geçti. Konum ve karşılama netti.",
-      date: "07.06.2026 21:45",
-      service: "Halı Saha",
-      status: "Yayınlandı",
-    },
-  ],
+  reviews: [],
   billingAddresses: [],
 };
 
@@ -914,7 +891,7 @@ function filterListings({ category = "all", city = "all", query = "", time = "",
 }
 
 function getListingById(id) {
-  const listing = [...getPublicListings(), ...listings].find((item) => item.id === id);
+  const listing = getPublicListings().find((item) => item.id === id);
   return listing ? enrichListing(listing) : null;
 }
 

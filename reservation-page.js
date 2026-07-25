@@ -502,39 +502,28 @@ function addHour(value) {
 }
 
 function renderReviews(listing) {
-  const sampleReviews = [
-    {
-      author: "M***** K*****",
-      body: "Saatinde başladık, ortam temizdi ve ekip ilgiliydi.",
-      date: "16 gün önce",
-      stars: "★★★★★",
-    },
-    {
-      author: "İ**** I****",
-      body: "Rezervasyon akışı hızlıydı. Konum ve karşılama netti, tekrar tercih ederiz.",
-      date: "2 ay önce",
-      stars: "★★★★★",
-    },
-    {
-      author: "S**** E****",
-      body: "Hizmet kalitesi iyi, fiyat ve müsaitlik bilgisi rezervasyon öncesi açık görünüyor.",
-      date: "2 ay önce",
-      stars: "★★★★☆",
-    },
-  ];
+  const reviewItems = Array.isArray(listing.reviewItems) ? listing.reviewItems : [];
+  reviewsTitle.textContent = `Yorumlar (${reviewItems.length})`;
+  if (!reviewItems.length) {
+    reviews.innerHTML = `
+      <div class="booking-empty-info">
+        Bu işletme için henüz yayınlanmış bir müşteri yorumu yok.
+      </div>
+    `;
+    return;
+  }
 
-  reviewsTitle.textContent = `Yorumlar (${listing.reviews || sampleReviews.length})`;
-  reviews.innerHTML = sampleReviews
+  reviews.innerHTML = reviewItems
     .map(
       (item) => `
         <article class="booking-review">
           <div>
             <strong>${escapeHtml(item.author)}</strong>
-            <p>${escapeHtml(item.body)}</p>
+            <p>${escapeHtml(item.comment)}</p>
           </div>
           <aside>
             <span>${escapeHtml(item.date)}</span>
-            <strong>${escapeHtml(item.stars)}</strong>
+            <strong>${"★".repeat(Number(item.rating || 0))}${"☆".repeat(Math.max(0, 5 - Number(item.rating || 0)))}</strong>
           </aside>
         </article>
       `,

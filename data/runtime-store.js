@@ -503,6 +503,16 @@ function getVenueOverlay(venueId) {
   return venues[venueId] || {};
 }
 
+function deleteVenueOverlay(venueId) {
+  const id = String(venueId || "").trim();
+  if (!id) return false;
+  const venues = getVenues();
+  if (!Object.prototype.hasOwnProperty.call(venues, id)) return false;
+  delete venues[id];
+  writeJson(venuesPath, venues);
+  return true;
+}
+
 function saveVenueOverlay(venueId, patch) {
   const venues = getVenues();
   venues[venueId] = {
@@ -598,6 +608,16 @@ function getReviews() {
   return readJson(reviewsPath, []);
 }
 
+function deleteReviewsByVenueIds(venueIds = []) {
+  const ids = new Set(venueIds.map((id) => String(id || "").trim()).filter(Boolean));
+  if (!ids.size) return 0;
+  const reviews = getReviews();
+  const nextReviews = reviews.filter((review) => !ids.has(String(review.venueId || "").trim()));
+  const deletedCount = reviews.length - nextReviews.length;
+  if (deletedCount) writeJson(reviewsPath, nextReviews);
+  return deletedCount;
+}
+
 function saveReviews(reviews) {
   writeJson(reviewsPath, reviews);
 }
@@ -620,7 +640,9 @@ module.exports = {
   appendDevEmail,
   appendDevSms,
   deleteAdminAccessRule,
+  deleteReviewsByVenueIds,
   deleteUserById,
+  deleteVenueOverlay,
   deleteVenueRecord,
   findUserByEmail,
   findUserByEmailVerificationToken,

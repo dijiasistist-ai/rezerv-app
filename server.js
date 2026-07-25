@@ -15,7 +15,9 @@ const {
   addReview,
   addReservation,
   deleteAdminAccessRule,
+  deleteReviewsByVenueIds,
   deleteUserById,
+  deleteVenueOverlay,
   deleteVenueRecord,
   findUserByEmail,
   findUserByEmailVerificationToken,
@@ -476,6 +478,26 @@ const DOGA_DEFAULT_SERVICE_AREAS = [
   { name: "Tırnak Kesimi", type: "Hızlı bakım", capacity: "1", price: "250", isActive: true },
   { name: "Kulak ve Göz Temizliği", type: "Hızlı bakım", capacity: "1", price: "300", isActive: true },
 ];
+const SEEDED_DEMO_VENUE_IDS = [
+  "mira-makeup-studio",
+  "masa-34-restaurant",
+  "inkline-tattoo",
+  "barber-republic",
+  "kadikoy-prime-hali-saha",
+  "tenislab-kort-hoca",
+  "flow-yoga-pilates",
+];
+const SEEDED_DEMO_EMAILS = new Set([
+  "demo@tyee.app",
+  "firma@tyee.app",
+  "mira@tyee.app",
+  "masa34@tyee.app",
+  "inkline@tyee.app",
+  "barber@tyee.app",
+  "primefield@tyee.app",
+  "tenislab@tyee.app",
+  "flow@tyee.app",
+]);
 const NEMO_DEFAULT_GALLERY = [
   {
     src: "/assets/pet-kuafor-grooming.png",
@@ -899,28 +921,21 @@ function restoreDogaServiceCatalog() {
   });
 }
 
+function removeSeededDemoData() {
+  getUsers()
+    .filter(
+      (user) =>
+        SEEDED_DEMO_EMAILS.has(normalizeEmail(user.email || "")) ||
+        SEEDED_DEMO_VENUE_IDS.includes(String(user.venueId || "")),
+    )
+    .forEach((user) => deleteUserById(user.id));
+  SEEDED_DEMO_VENUE_IDS.forEach((venueId) => deleteVenueOverlay(venueId));
+  deleteReviewsByVenueIds(SEEDED_DEMO_VENUE_IDS);
+}
+
 function seedUsers() {
   migrateLegacyUsers();
-  const demoVenueUser = ensureSeedUser("demo@tyee.app", { name: "Demo İşletme", password: "123456" });
-  upsertUser({
-    ...demoVenueUser,
-    name: "Demo İşletme",
-    email: "demo@tyee.app",
-    passwordHash: hashPassword("123456"),
-    canManageVenue: true,
-    isAdmin: false,
-    venueId: "mira-makeup-studio",
-    emailVerified: true,
-    phoneVerified: true,
-    emailVerificationToken: "",
-    phoneVerificationCode: "",
-    passwordResetToken: "",
-  });
-  ensureSeedUser("firma@tyee.app", {
-    name: "Zincirlikuyu Arena",
-    password: "123456",
-    canManageVenue: true,
-  });
+  removeSeededDemoData();
   ensureSeedUser("admin@tyee.app", {
     name: "admin",
     password: "123456",
@@ -939,7 +954,6 @@ function seedUsers() {
     });
   }
 
-  seedDemoVenues();
   seedExistingNemoVenue();
   restoreDogaServiceCatalog();
 }
@@ -3944,6 +3958,19 @@ function getRuntimeVenueListingById(id) {
   const item = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).find((venue) => venue.id === id);
   if (!item) return null;
   const listingPrice = item.price || Number(String(item.priceLabel || "0").replace(/[^\d]/g, "")) || 1000;
+  const reviewItems = getReviewsForVenue(item.id)
+    .filter((review) => String(review.status || "Yayınlandı") === "Yayınlandı")
+    .map((review) => ({
+      id: review.id,
+      author: String(review.customerName || review.author || "Müşteri").trim(),
+      rating: Math.min(5, Math.max(1, Number(review.rating || 0))),
+      comment: String(review.comment || "").trim(),
+      date: review.createdAt ? formatDateTimeTr(review.createdAt) : String(review.date || ""),
+      service: review.serviceLabel || review.categoryLabel || review.service || "Rezervasyon",
+    }));
+  const averageRating = reviewItems.length
+    ? reviewItems.reduce((total, review) => total + review.rating, 0) / reviewItems.length
+    : 0;
 
   return {
     id: item.id,
@@ -3953,8 +3980,9 @@ function getRuntimeVenueListingById(id) {
     categoryLabel: item.categoryLabel,
     city: "istanbul",
     cityLabel: item.cityLabel || "İstanbul",
-    rating: 4.8,
-    reviews: 0,
+    rating: averageRating ? Number(averageRating.toFixed(1)) : 0,
+    reviews: reviewItems.length,
+    reviewItems,
     distance: item.distanceLabel || "",
     price: listingPrice,
     priceUnit: item.priceUnit || "hizmet",
