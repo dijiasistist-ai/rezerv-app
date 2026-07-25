@@ -299,6 +299,7 @@ async function recoverVenueFromRuntimeHistory({
   venueId,
   expectedName = "",
   preferLargestGallery = false,
+  excludedGallerySources = [],
   recoveryVersion,
 }) {
   const id = String(venueId || "").trim();
@@ -314,6 +315,7 @@ async function recoverVenueFromRuntimeHistory({
     );
     let selected = null;
     let selectedScore = -1;
+    const excludedSources = new Set(excludedGallerySources.map((source) => String(source || "")));
     const normalizedExpectedName = String(expectedName).trim().toLocaleLowerCase("tr-TR");
 
     for (const commit of commits || []) {
@@ -326,9 +328,10 @@ async function recoverVenueFromRuntimeHistory({
       const candidate = venues?.[id];
       if (!candidate) continue;
       const businessName = String(candidate.settings?.businessName || "").toLocaleLowerCase("tr-TR");
-      const galleryCount = Array.isArray(candidate.settings?.media?.gallery)
-        ? candidate.settings.media.gallery.length
-        : 0;
+      const galleryCount = (Array.isArray(candidate.settings?.media?.gallery)
+        ? candidate.settings.media.gallery
+        : []
+      ).filter((item) => !excludedSources.has(String(typeof item === "string" ? item : item?.src || ""))).length;
       if (normalizedExpectedName && businessName.includes(normalizedExpectedName)) {
         selected = candidate;
         break;

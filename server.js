@@ -922,6 +922,21 @@ function removeNemoSeedImages() {
   });
 }
 
+function restoreTattocuBusinessName() {
+  const venueId = "inkline-tattoo";
+  const overlay = getVenueOverlay(venueId);
+  if (!overlay.settings) return;
+  const currentName = normalizeSearchText(overlay.settings.businessName || "");
+  if (currentName && currentName !== "inkline tattoo studio") return;
+  saveVenueOverlay(venueId, {
+    ...overlay,
+    settings: {
+      ...overlay.settings,
+      businessName: "Tattocu Ronaldo",
+    },
+  });
+}
+
 function restoreDogaServiceCatalog() {
   const overlay = getVenueOverlay(DOGA_VENUE_ID);
   if (overlay._dogaServiceCatalogVersion === DOGA_SERVICE_CATALOG_VERSION) return;
@@ -5875,9 +5890,11 @@ async function startServer() {
   await recoverVenueFromRuntimeHistory({
     venueId: DOGA_VENUE_ID,
     preferLargestGallery: true,
-    recoveryVersion: "2026-07-25-doga-largest-gallery-v1",
+    excludedGallerySources: NEMO_DEFAULT_GALLERY.map((item) => getValidGallerySource(item)),
+    recoveryVersion: "2026-07-25-doga-uploaded-gallery-v2",
   });
   seedUsers();
+  restoreTattocuBusinessName();
   app.listen(port, () => {
     console.log(`tyee local server: http://127.0.0.1:${port}`);
   });
