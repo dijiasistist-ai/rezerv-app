@@ -927,7 +927,7 @@ function restoreTattocuBusinessName() {
   const overlay = getVenueOverlay(venueId);
   if (!overlay.settings) return;
   const currentName = normalizeSearchText(overlay.settings.businessName || "");
-  if (currentName && currentName !== "inkline tattoo studio") return;
+  if (currentName && !currentName.includes("inkline")) return;
   saveVenueOverlay(venueId, {
     ...overlay,
     settings: {
