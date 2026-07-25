@@ -1214,13 +1214,7 @@ function getInitials(value = "") {
 
 function getVenueProfileImage(settings = {}) {
   const media = settings.media || {};
-  const gallery = Array.isArray(media.gallery) ? media.gallery : [];
-  return (
-    getSafeMediaUrl(media.profileUrl) ||
-    getSafeMediaUrl(media.logoUrl) ||
-    getSafeMediaUrl(media.coverUrl) ||
-    getSafeMediaUrl(gallery.find((item) => item?.src)?.src)
-  );
+  return getSafeMediaUrl(media.profileUrl);
 }
 
 function renderAvatarNode(node, label, imageUrl = "") {
@@ -5842,14 +5836,6 @@ function bindVenueInteractions() {
       const nextImages = await Promise.all(
         files.map((file, index) => imageFileToGalleryItem(file, settings.media.gallery.length + index)),
       );
-      if (!settings.media.profileUrl && nextImages[0]?.src) {
-        const firstFile = files[0];
-        const profileImage = firstFile ? await imageFileToProfileItem(firstFile) : null;
-        if (profileImage) {
-          settings.media.profileUrl = profileImage.src;
-          settings.media.profileImage = profileImage;
-        }
-      }
       settings.media.gallery = normalizeMediaGallery([...settings.media.gallery, ...nextImages]);
       venueState.dashboard.settings = settings;
       renderVenueIdentity();

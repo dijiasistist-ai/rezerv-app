@@ -3799,12 +3799,7 @@ function getSafeMediaUrl(value = "") {
 function getVenueMediaUrl(settings = {}) {
   const media = settings.media || {};
   const gallery = getVenueGallery(settings);
-  return (
-    gallery[0]?.src ||
-    getSafeMediaUrl(media.coverUrl) ||
-    getSafeMediaUrl(media.profileUrl) ||
-    getSafeMediaUrl(media.logoUrl)
-  );
+  return gallery[0]?.src || getSafeMediaUrl(media.coverUrl);
 }
 
 function getVenueGallery(settings = {}) {
@@ -3833,8 +3828,6 @@ function getVenueGallery(settings = {}) {
   });
   if (!items.length) {
     addItem({ src: media.coverUrl, role: "Kapak" }, "Kapak");
-    addItem({ src: media.profileUrl, role: "Profil" }, "Profil");
-    addItem({ src: media.logoUrl, role: "Logo" }, "Logo");
   }
 
   return items.slice(0, VENUE_GALLERY_LIMIT);
