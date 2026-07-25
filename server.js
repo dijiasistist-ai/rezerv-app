@@ -929,14 +929,49 @@ function removeNemoSeedImages() {
 function restoreTattocuBusinessName() {
   const venueId = "inkline-tattoo";
   const overlay = getVenueOverlay(venueId);
-  if (!overlay.settings) return;
-  const currentName = String(overlay.settings.businessName || "").trim();
-  if (currentName && !/^inkline\b/i.test(currentName)) return;
+  const settings = overlay.settings || {};
+  const currentName = String(settings.businessName || "").trim();
+  const hasLocation = Boolean(settings.location?.lat && settings.location?.lng);
+  if (currentName && !/^inkline\b/i.test(currentName) && hasLocation) return;
   saveVenueOverlay(venueId, {
     ...overlay,
     settings: {
-      ...overlay.settings,
+      ...settings,
       businessName: "Tattocu Ronaldo",
+      contact: {
+        ...(settings.contact || {}),
+        authorizedName: settings.contact?.authorizedName || "Tattocu Ronaldo",
+        email: "huseyyil79@gmail.com",
+      },
+      details: {
+        category: "Dövmeci",
+        district: "Beşiktaş",
+        description: "Fine line, minimal dövme ve kişiye özel tattoo seansları.",
+        ...(settings.details || {}),
+      },
+      locationStatus: "Girilmiş",
+      location: {
+        ...(settings.location || {}),
+        address:
+          settings.location?.address ||
+          "Sinanpaşa Mah. Şair Nedim Cad. No: 21, Beşiktaş / İstanbul",
+        lat: settings.location?.lat || "41.0431",
+        lng: settings.location?.lng || "29.0056",
+      },
+      media: {
+        logoUrl: "",
+        coverUrl: "https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?auto=format&fit=crop&w=1400&q=82",
+        gallery: [],
+        ...(settings.media || {}),
+      },
+      areas:
+        Array.isArray(settings.areas) && settings.areas.length
+          ? settings.areas
+          : [
+              { name: "Ön Görüşme", type: "Danışmanlık", capacity: "1", price: "300", isActive: true },
+              { name: "Minimal Tattoo", type: "Dövme", capacity: "1", price: "1500", isActive: true },
+              { name: "Fine Line Seans", type: "Dövme", capacity: "1", price: "2800", isActive: true },
+            ],
     },
   });
 }
@@ -1030,7 +1065,8 @@ function restoreDogaAccountIdentity() {
   if (!user?.canManageVenue || getUserVenueId(user) !== DOGA_VENUE_ID) return;
   const overlay = getVenueOverlay(DOGA_VENUE_ID);
   const settings = overlay.settings || {};
-  if (settings.businessName === "Doğa Pet Kuaför") return;
+  const hasLocation = Boolean(settings.location?.lat && settings.location?.lng);
+  if (settings.businessName === "Doğa Pet Kuaför" && hasLocation) return;
   saveVenueOverlay(DOGA_VENUE_ID, {
     ...overlay,
     settings: {
@@ -1040,6 +1076,22 @@ function restoreDogaAccountIdentity() {
         ...(settings.contact || {}),
         email: normalizeEmail(user.email),
       },
+      details: {
+        category: "Pet kuaför",
+        district: "Balmumcu",
+        description: "Kedi ve köpekler için bakım, banyo, tıraş ve tırnak hizmetleri.",
+        ...(settings.details || {}),
+      },
+      locationStatus: "Girilmiş",
+      location: {
+        ...(settings.location || {}),
+        address:
+          settings.location?.address ||
+          "Balmumcu Mah. Barbaros Bulvarı No: 42, Beşiktaş / İstanbul",
+        lat: settings.location?.lat || "41.075764",
+        lng: settings.location?.lng || "29.019785",
+      },
+      areas: Array.isArray(settings.areas) && settings.areas.length ? settings.areas : DOGA_DEFAULT_SERVICE_AREAS,
     },
   });
 }
