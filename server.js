@@ -5857,8 +5857,14 @@ async function startServer() {
   await initializeRuntimeStore();
   await recoverVenueFromRuntimeBackup({
     venueId: "inkline-tattoo",
-    venueCommit: "875f22b4e72a66153cd5a7db9e9d4f01b93b1c91",
+    venueCommit: "7548903498c053e94ceda30d7254ebefd39f4a4c",
     userCommit: "99c25a92cadc35ed0cd4b94fa877591c7f1f1bd7",
+    recoveryVersion: "2026-07-25-tattocu-pre-delete-v2",
+  });
+  await recoverVenueFromRuntimeBackup({
+    venueId: DOGA_VENUE_ID,
+    venueCommit: "7548903498c053e94ceda30d7254ebefd39f4a4c",
+    recoveryVersion: "2026-07-25-doga-gallery-pre-delete-v1",
   });
   seedUsers();
   app.listen(port, () => {

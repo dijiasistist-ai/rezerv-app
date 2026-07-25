@@ -246,10 +246,13 @@ async function recoverVenueFromRuntimeBackup({
   venueId,
   venueCommit,
   userCommit,
+  recoveryVersion,
 }) {
   const id = String(venueId || "").trim();
   const config = getRuntimeBackupConfig();
-  if (!id || !config || getVenueOverlay(id).settings) return false;
+  if (!id || !config) return false;
+  const existingVenue = getVenueOverlay(id);
+  if (recoveryVersion && existingVenue._historicalRecoveryVersion === recoveryVersion) return false;
 
   async function readHistoricalFile(fileName, commit) {
     const backupPath = runtimeBackupPath(config, path.join(runtimeDir, fileName));
@@ -264,20 +267,25 @@ async function recoverVenueFromRuntimeBackup({
   try {
     const [historicalVenues, historicalUsers] = await Promise.all([
       readHistoricalFile("venues.json", venueCommit),
-      readHistoricalFile("users.json", userCommit),
+      userCommit ? readHistoricalFile("users.json", userCommit) : Promise.resolve([]),
     ]);
     const venue = historicalVenues?.[id];
     const user = Array.isArray(historicalUsers)
       ? historicalUsers.find((item) => String(item?.venueId || "") === id)
       : null;
-    if (!venue || !user) return false;
+    if (!venue || (userCommit && !user)) return false;
 
     const venues = getVenues();
-    venues[id] = venue;
+    venues[id] = {
+      ...venue,
+      ...(recoveryVersion ? { _historicalRecoveryVersion: recoveryVersion } : {}),
+    };
     writeJson(venuesPath, venues);
-    const users = getUsers();
-    if (!users.some((item) => String(item?.venueId || "") === id)) {
-      saveUsers([user, ...users]);
+    if (user) {
+      const users = getUsers();
+      if (!users.some((item) => String(item?.venueId || "") === id)) {
+        saveUsers([user, ...users]);
+      }
     }
     console.log(`[runtime-backup] restored protected venue ${id} from history`);
     return true;
