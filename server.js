@@ -937,6 +937,38 @@ function restoreTattocuBusinessName() {
   });
 }
 
+function migrateTattocuOwnerEmail() {
+  const nextEmail = "huseyyil79@gmail.com";
+  const owner = getUsers().find((user) => getUserVenueId(user) === "inkline-tattoo");
+  if (!owner) return;
+  const existingTarget = findUserByEmail(nextEmail);
+  if (existingTarget && existingTarget.id !== owner.id) {
+    console.warn("[tattocu-migration] target email already belongs to another account");
+    return;
+  }
+  if (normalizeEmail(owner.email) !== nextEmail) {
+    upsertUser({
+      ...owner,
+      email: nextEmail,
+      emailVerified: true,
+    });
+  }
+  const overlay = getVenueOverlay("inkline-tattoo");
+  const settings = overlay.settings || {};
+  if (normalizeEmail(settings.contact?.email || "") !== nextEmail) {
+    saveVenueOverlay("inkline-tattoo", {
+      ...overlay,
+      settings: {
+        ...settings,
+        contact: {
+          ...(settings.contact || {}),
+          email: nextEmail,
+        },
+      },
+    });
+  }
+}
+
 function repairNemoMarketplaceListing() {
   const user = findUserByEmail("huseyin.yildiz@hotmail.com.tr");
   if (!user?.canManageVenue) return;
@@ -5937,6 +5969,7 @@ async function startServer() {
     recoveryVersion: "2026-07-25-doga-uploaded-gallery-v2",
   });
   seedUsers();
+  migrateTattocuOwnerEmail();
   restoreTattocuBusinessName();
   restoreDogaAccountIdentity();
   repairNemoMarketplaceListing();
