@@ -937,6 +937,29 @@ function restoreTattocuBusinessName() {
   });
 }
 
+function logNemoAccountDiagnostic() {
+  const user = findUserByEmail("huseyin.yildiz@hotmail.com.tr");
+  if (!user) {
+    console.log("[nemo-diagnostic] account=missing");
+    return;
+  }
+  const venueId = getUserVenueId(user);
+  const settings = getVenueOverlay(venueId).settings || {};
+  const media = settings.media || {};
+  console.log(
+    "[nemo-diagnostic]",
+    JSON.stringify({
+      venueId,
+      canManageVenue: Boolean(user.canManageVenue),
+      businessName: settings.businessName || "",
+      galleryCount: Array.isArray(media.gallery) ? media.gallery.length : 0,
+      hasProfile: Boolean(media.profileUrl),
+      hasCover: Boolean(media.coverUrl),
+      hasLocation: Boolean(settings.location?.lat && settings.location?.lng),
+    }),
+  );
+}
+
 function restoreDogaServiceCatalog() {
   const overlay = getVenueOverlay(DOGA_VENUE_ID);
   if (overlay._dogaServiceCatalogVersion === DOGA_SERVICE_CATALOG_VERSION) return;
@@ -5895,6 +5918,7 @@ async function startServer() {
   });
   seedUsers();
   restoreTattocuBusinessName();
+  logNemoAccountDiagnostic();
   app.listen(port, () => {
     console.log(`tyee local server: http://127.0.0.1:${port}`);
   });
