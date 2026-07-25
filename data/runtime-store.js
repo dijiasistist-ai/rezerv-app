@@ -301,6 +301,7 @@ async function recoverVenueFromRuntimeHistory({
   venueId,
   expectedName = "",
   preferLargestGallery = false,
+  preferMostComplete = false,
   excludedGallerySources = [],
   recoveryVersion,
 }) {
@@ -334,6 +335,16 @@ async function recoverVenueFromRuntimeHistory({
         ? candidate.settings.media.gallery
         : []
       ).filter((item) => !excludedSources.has(String(typeof item === "string" ? item : item?.src || ""))).length;
+      const completenessScore =
+        (candidate.settings?.businessName ? 5 : 0) +
+        (candidate.settings?.location?.lat && candidate.settings?.location?.lng ? 20 : 0) +
+        galleryCount * 3 +
+        (Array.isArray(candidate.settings?.areas) ? candidate.settings.areas.length : 0);
+      if (preferMostComplete && completenessScore > selectedScore) {
+        selected = candidate;
+        selectedScore = completenessScore;
+        continue;
+      }
       if (normalizedExpectedName && businessName.includes(normalizedExpectedName)) {
         selected = candidate;
         break;

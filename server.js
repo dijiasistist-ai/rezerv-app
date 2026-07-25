@@ -4463,7 +4463,7 @@ app.get("/api/nearby", (req, res) => {
 
   const payload = getNearbyMapPayload(origin);
   const runtimeItems = getRuntimeVenueMapItems(payload.origin);
-  const sourceItems = runtimeItems.length ? runtimeItems : payload.items;
+  const sourceItems = runtimeItems;
   const byKey = new Map();
 
   sourceItems.forEach((item) => {
@@ -6069,6 +6069,21 @@ async function startServer() {
     preferLargestGallery: true,
     excludedGallerySources: NEMO_DEFAULT_GALLERY.map((item) => getValidGallerySource(item)),
     recoveryVersion: "2026-07-25-doga-uploaded-gallery-v2",
+  });
+  await recoverVenueFromRuntimeHistory({
+    venueId: "inkline-tattoo",
+    preferMostComplete: true,
+    recoveryVersion: "2026-07-25-tattocu-complete-v3",
+  });
+  await recoverVenueFromRuntimeHistory({
+    venueId: DOGA_VENUE_ID,
+    preferMostComplete: true,
+    recoveryVersion: "2026-07-25-doga-complete-v3",
+  });
+  await recoverVenueFromRuntimeHistory({
+    venueId: "venue-c783cdbf-132e-4a7d-a374-c5e70796879d",
+    preferMostComplete: true,
+    recoveryVersion: "2026-07-25-nemo-complete-v1",
   });
   seedUsers();
   migrateTattocuOwnerEmail();
