@@ -926,8 +926,8 @@ function restoreTattocuBusinessName() {
   const venueId = "inkline-tattoo";
   const overlay = getVenueOverlay(venueId);
   if (!overlay.settings) return;
-  const currentName = normalizeSearchText(overlay.settings.businessName || "");
-  if (currentName && !currentName.includes("inkline")) return;
+  const currentName = String(overlay.settings.businessName || "").trim();
+  if (currentName && !/^inkline\b/i.test(currentName)) return;
   saveVenueOverlay(venueId, {
     ...overlay,
     settings: {
