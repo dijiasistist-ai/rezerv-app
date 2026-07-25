@@ -962,6 +962,25 @@ function repairNemoMarketplaceListing() {
   });
 }
 
+function restoreDogaAccountIdentity() {
+  const user = findUserByEmail("hysnyildiz@gmail.com");
+  if (!user?.canManageVenue || getUserVenueId(user) !== DOGA_VENUE_ID) return;
+  const overlay = getVenueOverlay(DOGA_VENUE_ID);
+  const settings = overlay.settings || {};
+  if (settings.businessName === "Doğa Pet Kuaför") return;
+  saveVenueOverlay(DOGA_VENUE_ID, {
+    ...overlay,
+    settings: {
+      ...settings,
+      businessName: "Doğa Pet Kuaför",
+      contact: {
+        ...(settings.contact || {}),
+        email: normalizeEmail(user.email),
+      },
+    },
+  });
+}
+
 function restoreDogaServiceCatalog() {
   const overlay = getVenueOverlay(DOGA_VENUE_ID);
   if (overlay._dogaServiceCatalogVersion === DOGA_SERVICE_CATALOG_VERSION) return;
@@ -1017,7 +1036,6 @@ function seedUsers() {
     });
   }
 
-  seedExistingNemoVenue();
   removeNemoSeedImages();
   restoreDogaServiceCatalog();
 }
@@ -3955,12 +3973,10 @@ function getRuntimeVenueMapItems(origin) {
   if (HIDE_PUBLIC_VENUES) return [];
 
   const deletedVenueIds = new Set(getDeletedVenueIds());
-  const activeNemoVenueId = getUserVenueId(findUserByEmail("huseyin.yildiz@hotmail.com.tr"));
   return getUsers()
     .filter((user) => user.canManageVenue && !user.isAdmin)
     .map((user) => {
       const venueId = getUserVenueId(user);
-      if (venueId === DOGA_VENUE_ID && activeNemoVenueId && activeNemoVenueId !== DOGA_VENUE_ID) return null;
       if (deletedVenueIds.has(venueId)) return null;
       const overlay = getVenueOverlay(venueId);
       const settings = overlay.settings || {};
@@ -5922,6 +5938,7 @@ async function startServer() {
   });
   seedUsers();
   restoreTattocuBusinessName();
+  restoreDogaAccountIdentity();
   repairNemoMarketplaceListing();
   app.listen(port, () => {
     console.log(`tyee local server: http://127.0.0.1:${port}`);
