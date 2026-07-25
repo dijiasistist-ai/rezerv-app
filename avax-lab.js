@@ -15,7 +15,7 @@
   function history(){var cutoff=Date.now()-days*86400000;return(data.history||[]).filter(function(x){return Number(x.market_candle)>=cutoff})}
   function render(){
     if(!data||!data.latest){e("cards").innerHTML='<article class="panel empty" style="grid-column:1/-1">Bot verisi bekleniyor. Render bağlantısı kurulduğunda panel otomatik dolacak.</article>';return}
-    overview();cards();selectors();var h=history();spark(h);marketChart(h);multiChart("roiChart",h,"wallet_roi_pct",false);multiChart("winChart",h,"win_rate_pct",false);multiChart("drawdownChart",h,"max_drawdown_pct",true);trades(data.latest);periods(data.history||[]);
+    overview();cards();selectors();var h=history();marketChart(h);multiChart("roiChart",h,"wallet_roi_pct",false);multiChart("winChart",h,"win_rate_pct",false);multiChart("drawdownChart",h,"max_drawdown_pct",true);trades(data.latest);periods(data.history||[]);
   }
   function overview(){
     var q=data.latest,age=Date.now()-Number(q.received_at||0),live=age<20*60*1000,rows=q.strategies||{},keys=Object.keys(labels);

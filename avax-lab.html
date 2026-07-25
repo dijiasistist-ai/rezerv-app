@@ -17,8 +17,47 @@
 
       <section class="overview">
         <article class="marketHero">
-          <div class="heroTop"><div><span class="eyebrow">AVAX / USDT Perpetual</span><div class="priceLine"><strong id="mainPrice">—</strong><span id="priceDelta">—</span></div><p>Binance Futures · Son tamamlanan 15 dakikalık mum</p></div><div id="status" class="status"><i></i><span>Veri bekleniyor</span></div></div>
-          <canvas id="priceSpark"></canvas>
+          <div class="heroTop">
+            <div>
+              <span class="eyebrow">AVAX / USDT Perpetual</span>
+              <div class="priceLine"><strong id="mainPrice">—</strong><span id="priceDelta">—</span></div>
+              <p>Binance Futures · TradingView 15 dakikalık canlı grafik</p>
+            </div>
+            <div id="status" class="status"><i></i><span>Veri bekleniyor</span></div>
+          </div>
+          <div class="tradingviewFrame" aria-label="TradingView AVAX USDT canlı fiyat grafiği">
+            <div class="tradingview-widget-container">
+              <div class="tradingview-widget-container__widget"></div>
+              <div class="tradingview-widget-copyright">
+                <a href="https://www.tradingview.com/symbols/AVAXUSDT/" rel="noopener nofollow" target="_blank"><span>AVAXUSDT grafiği</span></a>
+                <span> TradingView tarafından</span>
+              </div>
+              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+              {
+                "autosize": true,
+                "symbol": "BINANCE:AVAXUSDT",
+                "interval": "15",
+                "timezone": "Europe/Istanbul",
+                "theme": "dark",
+                "style": "1",
+                "locale": "tr",
+                "backgroundColor": "#07100e",
+                "gridColor": "rgba(82, 225, 160, 0.08)",
+                "allow_symbol_change": false,
+                "calendar": false,
+                "details": false,
+                "hide_legend": false,
+                "hide_side_toolbar": true,
+                "hide_top_toolbar": false,
+                "hide_volume": false,
+                "hotlist": false,
+                "save_image": false,
+                "withdateranges": true,
+                "support_host": "https://www.tradingview.com"
+              }
+              </script>
+            </div>
+          </div>
           <div id="marketFlow" class="flowGrid"></div>
         </article>
         <article class="summaryCard">
