@@ -265,9 +265,18 @@ function renderAccountState() {
 function renderReservationAccess() {
   const isAnonymous = !state.user;
   const isVenueUser = Boolean(state.user?.canManageVenue);
-  form?.classList.toggle("hidden", isVenueUser);
+  form?.classList.remove("hidden");
   if (bookingSubmit) {
-    bookingSubmit.textContent = isAnonymous ? "Giriş Yap ve Devam Et" : "Rezervasyonu Oluştur";
+    bookingSubmit.textContent = isVenueUser
+      ? "İşletme Hesabıyla Rezervasyon Yapılamaz"
+      : isAnonymous
+        ? "Giriş Yap ve Devam Et"
+        : "Rezervasyonu Oluştur";
+    bookingSubmit.disabled = isVenueUser;
+    bookingSubmit.setAttribute("aria-disabled", String(isVenueUser));
+    bookingSubmit.title = isVenueUser
+      ? "İşletme hesapları hizmet ve fiyatları inceleyebilir, ancak rezervasyon oluşturamaz."
+      : "";
   }
 
   if (!isVenueUser) {
@@ -280,11 +289,10 @@ function renderReservationAccess() {
     venueReservationNotice = document.createElement("div");
     venueReservationNotice.className = "booking-venue-reservation-notice";
     venueReservationNotice.innerHTML = `
-      <strong>İşletme hesapları marketplace üzerinden rezervasyon yapamaz.</strong>
-      <p>Müşteri adına kayıt oluşturmak için işletme panelindeki takvimden manuel rezervasyon ekleyebilirsin.</p>
-      <a class="solid-button" href="/venue.html#calendar">İşletme paneline git</a>
+      <strong>İşletme hesabıyla görüntülüyorsun.</strong>
+      <p>Hizmetleri, fiyatları ve uygun saatleri inceleyebilirsin; marketplace üzerinden rezervasyon oluşturamazsın.</p>
     `;
-    form?.insertAdjacentElement("beforebegin", venueReservationNotice);
+    bookingSubmit?.insertAdjacentElement("beforebegin", venueReservationNotice);
   }
 }
 
