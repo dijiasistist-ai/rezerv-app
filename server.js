@@ -3786,10 +3786,10 @@ function getVenueMediaUrl(settings = {}) {
   const media = settings.media || {};
   const gallery = getVenueGallery(settings);
   return (
+    gallery[0]?.src ||
     getSafeMediaUrl(media.coverUrl) ||
     getSafeMediaUrl(media.profileUrl) ||
-    getSafeMediaUrl(media.logoUrl) ||
-    gallery[0]?.src
+    getSafeMediaUrl(media.logoUrl)
   );
 }
 
@@ -3813,12 +3813,15 @@ function getVenueGallery(settings = {}) {
     });
   };
 
-  (Array.isArray(media.gallery) ? media.gallery : []).forEach((item, index) => {
+  const galleryItems = Array.isArray(media.gallery) ? media.gallery : [];
+  galleryItems.forEach((item, index) => {
     addItem(item, index === 0 ? "Kapak" : `Görsel ${index + 1}`);
   });
-  addItem({ src: media.coverUrl, role: "Kapak" }, "Kapak");
-  addItem({ src: media.profileUrl, role: "Profil" }, "Profil");
-  addItem({ src: media.logoUrl, role: "Logo" }, "Logo");
+  if (!items.length) {
+    addItem({ src: media.coverUrl, role: "Kapak" }, "Kapak");
+    addItem({ src: media.profileUrl, role: "Profil" }, "Profil");
+    addItem({ src: media.logoUrl, role: "Logo" }, "Logo");
+  }
 
   return items.slice(0, VENUE_GALLERY_LIMIT);
 }
