@@ -1092,9 +1092,6 @@ const publicStaticFiles = new Set([
   "admin.css",
   "admin.html",
   "admin.js",
-  "avax-lab.css",
-  "avax-lab.html",
-  "avax-lab.js",
   "app.js",
   "checkout.html",
   "checkout-page.js",
@@ -1149,6 +1146,31 @@ app.get("/:file", (req, res, next) => {
   const filePath = path.join(__dirname, fileName);
   setStaticHeaders(res, filePath);
   res.sendFile(filePath);
+});
+
+app.get("/avax-lab", requireAdmin, (_req, res) => {
+  const filePath = path.join(__dirname, "avax-lab.html");
+  setStaticHeaders(res, filePath);
+  res.setHeader("Cache-Control", "no-store");
+  res.sendFile(filePath);
+});
+
+app.get("/internal/avax-lab.css", requireAdmin, (_req, res) => {
+  const filePath = path.join(__dirname, "avax-lab.css");
+  setStaticHeaders(res, filePath);
+  res.setHeader("Cache-Control", "no-store");
+  res.sendFile(filePath);
+});
+
+app.get("/internal/avax-lab.js", requireAdmin, (_req, res) => {
+  const filePath = path.join(__dirname, "avax-lab.js");
+  setStaticHeaders(res, filePath);
+  res.setHeader("Cache-Control", "no-store");
+  res.sendFile(filePath);
+});
+
+app.get("/avax-lab.html", (_req, res) => {
+  res.status(404).type("text").send("Not found");
 });
 
 function isLocalDemoRequest(req) {

@@ -11,7 +11,7 @@
   function dt(v){return v?new Date(v).toLocaleString("tr-TR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"—"}
   var token=localStorage.getItem("tyee_admin_token")||"";
   document.querySelectorAll("[data-days]").forEach(function(b){b.onclick=function(){days=Number(b.dataset.days);document.querySelectorAll("[data-days]").forEach(function(x){x.classList.toggle("active",x===b)});render()}});
-  async function load(){if(!token){location.href="/admin.html";return}var r=await fetch("/api/admin/avax-dashboard",{headers:{Authorization:"Bearer "+token}});if(r.status===401||r.status===403){location.href="/admin.html";return}if(r.ok){data=await r.json();render()}}
+  async function load(){var headers=token?{Authorization:"Bearer "+token}:{};var r=await fetch("/api/admin/avax-dashboard",{headers:headers});if(r.status===401||r.status===403){location.href="/admin.html";return}if(r.ok){data=await r.json();render()}}
   function history(){var cutoff=Date.now()-days*86400000;return(data.history||[]).filter(function(x){return Number(x.market_candle)>=cutoff})}
   function render(){
     if(!data||!data.latest){e("cards").innerHTML='<article class="panel empty" style="grid-column:1/-1">Bot verisi bekleniyor. Render bağlantısı kurulduğunda panel otomatik dolacak.</article>';return}
