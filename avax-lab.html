@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>AVAX Futures Laboratuvarı</title>
+  <title>Futures Piyasa Laboratuvarı</title>
   <link rel="stylesheet" href="/internal/avax-lab.css">
 </head>
 <body>
   <main class="shell">
     <section id="dashboard">
       <div class="topbar">
-        <div class="brand"><span class="brandMark">A</span><div><strong>AVAX LAB</strong><small>Futures paper terminal</small></div></div>
+        <div class="brand"><span class="brandMark">F</span><div><strong>FUTURES LAB</strong><small>50 coin paper terminal</small></div></div>
         <div class="topActions">
           <div id="botHealth" class="botHealth waiting" role="status" aria-live="polite">
             <span class="botPulse"><i></i></span>
@@ -26,9 +26,9 @@
         <article class="marketHero">
           <div class="heroTop">
             <div>
-              <span class="eyebrow">AVAX / USDT Perpetual</span>
+              <span id="marketSymbol" class="eyebrow">Piyasa referansı</span>
               <div class="priceLine"><strong id="mainPrice">—</strong><span id="priceDelta">—</span></div>
-              <p>Binance Futures · TradingView 15 dakikalık canlı grafik</p>
+              <p>Binance Futures · aktif pozisyon ve tarama referansı</p>
             </div>
             <div id="status" class="status"><i></i><span>Veri bekleniyor</span></div>
           </div>
@@ -85,26 +85,27 @@
           <article class="summaryCard botRules">
             <span class="eyebrow">Bot çalışma düzeni</span>
             <div class="ruleGrid">
-              <div><strong>5 saniye</strong><span>Fiyat ve pozisyon kontrolü</span></div>
+              <div><strong>5 saniye</strong><span>Açık pozisyon kontrolü</span></div>
+              <div><strong id="universeRule">50 coin</strong><span>Likidite sıralı piyasa taraması</span></div>
               <div><strong>PAPER · 2x</strong><span>Canlı fiyat, sanal işlem</span></div>
               <div><strong>%20</strong><span>Strateji başına sermaye</span></div>
-              <div><strong>Tek pozisyon</strong><span>Kapanmadan yenisi açılmaz</span></div>
+              <div><strong>Tek pozisyon</strong><span>Her stratejide kapanmadan yenisi açılmaz</span></div>
             </div>
           </article>
         </aside>
       </section>
 
       <div class="sectionHead">
-        <div><span class="eyebrow">Canlı sanal hesaplar</span><h2>Stratejiler ne yapıyor?</h2><p>Her kart aynı 1.000 USDT başlangıç bakiyesiyle bağımsız çalışır.</p></div>
+        <div><span class="eyebrow">Canlı sanal hesaplar</span><h2>Stratejiler hangi coini seçiyor?</h2><p>Her kart en likit 50 sözleşmeyi bağımsız tarar ve aynı anda en fazla bir pozisyon taşır.</p></div>
         <div class="ranges"><button data-days="1">24 saat</button><button data-days="7" class="active">7 gün</button><button data-days="30">30 gün</button></div>
       </div>
       <section id="cards" class="cards"></section>
 
       <section class="primaryCharts">
         <article class="panel marketPanel">
-          <div class="panelTitle"><div><span class="eyebrow">Fiyat ve risk haritası</span><h2>AVAX fiyatı · giriş / stop / hedef</h2></div><div id="strategySelector" class="selector"></div></div>
+          <div class="panelTitle"><div><span class="eyebrow">Fiyat ve risk haritası</span><h2 id="riskTitle">Seçili coin · giriş / stop / hedef</h2></div><div id="strategySelector" class="selector"></div></div>
           <canvas id="marketChart"></canvas>
-          <div class="chartKey"><span><i class="white"></i>AVAX</span><span><i class="blue"></i>Giriş</span><span><i class="red"></i>Stop</span><span><i class="green"></i>Hedef</span></div>
+          <div class="chartKey"><span><i class="white"></i><b id="riskSymbol">Coin</b></span><span><i class="blue"></i>Giriş</span><span><i class="red"></i>Stop</span><span><i class="green"></i>Hedef</span></div>
         </article>
         <article class="panel">
           <div class="panelTitle"><div><span class="eyebrow">Net performans</span><h2>Cüzdan ROI eğrisi</h2><p>Spread ve komisyon düşülmüş toplam sonuç.</p></div><div class="legend"><span><i class="green"></i>Kırılım</span><span><i class="cyan"></i>Geri çekilme</span><span><i class="amber"></i>Likidite</span></div></div>
