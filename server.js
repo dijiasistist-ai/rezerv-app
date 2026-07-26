@@ -73,7 +73,12 @@ const SIMLI_AUDIO_CHUNK_BYTES = 6000;
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
 const VENUE_GALLERY_LIMIT = 6;
 const AVAX_PAPER_MAX_POINTS = 96 * 35;
-const AVAX_PAPER_STRATEGIES = new Set(["trend_breakout", "pullback_reclaim", "liquidity_sweep"]);
+const AVAX_PAPER_STRATEGIES = new Set([
+  "trend_breakout",
+  "pullback_reclaim",
+  "liquidity_sweep",
+  "selective_trend_pullback",
+]);
 const CALENDAR_SLOT_TIMES = [
   "08:00",
   "09:00",
@@ -1225,6 +1230,13 @@ app.get("/avax-lab", requireAdmin, (_req, res) => {
 
 app.get("/internal/avax-lab.css", requireAdmin, (_req, res) => {
   const filePath = path.join(__dirname, "avax-lab.css");
+  setStaticHeaders(res, filePath);
+  res.setHeader("Cache-Control", "no-store");
+  res.sendFile(filePath);
+});
+
+app.get("/internal/avax-lab-fourth.css", requireAdmin, (_req, res) => {
+  const filePath = path.join(__dirname, "avax-lab-fourth.css");
   setStaticHeaders(res, filePath);
   res.setHeader("Cache-Control", "no-store");
   res.sendFile(filePath);

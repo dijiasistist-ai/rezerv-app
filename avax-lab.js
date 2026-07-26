@@ -1,7 +1,7 @@
 (function(){
-  var labels={trend_breakout:"Trend kırılımı",pullback_reclaim:"Geri çekilme",liquidity_sweep:"Likidite süpürmesi"};
-  var explain={trend_breakout:"Güçlü hacimle kırılan trendin devamını takip eder.",pullback_reclaim:"Trend içinde fiyatın sakinleşip yeniden güçlenmesini bekler.",liquidity_sweep:"Sahte kırılım ve stop avı sonrasındaki dönüşü arar."};
-  var colors={trend_breakout:"#52e1a0",pullback_reclaim:"#64cddd",liquidity_sweep:"#f1b95f"};
+  var labels={trend_breakout:"Trend kırılımı",pullback_reclaim:"Geri çekilme",liquidity_sweep:"Likidite süpürmesi",selective_trend_pullback:"Seçici trend"};
+  var explain={trend_breakout:"Güçlü hacimle kırılan trendin devamını takip eder.",pullback_reclaim:"Trend içinde fiyatın sakinleşip yeniden güçlenmesini bekler.",liquidity_sweep:"Sahte kırılım ve stop avı sonrasındaki dönüşü arar.",selective_trend_pullback:"BTC ve coin 1s yönü aynıyken 5dk geri çekilme arar."};
+  var colors={trend_breakout:"#52e1a0",pullback_reclaim:"#64cddd",liquidity_sweep:"#f1b95f",selective_trend_pullback:"#8b5cf6"};
   var days=7,data=null,selected="trend_breakout",tradingViewSymbol="",chartSelection="";
   function e(id){return document.getElementById(id)}
   function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}
@@ -43,7 +43,7 @@
   }
   function activePositionsBoard(){
     var rows=data.latest.strategies||{},active=Object.keys(labels).filter(function(k){return rows[k]&&rows[k].position}),count=e("activePositionCount");count.textContent=active.length+" açık";count.classList.toggle("hasPositions",active.length>0);
-    if(!active.length){e("activePositionBoard").innerHTML='<div class="activePositionsEmpty"><div><strong>Şu anda açık pozisyon yok</strong><span>Üç strateji, en likit 50 coinde kendi giriş koşulunu bekliyor.</span></div><i class="scanPulse"></i></div>';return}
+    if(!active.length){e("activePositionBoard").innerHTML='<div class="activePositionsEmpty"><div><strong>Şu anda açık pozisyon yok</strong><span>Dört strateji, en likit 50 coinde kendi giriş koşulunu bekliyor.</span></div><i class="scanPulse"></i></div>';return}
     e("activePositionBoard").innerHTML=active.map(function(k){var s=rows[k],side=String(s.position).toLowerCase(),pnl=s.position_pnl_usdt;if(pnl==null&&s.equity_usdt!=null&&s.realized_balance_usdt!=null)pnl=Number(s.equity_usdt)-Number(s.realized_balance_usdt);return'<article class="activePositionCard '+side+'"><div class="activePositionTop"><div><div class="activeCoin">'+esc(sym(s.symbol))+'</div><span class="activeStrategy">'+esc(labels[k])+'</span></div><span class="directionBadge '+side+'">'+esc(side.toUpperCase())+'</span></div><div class="activeResult"><div><span class="label">Anlık net kâr / zarar</span><div class="activePnl '+cls(pnl)+'">'+(Number(pnl)>0?"+":"")+n(pnl,4)+' $</div></div><div class="activeRoi"><strong class="'+cls(s.position_roi_pct)+'">'+p(s.position_roi_pct)+'</strong><span>Açık ROI</span></div></div><div class="activePositionMetrics"><div><span>Giriş</span><strong>'+n(s.entry,4)+' $</strong></div><div><span>Güncel</span><strong>'+n(s.mark_price,4)+' $</strong></div><div><span>Stop</span><strong class="negative">'+n(s.stop,4)+' $</strong></div><div><span>Hedef</span><strong class="positive">'+n(s.take,4)+' $</strong></div></div><div class="activeOpened"><b>'+dt(s.opened_at)+'</b> açıldı · '+esc(s.reason||"Strateji koşulları oluştu")+'</div></article>'}).join("");
   }
   function cards(){
