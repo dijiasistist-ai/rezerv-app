@@ -1,6 +1,6 @@
 (function(){
   var labels={trend_breakout:"Trend kırılımı",pullback_reclaim:"Geri çekilme",liquidity_sweep:"Likidite süpürmesi",selective_trend_pullback:"Seçici trend",bollinger_reversion:"Bollinger dönüşü"};
-  var explain={trend_breakout:"Güçlü hacimle kırılan trendin devamını takip eder.",pullback_reclaim:"Trend içinde fiyatın sakinleşip yeniden güçlenmesini bekler.",liquidity_sweep:"Sahte kırılım ve stop avı sonrasındaki dönüşü arar.",selective_trend_pullback:"BTC ve coin 1s yönü aynıyken 5dk geri çekilme arar.",bollinger_reversion:"15dk dış bant teması sonrası kapanışla banda dönüşü bekler; hedef girişteki orta banttır."};
+  var explain={trend_breakout:"Güçlü hacimle kırılan trendin devamını takip eder.",pullback_reclaim:"Trend içinde fiyatın sakinleşip yeniden güçlenmesini bekler.",liquidity_sweep:"Sahte kırılım ve stop avı sonrasındaki dönüşü arar.",selective_trend_pullback:"BTC ve coin 1s yönü aynıyken 5dk geri çekilme arar.",bollinger_reversion:"15dk dış bant dönüşünü ikinci mumla doğrular; stop en az %0,8 veya 1,8 ATR, hedef girişteki orta banttır."};
   var colors={trend_breakout:"#52e1a0",pullback_reclaim:"#64cddd",liquidity_sweep:"#f1b95f",selective_trend_pullback:"#8b5cf6",bollinger_reversion:"#e8793f"};
   var days=7,data=null,selected="trend_breakout",tradingViewSymbol="",chartSelection="";
   function e(id){return document.getElementById(id)}
