@@ -1448,7 +1448,7 @@ function hasValidAvaxIngestToken(req) {
 
 function validAvaxPaperState(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  if (![4, 5, 6, 7].includes(Number(value.version))) return false;
+  if (![4, 5, 6, 7, 8].includes(Number(value.version))) return false;
   if (!Number.isFinite(Number(value.started_at)) || !Number.isFinite(Number(value.ends_at))) {
     return false;
   }
