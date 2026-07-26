@@ -26,9 +26,13 @@
         <article class="marketHero">
           <div class="heroTop">
             <div>
-              <span id="marketSymbol" class="eyebrow">Piyasa referansı</span>
+              <label class="chartCoinPicker">
+                <span>Grafik coini</span>
+                <select id="chartCoinSelect" aria-label="Grafikte gösterilecek coin"></select>
+              </label>
+              <span id="marketSymbol" class="eyebrow">Seçili perpetual sözleşme</span>
               <div class="priceLine"><strong id="mainPrice">—</strong><span id="priceDelta">—</span></div>
-              <p>Binance Futures · aktif pozisyon ve tarama referansı</p>
+              <p>Binance Futures · seçimin sen değiştirene kadar sabit kalır</p>
             </div>
             <div id="status" class="status"><i></i><span>Veri bekleniyor</span></div>
           </div>
