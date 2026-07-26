@@ -1,9 +1,13 @@
 .cards {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .violet {
   background: #8b5cf6;
+}
+
+.orange {
+  background: #e8793f;
 }
 
 @media (max-width: 1120px) {
