@@ -24,6 +24,7 @@ const {
   findUserById,
   getAdminAccessRules,
   getAvaxPaperSnapshots,
+  getAvaxPaperState,
   getDeletedVenueIds,
   getReservations,
   getReviews,
@@ -39,6 +40,7 @@ const {
   normalizeEmail,
   saveVenueOverlay,
   saveAvaxPaperSnapshots,
+  saveAvaxPaperState,
   upsertAdminAccessRule,
   upsertUser,
   updateReservation,
@@ -1417,6 +1419,26 @@ function validAvaxPaperSnapshot(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const requiredNumbers = ["market_candle", "market_price", "started_at", "ends_at"];
   if (!requiredNumbers.every((key) => Number.isFinite(Number(value[key])))) return false;
+  const strategies = value.strategies;
+  return (
+    strategies &&
+    typeof strategies === "object" &&
+    [...AVAX_PAPER_STRATEGIES].every((key) => strategies[key] && typeof strategies[key] === "object")
+  );
+}
+
+function hasValidAvaxIngestToken(req) {
+  const configuredToken = String(process.env.AVAX_DASHBOARD_INGEST_TOKEN || "").trim();
+  const submittedToken = String(req.get("x-avax-ingest-token") || "").trim();
+  return Boolean(configuredToken) && secureStringEqual(submittedToken, configuredToken);
+}
+
+function validAvaxPaperState(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (![4, 5].includes(Number(value.version))) return false;
+  if (!Number.isFinite(Number(value.started_at)) || !Number.isFinite(Number(value.ends_at))) {
+    return false;
+  }
   const strategies = value.strategies;
   return (
     strategies &&
@@ -5753,10 +5775,35 @@ app.get("/api/admin/avax-dashboard", requireAdmin, (_req, res) => {
   });
 });
 
+app.get("/api/state", (req, res) => {
+  if (!hasValidAvaxIngestToken(req)) {
+    res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
+    return;
+  }
+  const state = getAvaxPaperState();
+  if (!state) {
+    res.status(404).json({ error: "Paper state henüz oluşturulmadı." });
+    return;
+  }
+  res.json({ state });
+});
+
+app.put("/api/state", (req, res) => {
+  if (!hasValidAvaxIngestToken(req)) {
+    res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
+    return;
+  }
+  const state = req.body && req.body.state;
+  if (!validAvaxPaperState(state)) {
+    res.status(400).json({ error: "Geçersiz paper state verisi." });
+    return;
+  }
+  saveAvaxPaperState(state);
+  res.status(202).json({ accepted: true, version: Number(state.version) });
+});
+
 app.post("/api/snapshot", (req, res) => {
-  const configuredToken = String(process.env.AVAX_DASHBOARD_INGEST_TOKEN || "").trim();
-  const submittedToken = String(req.get("x-avax-ingest-token") || "").trim();
-  if (!configuredToken || !secureStringEqual(submittedToken, configuredToken)) {
+  if (!hasValidAvaxIngestToken(req)) {
     res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
     return;
   }

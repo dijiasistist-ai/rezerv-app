@@ -13,6 +13,7 @@ const runtimeFileNames = [
   "reservations.json",
   "reviews.json",
   "avax-paper-snapshots.json",
+  "avax-paper-state.json",
 ];
 const usersPath = path.join(runtimeDir, "users.json");
 const legacyUsersPath = path.join(__dirname, "users.json");
@@ -24,6 +25,7 @@ const deletedVenuesPath = path.join(runtimeDir, "deleted-venues.json");
 const reservationsPath = path.join(runtimeDir, "reservations.json");
 const reviewsPath = path.join(runtimeDir, "reviews.json");
 const avaxPaperSnapshotsPath = path.join(runtimeDir, "avax-paper-snapshots.json");
+const avaxPaperStatePath = path.join(runtimeDir, "avax-paper-state.json");
 const runtimeBackupState = {
   initialized: false,
   isRestoring: false,
@@ -785,6 +787,14 @@ function saveAvaxPaperSnapshots(snapshots) {
   writeJson(avaxPaperSnapshotsPath, Array.isArray(snapshots) ? snapshots : []);
 }
 
+function getAvaxPaperState() {
+  return readJson(avaxPaperStatePath, null);
+}
+
+function saveAvaxPaperState(state) {
+  writeJson(avaxPaperStatePath, state && typeof state === "object" ? state : null);
+}
+
 module.exports = {
   addReview,
   addReservation,
@@ -800,6 +810,7 @@ module.exports = {
   findUserById,
   getAdminAccessRules,
   getAvaxPaperSnapshots,
+  getAvaxPaperState,
   getDeletedVenueIds,
   getReservations,
   getReviews,
@@ -815,6 +826,7 @@ module.exports = {
   migrateLegacyUsers,
   saveVenueOverlay,
   saveAvaxPaperSnapshots,
+  saveAvaxPaperState,
   upsertAdminAccessRule,
   upsertUser,
   updateReservation,
