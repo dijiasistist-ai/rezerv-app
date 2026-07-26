@@ -2,7 +2,7 @@
   var labels={trend_breakout:"Trend kırılımı",pullback_reclaim:"Geri çekilme",liquidity_sweep:"Likidite süpürmesi"};
   var explain={trend_breakout:"Güçlü hacimle kırılan trendin devamını takip eder.",pullback_reclaim:"Trend içinde fiyatın sakinleşip yeniden güçlenmesini bekler.",liquidity_sweep:"Sahte kırılım ve stop avı sonrasındaki dönüşü arar."};
   var colors={trend_breakout:"#52e1a0",pullback_reclaim:"#64cddd",liquidity_sweep:"#f1b95f"};
-  var days=7,data=null,selected="trend_breakout";
+  var days=7,data=null,selected="trend_breakout",tradingViewSymbol="";
   function e(id){return document.getElementById(id)}
   function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}
   function n(v,d){if(v==null||v==="")return"—";v=Number(v);return Number.isFinite(v)?v.toLocaleString("tr-TR",{minimumFractionDigits:d==null?2:d,maximumFractionDigits:d==null?2:d}):"—"}
@@ -13,6 +13,7 @@
   var token=localStorage.getItem("tyee_admin_token")||"";
   document.querySelectorAll("[data-days]").forEach(function(b){b.onclick=function(){days=Number(b.dataset.days);document.querySelectorAll("[data-days]").forEach(function(x){x.classList.toggle("active",x===b)});render()}});
   function setBotHealth(q){var box=e("botHealth"),label=e("botHealthLabel"),detail=e("botHealthDetail"),b=(q&&q.bot_status)||{},heartbeat=Number(b.heartbeat_at||(q&&q.received_at)||0),age=Date.now()-heartbeat,active=Boolean(heartbeat)&&b.enabled!==false&&age<15000,poll=Number(b.poll_seconds||5);box.classList.remove("waiting","active","passive");box.classList.add(active?"active":"passive");label.textContent=active?"BOT AKTİF":"BOT PASİF";detail.textContent=active?(String(b.mode||"paper").toUpperCase()+" · "+poll+" sn piyasa taraması"):(heartbeat?"Son veri "+Math.max(1,Math.round(age/1000))+" sn önce":"Canlı veri alınamıyor")}
+  function updateTradingView(value){var market=String(value||"BTC/USDT:USDT").split(":")[0].replace("/",""),symbol="BINANCE:"+market;if(symbol===tradingViewSymbol)return;tradingViewSymbol=symbol;var mount=e("tradingviewMount");mount.innerHTML='<div class="tradingview-widget-container__widget"></div>';var script=document.createElement("script");script.type="text/javascript";script.src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";script.async=true;script.text=JSON.stringify({autosize:true,symbol:symbol,interval:"15",timezone:"Europe/Istanbul",theme:"light",style:"1",locale:"tr",backgroundColor:"#ffffff",gridColor:"rgba(30, 41, 59, 0.08)",allow_symbol_change:false,calendar:false,details:false,hide_legend:false,hide_side_toolbar:true,hide_top_toolbar:false,hide_volume:false,hotlist:false,save_image:false,withdateranges:true,support_host:"https://www.tradingview.com"});mount.appendChild(script)}
   async function load(){try{var headers=token?{Authorization:"Bearer "+token}:{};var r=await fetch("/api/admin/avax-dashboard",{headers:headers,cache:"no-store"});if(r.status===401||r.status===403){location.href="/admin.html";return}if(r.ok){data=await r.json();render();return}setBotHealth(data&&data.latest)}catch(_){setBotHealth(data&&data.latest)}}
   function history(){var cutoff=Date.now()-days*86400000;return(data.history||[]).filter(function(x){return Number(x.market_candle)>=cutoff})}
   function render(){
@@ -24,6 +25,7 @@
     e("status").classList.toggle("live",live);e("status").querySelector("span").textContent=q.finalized_at?"Deney tamamlandı":live?"Canlı veri akışı":"Veri gecikmiş olabilir";
     e("updated").textContent="Son güncelleme "+dt(q.received_at);
     e("marketSymbol").textContent=sym(q.market_symbol)+" Perpetual · tarama referansı";
+    updateTradingView(q.market_symbol);
     e("universeRule").textContent=esc(q.universe_size||50)+" coin";
     e("mainPrice").textContent=n(q.market_price,4)+" $";
     var all=data.history||[],first=all.length?Number(all[Math.max(0,all.length-97)].market_price):Number(q.market_price),change=first?100*(Number(q.market_price)/first-1):0;
