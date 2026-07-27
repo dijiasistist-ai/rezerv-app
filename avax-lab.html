@@ -85,7 +85,14 @@
 
       <section class="bottomGrid">
         <article class="panel">
-          <div class="panelTitle"><div><span class="eyebrow">Denetim izi</span><h2>Son kapanan işlemler</h2><p>Giriş, çıkış ve kapanma gerekçesi.</p></div></div>
+          <div class="panelTitle">
+            <div><span class="eyebrow">Denetim izi</span><h2>Son kapanan işlemler</h2><p>Giriş, çıkış ve kapanma gerekçesi.</p></div>
+            <div class="tradeRanges" aria-label="Kapanan işlem dönemi">
+              <button type="button" data-trade-range="today" class="active">Bugün</button>
+              <button type="button" data-trade-range="week">Bu hafta</button>
+              <button type="button" data-trade-range="month">Bu ay</button>
+            </div>
+          </div>
           <div id="trades" class="tableWrap"></div>
         </article>
         <article class="panel">

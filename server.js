@@ -5781,10 +5781,23 @@ app.get("/api/admin/bootstrap", requireAdmin, (req, res) => {
 
 app.get("/api/admin/avax-dashboard", requireAdmin, (_req, res) => {
   const history = getAvaxPaperSnapshots();
+  const state = getAvaxPaperState();
+  const closedTrades =
+    state && state.strategies
+      ? Object.fromEntries(
+          [...AVAX_PAPER_STRATEGIES].map((strategy) => [
+            strategy,
+            Array.isArray(state.strategies[strategy]?.trades)
+              ? state.strategies[strategy].trades
+              : [],
+          ]),
+        )
+      : {};
   res.json({
     generated_at: Date.now(),
     latest: history.at(-1) || null,
     history,
+    closed_trades: closedTrades,
   });
 });
 
