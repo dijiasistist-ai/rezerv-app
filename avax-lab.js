@@ -37,8 +37,6 @@
     e("experimentText").textContent=q.finalized_at?"Sonuçlar donduruldu.":"Deney bitimine kalan süre";
     var duration=Math.max(1,Number(q.ends_at)-Number(q.started_at)),progress=Math.max(0,Math.min(100,100*(Date.now()-Number(q.started_at))/duration));e("progressBar").style.width=progress+"%";
     var active=keys.filter(function(k){return rows[k]&&rows[k].position}).length,total=keys.reduce(function(s,k){return s+Number((rows[k]||{}).trades||0)},0);e("activePositions").textContent=active;e("totalTrades").textContent=total;
-    var ranked=keys.map(function(k){return{k:k,roi:Number((rows[k]||{}).wallet_roi_pct||0),trades:Number((rows[k]||{}).trades||0)}}).sort(function(a,b){return b.roi-a.roi});
-    e("leaderName").textContent=labels[ranked[0].k];e("leaderRoi").textContent=p(ranked[0].roi);e("leaderRoi").className="leaderRoi "+cls(ranked[0].roi);e("leaderNote").textContent=ranked[0].trades?"Şimdilik en yüksek cüzdan getirisi.":"Henüz kapanan işlem yok; açık ROI değişebilir.";
     var c=q.market_context||{};var flow=[["Açık pozisyon 1s",p(c.open_interest_change_pct_1h)],["Taker al/sat",n(c.taker_buy_sell_ratio_1h,2)],["Genel long/short",n(c.global_long_short_ratio,2)],["Fonlama",p(Number(c.funding_rate||0)*100)]];
     e("marketFlow").innerHTML=flow.map(function(x){return'<div class="flowItem"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>'}).join("");
   }
