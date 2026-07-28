@@ -26,16 +26,16 @@
   }
   function overview(){
     var q=data.latest,age=Date.now()-Number((q.bot_status||{}).heartbeat_at||q.received_at||0),live=age<heartbeatWindow(q),rows=q.strategies||{},keys=Object.keys(labels);setBotHealth(q);
-    e("status").classList.toggle("live",live);e("status").querySelector("span").textContent=q.finalized_at?"Deney tamamlandı":live?"Canlı veri akışı":"Veri gecikmiş olabilir";
+    e("status").classList.toggle("live",live);e("status").querySelector("span").textContent=q.continuous?(live?"Canlı veri akışı":"Veri gecikmiş olabilir"):(q.finalized_at?"Deney tamamlandı":live?"Canlı veri akışı":"Veri gecikmiş olabilir");
     e("updated").textContent="Son güncelleme "+dt(q.received_at);
     syncChartSelection(q);
     renderSelectedMarket(q);
     e("universeRule").textContent=esc(q.universe_size||50)+" coin";
     e("pollRule").textContent=esc((q.bot_status||{}).poll_seconds||30)+" saniye";
     var remaining=Math.max(0,Number(q.ends_at)-Date.now()),hours=Math.floor(remaining/3600000),mins=Math.floor(remaining%3600000/60000);
-    e("countdown").textContent=q.finalized_at?"Tamamlandı":hours+"sa "+mins+"dk";
-    e("experimentText").textContent=q.finalized_at?"Sonuçlar donduruldu.":"Deney bitimine kalan süre";
-    var duration=Math.max(1,Number(q.ends_at)-Number(q.started_at)),progress=Math.max(0,Math.min(100,100*(Date.now()-Number(q.started_at))/duration));e("progressBar").style.width=progress+"%";
+    e("countdown").textContent=q.continuous?"Sürekli aktif":q.finalized_at?"Tamamlandı":hours+"sa "+mins+"dk";
+    e("experimentText").textContent=q.continuous?"Saat sınırı yok · sonuçlar kesintisiz birikir":q.finalized_at?"Sonuçlar donduruldu.":"Deney bitimine kalan süre";
+    var duration=Math.max(1,Number(q.ends_at)-Number(q.started_at)),progress=q.continuous?100:Math.max(0,Math.min(100,100*(Date.now()-Number(q.started_at))/duration));e("progressBar").style.width=progress+"%";
     var active=keys.filter(function(k){return rows[k]&&rows[k].position}).length,total=keys.reduce(function(s,k){return s+Number((rows[k]||{}).trades||0)},0);e("activePositions").textContent=active;e("totalTrades").textContent=total;
     var c=q.market_context||{};var flow=[["Açık pozisyon 1s",p(c.open_interest_change_pct_1h)],["Taker al/sat",n(c.taker_buy_sell_ratio_1h,2)],["Genel long/short",n(c.global_long_short_ratio,2)],["Fonlama",p(Number(c.funding_rate||0)*100)]];
     e("marketFlow").innerHTML=flow.map(function(x){return'<div class="flowItem"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>'}).join("");
