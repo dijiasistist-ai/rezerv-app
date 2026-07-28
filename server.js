@@ -1432,6 +1432,16 @@ function validAvaxPaperSnapshot(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const requiredNumbers = ["market_candle", "market_price", "started_at", "ends_at"];
   if (!requiredNumbers.every((key) => Number.isFinite(Number(value[key])))) return false;
+  if (value.mode === "hyperliquid_copy") {
+    return (
+      Array.isArray(value.positions) &&
+      Array.isArray(value.recent_trades) &&
+      value.wallets &&
+      typeof value.wallets === "object" &&
+      Number(value.leverage) === 2 &&
+      Number(value.allocation_pct) === 10
+    );
+  }
   const strategies = value.strategies;
   return (
     strategies &&
@@ -1448,6 +1458,16 @@ function hasValidAvaxIngestToken(req) {
 
 function validAvaxPaperState(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (value.mode === "hyperliquid_copy") {
+    return (
+      Number(value.version) === 1 &&
+      Number.isFinite(Number(value.started_at)) &&
+      Number.isFinite(Number(value.initial_usdt)) &&
+      value.positions &&
+      typeof value.positions === "object" &&
+      Array.isArray(value.trades)
+    );
+  }
   if (![4, 5, 6, 7, 8, 9].includes(Number(value.version))) return false;
   if (!Number.isFinite(Number(value.started_at)) || !Number.isFinite(Number(value.ends_at))) {
     return false;
