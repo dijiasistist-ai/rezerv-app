@@ -16,7 +16,7 @@
         <div class="topActions">
           <div id="botHealth" class="botHealth waiting" role="status" aria-live="polite">
             <span class="botPulse"><i></i></span>
-            <span><strong id="botHealthLabel">BOT KONTROL EDİLİYOR</strong><small id="botHealthDetail">5 sn cüzdan takibi</small></span>
+            <span><strong id="botHealthLabel">BOT KONTROL EDİLİYOR</strong><small id="botHealthDetail">Stratejiler + cüzdan kopyalama</small></span>
           </div>
           <span id="updated">Veri bekleniyor</span>
           <a class="ghost backLink" href="/admin.html">← Admin paneli</a>
@@ -44,7 +44,7 @@
         </article>
         <aside class="overviewSide">
           <article class="summaryCard">
-            <span class="eyebrow">Kopya işlem kasası</span>
+            <span class="eyebrow">Sürekli strateji yarışı</span>
             <div id="countdown" class="countdown">—</div>
             <p id="experimentText">Başlangıç verisi bekleniyor</p>
             <div class="progress"><i id="progressBar"></i></div>
@@ -53,16 +53,16 @@
           <article class="summaryCard botRules">
             <span class="eyebrow">Bot çalışma düzeni</span>
             <div class="ruleGrid">
-              <div><strong id="pollRule">5 saniye</strong><span>Websocket + REST cüzdan takibi</span></div>
+              <div><strong id="pollRule">30 saniye</strong><span>50 coin tarama · pozisyonlar anlık izlenir</span></div>
               <div><strong id="universeRule">50 coin</strong><span>Likidite sıralı piyasa taraması</span></div>
-              <div><strong>PAPER · 2x</strong><span>Canlı fiyat, sanal kopya</span></div>
-              <div><strong>%10</strong><span>Her kaynak pozisyon için</span></div>
-              <div><strong>Çoklu pozisyon</strong><span>Kasa kapasitesi 10 işlem</span></div>
+              <div><strong>PAPER · 2x</strong><span>Canlı fiyat, sanal işlem</span></div>
+              <div><strong>%20</strong><span>Strateji başına sermaye</span></div>
+              <div><strong>Tek pozisyon</strong><span>Her stratejide kapanmadan yenisi açılmaz</span></div>
             </div>
           </article>
           <article class="summaryCard competitionCard">
             <div class="competitionTitle">
-              <div><span class="eyebrow">Kaynak hesaplar</span><strong id="championName">Veri bekleniyor</strong></div>
+              <div><span class="eyebrow">Strateji yarışı</span><strong id="championName">Veri bekleniyor</strong></div>
               <span id="championReward" class="rewardBadge">0 ödül</span>
             </div>
             <div class="championScore"><strong id="championScore">—</strong><span>Risk ayarlı puan</span></div>
@@ -81,9 +81,26 @@
       </section>
 
       <div class="sectionHead">
-        <div><span class="eyebrow">Kaynak hesaplar</span><h2>Hangi cüzdan ne yapıyor?</h2><p>İki Hyperliquid hesabının yeni pozisyonları bağımsız ve eşzamanlı izlenir.</p></div>
+        <div><span class="eyebrow">Canlı sanal hesaplar</span><h2>Stratejiler hangi coini seçiyor?</h2><p>Her kart en likit 50 sözleşmeyi bağımsız tarar ve aynı anda en fazla bir pozisyon taşır.</p></div>
       </div>
       <section id="cards" class="cards"></section>
+
+      <section class="activePositionsSection" aria-labelledby="copyTradingTitle">
+        <div class="sectionHead activePositionsHead">
+          <div><span class="eyebrow">İlave sistem · Hyperliquid</span><h2 id="copyTradingTitle">Cüzdan kopyalama</h2><p>İki kaynak hesabın yeni işlemleri, strateji yarışmasından bağımsız 6.000 $ sanal kasada izlenir.</p></div>
+          <span id="copyHealth" class="activeCount">Veri bekleniyor</span>
+        </div>
+        <div id="copySummary" class="flowGrid"></div>
+        <div id="copyPositionBoard" class="activePositionBoard"></div>
+        <div class="sectionHead">
+          <div><span class="eyebrow">Kaynak hesaplar</span><h2>Hangi cüzdan ne yapıyor?</h2><p>Her yeni kaynak pozisyonu %10 teminat ve 2x kaldıraçla kopyalanır.</p></div>
+        </div>
+        <div id="copyWalletCards" class="cards"></div>
+        <article class="panel">
+          <div class="panelTitle"><div><span class="eyebrow">Kopya denetim izi</span><h2>Kapanan kopya işlemler</h2><p>Kaynak azaltma ve kapatma hareketleri aynı oranda uygulanır.</p></div></div>
+          <div id="copyTradeTable" class="tableWrap"></div>
+        </article>
+      </section>
 
       <section class="bottomGrid">
         <article class="panel">
