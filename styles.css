@@ -6044,13 +6044,16 @@ button {
 }
 
 .category-band .category-rail {
-  grid-template-columns: repeat(7, minmax(136px, 1fr));
+  grid-template-columns: repeat(7, minmax(129px, 1fr));
   overflow-x: auto;
   overflow-y: hidden;
+  padding-top: 5px;
 }
 
 .category-band .category-card {
-  min-width: 136px;
+  min-width: 129px;
+  min-height: 141px;
+  padding: 17px;
 }
 
 .benefit-band {
@@ -6066,7 +6069,7 @@ button {
   }
 
   .category-band .category-rail {
-    grid-template-columns: repeat(7, minmax(136px, 1fr));
+    grid-template-columns: repeat(7, minmax(129px, 1fr));
   }
 }
 
