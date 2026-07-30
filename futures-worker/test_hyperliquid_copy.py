@@ -36,15 +36,26 @@ class FakeClient:
 def clearinghouse(**positions):
     return {
         "assetPositions": [
-            {"position": {"coin": coin, "szi": str(size)}}
+            {
+                "position": {
+                    "coin": coin,
+                    "szi": str(size["size"] if isinstance(size, dict) else size),
+                    "entryPx": str(
+                        size.get("entry", 0) if isinstance(size, dict) else 0
+                    ),
+                }
+            }
             for coin, size in positions.items()
             if size
         ]
     }
 
 
-def test_baseline_is_not_entered_and_multiple_new_positions_are_mirrored():
-    sources = {WALLET_A: clearinghouse(BTC=1), WALLET_B: clearinghouse()}
+def test_existing_position_is_entered_when_price_is_still_near_source_entry():
+    sources = {
+        WALLET_A: clearinghouse(BTC={"size": 1, "entry": 101}),
+        WALLET_B: clearinghouse(),
+    }
     store = MemoryStore()
     engine = HyperliquidCopyEngine(
         CopySettings((WALLET_A, WALLET_B), 6000, 0.10, 2),
@@ -53,17 +64,15 @@ def test_baseline_is_not_entered_and_multiple_new_positions_are_mirrored():
     )
     client = FakeClient(["BTC", "ETH", "SOL"])
 
-    assert engine.reconcile(client) == []
-    assert engine.state["positions"] == {}
-    assert len(engine.state["ignored_until_flat"]) == 1
+    events = engine.reconcile(client)
+    assert [event["event"] for event in events] == ["open"]
+    assert len(engine.state["positions"]) == 1
 
-    sources[WALLET_A] = clearinghouse()
-    engine.reconcile(client)
     sources[WALLET_A] = clearinghouse(ETH=3)
     sources[WALLET_B] = clearinghouse(SOL=-4)
     events = engine.reconcile(client)
 
-    assert [event["event"] for event in events] == ["open", "open"]
+    assert [event["event"] for event in events] == ["close", "open", "open"]
     assert len(engine.state["positions"]) == 2
     assert {row["side"] for row in engine.state["positions"].values()} == {
         "long",
@@ -71,6 +80,42 @@ def test_baseline_is_not_entered_and_multiple_new_positions_are_mirrored():
     }
     assert all(row["remaining_margin"] == 600 for row in engine.state["positions"].values())
     assert all(row["notional"] == 1200 for row in engine.state["positions"].values())
+
+
+def test_one_wallet_failure_does_not_block_the_other_wallet():
+    sources = {WALLET_B: clearinghouse(ETH=-2)}
+
+    def fetch(address):
+        if address == WALLET_A:
+            raise RuntimeError("rate limited")
+        return sources[address]
+
+    engine = HyperliquidCopyEngine(
+        CopySettings((WALLET_A, WALLET_B), 6000, 0.10, 2),
+        MemoryStore(),
+        source_fetcher=fetch,
+    )
+    events = engine.reconcile(FakeClient(["ETH"]))
+
+    assert [event["event"] for event in events] == ["open"]
+    assert f"{WALLET_B}:ETH" in engine.state["positions"]
+    assert WALLET_A in engine.state["source_errors"]
+
+
+def test_existing_position_is_not_chased_when_entry_is_too_far_away():
+    sources = {
+        WALLET_A: clearinghouse(BTC={"size": 1, "entry": 90}),
+        WALLET_B: clearinghouse(),
+    }
+    engine = HyperliquidCopyEngine(
+        CopySettings((WALLET_A, WALLET_B), 6000, 0.10, 2),
+        MemoryStore(),
+        source_fetcher=lambda address: sources[address],
+    )
+    engine.reconcile(FakeClient(["BTC"]))
+
+    assert engine.state["positions"] == {}
+    assert "late_entry_distance" in engine.state["skipped"][-1]["reason"]
 
 
 def test_partial_close_and_source_close_are_mirrored():

@@ -99,6 +99,9 @@ class Settings:
     copy_state_key: str = os.getenv(
         "AVAX_BOT_COPY_STATE_KEY", "hyperliquid-copy-two-wallets-v1"
     )
+    copy_max_entry_distance_pct: float = float(
+        os.getenv("AVAX_BOT_COPY_MAX_ENTRY_DISTANCE_PCT", "0.75")
+    )
     # Websocket fills wake the loop immediately. REST is only a reconciliation
     # safety net, so keep it slow enough to avoid Hyperliquid shared-IP limits.
     copy_poll_seconds: int = 30
@@ -155,6 +158,8 @@ class Settings:
                 raise ValueError("Copy-trading initial balance must be positive")
             if not 0 < self.copy_wallet_fraction <= 0.20:
                 raise ValueError("Copy-trading wallet fraction must be in (0, 0.20]")
+            if not 0 < self.copy_max_entry_distance_pct <= 3:
+                raise ValueError("Copy entry-distance limit must be within (0, 3]")
             if len(self.copy_wallets) != 2 or any(
                 len(wallet) != 42 or not wallet.startswith("0x")
                 for wallet in self.copy_wallets
@@ -375,6 +380,7 @@ class Bot:
                     initial_usdt=settings.copy_initial_usdt,
                     wallet_fraction=settings.copy_wallet_fraction,
                     leverage=settings.leverage,
+                    max_entry_distance_pct=settings.copy_max_entry_distance_pct,
                 ),
                 copy_store,
             )

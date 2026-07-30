@@ -10,8 +10,10 @@ from __future__ import annotations
 import json
 import logging
 import math
+import random
 import threading
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Callable
@@ -42,6 +44,7 @@ class CopySettings:
     wallet_fraction: float
     leverage: int
     taker_fee: float = 0.0005
+    max_entry_distance_pct: float = 0.75
 
     @property
     def margin_per_position(self) -> float:
@@ -138,10 +141,20 @@ class HyperliquidCopyEngine:
         state_store,
         *,
         source_fetcher: Callable[[str], dict] | None = None,
+        fill_fetcher: Callable[[str, int], list[dict]] | None = None,
     ) -> None:
         self.settings = settings
         self.state_store = state_store
         self.source_fetcher = source_fetcher or self._fetch_source_state
+        self.fill_fetcher = (
+            fill_fetcher
+            if fill_fetcher is not None
+            else (
+                (lambda _address, _start_time: [])
+                if source_fetcher is not None
+                else self._fetch_user_fills
+            )
+        )
         self.wake_event = threading.Event()
         self.feed = HyperliquidFillFeed(settings.wallets, self.wake_event)
         loaded = state_store.load()
@@ -163,6 +176,9 @@ class HyperliquidCopyEngine:
             "positions": {},
             "trades": [],
             "skipped": [],
+            "fill_cursors": {},
+            "recent_fill_ids": [],
+            "source_errors": {},
             "last_reconciled_at": None,
         }
 
@@ -187,28 +203,62 @@ class HyperliquidCopyEngine:
         self.wake_event.clear()
 
     def _fetch_source_state(self, address: str) -> dict:
-        body = json.dumps(
-            {"type": "clearinghouseState", "user": address},
-            separators=(",", ":"),
-        ).encode("utf-8")
-        request = urllib.request.Request(
-            HYPERLIQUID_INFO_URL,
-            data=body,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(request, timeout=8) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return self._post_info({"type": "clearinghouseState", "user": address})
 
     @staticmethod
-    def _positions_from_state(raw: dict) -> dict[str, float]:
+    def _post_info(payload: dict) -> dict | list:
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        last_error = None
+        for attempt in range(3):
+            request = urllib.request.Request(
+                HYPERLIQUID_INFO_URL,
+                data=body,
+                method="POST",
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": "tyee-hyperliquid-copy/2",
+                },
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                last_error = exc
+                if exc.code != 429 or attempt == 2:
+                    raise
+                retry_after = float(exc.headers.get("Retry-After") or 1.0)
+                time.sleep(min(8.0, retry_after * (2**attempt) + random.random()))
+            except (TimeoutError, urllib.error.URLError) as exc:
+                last_error = exc
+                if attempt == 2:
+                    raise
+                time.sleep(0.5 * (2**attempt) + random.random() * 0.25)
+        raise RuntimeError("Hyperliquid request failed") from last_error
+
+    def _fetch_user_fills(self, address: str, start_time: int) -> list[dict]:
+        result = self._post_info(
+            {
+                "type": "userFillsByTime",
+                "user": address,
+                "startTime": max(0, int(start_time)),
+                "endTime": _now_ms(),
+                "aggregateByTime": False,
+            }
+        )
+        return result if isinstance(result, list) else []
+
+    @staticmethod
+    def _positions_from_state(raw: dict) -> dict[str, dict]:
         result = {}
         for row in raw.get("assetPositions") or []:
             position = row.get("position") or {}
             coin = str(position.get("coin") or "").strip()
             size = float(position.get("szi") or 0)
             if coin and abs(size) > 1e-12:
-                result[coin] = size
+                result[coin] = {
+                    "size": size,
+                    "entry_price": float(position.get("entryPx") or 0),
+                }
         return result
 
     def _binance_symbol(self, client, coin: str) -> str | None:
@@ -251,7 +301,14 @@ class HyperliquidCopyEngine:
         self.state["skipped"] = self.state["skipped"][-100:]
         logger.warning("COPY SKIP source=%s coin=%s reason=%s", source, coin, reason)
 
-    def _open(self, client, source: str, coin: str, source_size: float) -> dict | None:
+    def _open(
+        self,
+        client,
+        source: str,
+        coin: str,
+        source_size: float,
+        source_entry: float = 0,
+    ) -> dict | None:
         key = _source_key(source, coin)
         if key in self.state["positions"]:
             return None
@@ -267,6 +324,20 @@ class HyperliquidCopyEngine:
         ticker = client.fetch_ticker(symbol)
         side = _side(source_size)
         entry = self._entry_price(ticker, side)
+        if source_entry > 0:
+            entry_distance_pct = abs(entry / source_entry - 1) * 100
+            if entry_distance_pct > self.settings.max_entry_distance_pct:
+                self._record_skip(
+                    source,
+                    coin,
+                    (
+                        "late_entry_distance_"
+                        f"{entry_distance_pct:.3f}_gt_{self.settings.max_entry_distance_pct:.3f}"
+                    ),
+                )
+                return None
+        else:
+            entry_distance_pct = None
         notional = self.settings.notional_per_position
         quantity = notional / entry
         entry_fee = notional * self.settings.taker_fee
@@ -279,6 +350,8 @@ class HyperliquidCopyEngine:
             "side": side,
             "source_size": source_size,
             "source_open_size": source_size,
+            "source_entry": source_entry or None,
+            "entry_distance_pct": entry_distance_pct,
             "entry": entry,
             "quantity": quantity,
             "remaining_margin": margin,
@@ -356,69 +429,93 @@ class HyperliquidCopyEngine:
         return {"event": "close", **trade}
 
     def reconcile(self, client) -> list[dict]:
+        self.state.setdefault("fill_cursors", {})
+        self.state.setdefault("recent_fill_ids", [])
+        self.state.setdefault("source_errors", {})
+        self.state.setdefault("ignored_until_flat", [])
+        previous = dict(self.state.get("source_positions") or {})
         current_by_source = {}
+        successful_sources = set()
+        fill_cursor_updates = {}
         for source in self.settings.wallets:
             try:
+                cursor = int(
+                    self.state["fill_cursors"].get(source)
+                    or self.state.get("last_reconciled_at")
+                    or (_now_ms() - 300_000)
+                )
+                query_started_at = _now_ms()
+                fills = self.fill_fetcher(source, max(0, cursor - 1_000))
+                fill_cursor_updates[source] = query_started_at
+                if fills:
+                    fill_cursor_updates[source] = max(
+                        query_started_at,
+                        max(int(fill.get("time") or 0) for fill in fills),
+                    )
+                    seen = self.state["recent_fill_ids"]
+                    for fill in fills:
+                        fill_id = str(
+                            fill.get("tid")
+                            or fill.get("hash")
+                            or f"{source}:{fill.get('time')}:{fill.get('coin')}:{fill.get('px')}"
+                        )
+                        if fill_id not in seen:
+                            seen.append(fill_id)
+                    self.state["recent_fill_ids"] = seen[-1000:]
                 current_by_source[source] = self._positions_from_state(
                     self.source_fetcher(source)
                 )
-            except Exception as error:
-                # A transient Hyperliquid throttle must not stop the independent
-                # Binance strategy tournament. Preserve the last known copy
-                # state and retry on the next five-second reconciliation.
-                logger.warning(
-                    "Hyperliquid source temporarily unavailable source=%s error=%s",
+                successful_sources.add(source)
+                self.state["source_errors"].pop(source, None)
+            except Exception as exc:
+                self.state["source_errors"][source] = {
+                    "at": _now_ms(),
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+                logger.exception(
+                    "COPY source check failed source=%s; other wallets continue",
                     source,
-                    error,
                 )
-                return []
 
-        if self._fresh_state:
-            ignored = []
-            source_positions = {}
-            for source, positions in current_by_source.items():
-                for coin, size in positions.items():
-                    key = _source_key(source, coin)
-                    source_positions[key] = size
-                    ignored.append(key)
-            self.state["source_positions"] = source_positions
-            self.state["ignored_until_flat"] = ignored
-            self.state["last_reconciled_at"] = _now_ms()
-            self._fresh_state = False
-            self.state_store.save(self.state)
-            logger.info(
-                "COPY baseline captured existing_positions=%s; waiting for fresh entries",
-                len(ignored),
-            )
-            return []
-
-        previous = dict(self.state.get("source_positions") or {})
         ignored = set(self.state.get("ignored_until_flat") or [])
         events = []
-        all_keys = set(previous)
+        all_keys = {
+            key
+            for key in previous
+            if key.split(":", 1)[0] in successful_sources
+        }
         for source, positions in current_by_source.items():
             all_keys.update(_source_key(source, coin) for coin in positions)
 
         for key in sorted(all_keys):
             source, coin = key.split(":", 1)
+            if source not in successful_sources:
+                continue
             old_size = float(previous.get(key) or 0)
-            new_size = float(current_by_source.get(source, {}).get(coin) or 0)
+            source_position = current_by_source.get(source, {}).get(coin) or {}
+            new_size = float(source_position.get("size") or 0)
+            source_entry = float(source_position.get("entry_price") or 0)
 
             if key in ignored:
                 if abs(new_size) <= 1e-12:
                     ignored.remove(key)
-                continue
+                    continue
+                ignored.remove(key)
 
             mirrored = self.state["positions"].get(key)
-            if abs(old_size) <= 1e-12 and abs(new_size) > 1e-12:
-                opened = self._open(client, source, coin, new_size)
+            if not mirrored and abs(new_size) > 1e-12:
+                opened = self._open(
+                    client, source, coin, new_size, source_entry=source_entry
+                )
                 if opened:
                     events.append(opened)
             elif old_size * new_size < 0:
                 closed = self._close_fraction(client, key, 1.0, "source_reversed")
                 if closed:
                     events.append(closed)
-                opened = self._open(client, source, coin, new_size)
+                opened = self._open(
+                    client, source, coin, new_size, source_entry=source_entry
+                )
                 if opened:
                     events.append(opened)
             elif abs(new_size) <= 1e-12:
@@ -441,13 +538,18 @@ class HyperliquidCopyEngine:
                 # The allocation remains capped at 10% per source position.
                 mirrored["source_size"] = new_size
 
-        next_positions = {}
+        next_positions = dict(previous)
+        for key in list(next_positions):
+            if key.split(":", 1)[0] in successful_sources:
+                del next_positions[key]
         for source, positions in current_by_source.items():
-            for coin, size in positions.items():
-                next_positions[_source_key(source, coin)] = size
+            for coin, position in positions.items():
+                next_positions[_source_key(source, coin)] = float(position["size"])
         self.state["source_positions"] = next_positions
+        self.state["fill_cursors"].update(fill_cursor_updates)
         self.state["ignored_until_flat"] = sorted(ignored)
         self.state["last_reconciled_at"] = _now_ms()
+        self._fresh_state = False
         self.state_store.save(self.state)
         return events
 
@@ -545,5 +647,7 @@ class HyperliquidCopyEngine:
             "recent_trades": trades[-50:],
             "skipped": self.state["skipped"][-20:],
             "ignored_existing_positions": len(self.state["ignored_until_flat"]),
+            "source_errors": self.state.get("source_errors", {}),
+            "fill_cursors": self.state.get("fill_cursors", {}),
             "last_reconciled_at": self.state["last_reconciled_at"],
         }
