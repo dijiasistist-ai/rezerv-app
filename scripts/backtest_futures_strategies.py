@@ -11,11 +11,13 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import statistics
 import sys
 import time
 import urllib.parse
 import urllib.request
 from bisect import bisect_right
+from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -88,6 +90,52 @@ def get_klines(symbol: str, interval: str, start: int, end: int) -> list[list]:
         cursor = next_cursor
         time.sleep(0.035)
     result = [row for row in rows if int(row[0]) < end]
+    cache_path.write_text(json.dumps(result, separators=(",", ":")), "utf-8")
+    return result
+
+
+def get_futures_series(symbol: str, series: str, start: int, end: int) -> list[dict]:
+    endpoints = {
+        "taker5m": "/futures/data/takerlongshortRatio",
+        "oi5m": "/futures/data/openInterestHist",
+    }
+    cache_dir = Path("/tmp/tyee-binance-backtest")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / f"{symbol}-{series}-{start}-{end}-v2.json"
+    if cache_path.exists():
+        return json.loads(cache_path.read_text("utf-8"))
+    rows = []
+    cursor_end = end
+    while cursor_end > start:
+        query = urllib.parse.urlencode(
+            {
+                "symbol": symbol,
+                "period": "5m",
+                "startTime": start,
+                "endTime": cursor_end,
+                "limit": 500,
+            }
+        )
+        request = urllib.request.Request(
+            f"https://fapi.binance.com{endpoints[series]}?{query}",
+            headers={"User-Agent": "tyee-strategy-audit/1.0"},
+        )
+        with urllib.request.urlopen(request, timeout=20) as response:
+            batch = json.load(response)
+        if not batch:
+            break
+        rows.extend(batch)
+        next_cursor_end = int(batch[0]["timestamp"]) - 1
+        if next_cursor_end >= cursor_end:
+            break
+        cursor_end = next_cursor_end
+        time.sleep(0.035)
+    deduplicated = {
+        int(row["timestamp"]): row
+        for row in rows
+        if start <= int(row["timestamp"]) <= end
+    }
+    result = [deduplicated[key] for key in sorted(deduplicated)]
     cache_path.write_text(json.dumps(result, separators=(",", ":")), "utf-8")
     return result
 
@@ -320,12 +368,84 @@ def range_reversion_strict_signal(c5, c1h, btc1h):
     return None
 
 
+def direction_is_aligned(side, c1h, btc1h, include_24h=True):
+    if len(c1h) < 25 or len(btc1h) < 7:
+        return False
+    coin = [float(row[4]) for row in c1h]
+    btc = [float(row[4]) for row in btc1h]
+    moves = [
+        coin[-1] / coin[-7] - 1,
+        btc[-1] / btc[-7] - 1,
+    ]
+    if include_24h:
+        moves.append(coin[-1] / coin[-25] - 1)
+    return all(move > 0 for move in moves) if side == "long" else all(
+        move < 0 for move in moves
+    )
+
+
+def flow_snapshot(flow):
+    taker = flow["taker"]
+    oi = flow["oi"]
+    if len(taker) < 12 or len(oi) < 12:
+        return None
+    buy_1h = sum(float(row["buyVol"]) for row in taker[-12:])
+    sell_1h = sum(float(row["sellVol"]) for row in taker[-12:])
+    first_oi = float(oi[-12]["sumOpenInterestValue"])
+    last_oi = float(oi[-1]["sumOpenInterestValue"])
+    return {
+        "taker_latest": float(taker[-1]["buySellRatio"]),
+        "taker_1h": buy_1h / sell_1h if sell_1h else 99.0,
+        "oi_change_1h_pct": 100 * (last_oi / first_oi - 1) if first_oi else 0.0,
+    }
+
+
+def flow_confirms(side, snapshot):
+    return (
+        snapshot["taker_latest"] >= 1.05 and snapshot["taker_1h"] >= 1.02
+        if side == "long"
+        else snapshot["taker_latest"] <= 0.95 and snapshot["taker_1h"] <= 0.98
+    )
+
+
+def flow_candidate_signal(name, c5, c1h, btc1h, flow):
+    base_name = "liquidity_sweep" if name.startswith("flow_sweep") else "trend_breakout"
+    signal = signal_for(base_name, c5, c1h, btc1h)
+    snapshot = flow_snapshot(flow)
+    if not signal or not snapshot or not flow_confirms(signal[0], snapshot):
+        return None
+    if name.endswith("_oi_build") and snapshot["oi_change_1h_pct"] <= 0.05:
+        return None
+    if name.endswith("_oi_unwind") and snapshot["oi_change_1h_pct"] >= -0.05:
+        return None
+    return signal[0], (
+        f"{signal[1]} + taker flow"
+        f" + OI {snapshot['oi_change_1h_pct']:+.2f}%"
+    ), signal[2]
+
+
+def consensus_pullback_signal(c5, c1h, btc1h):
+    signal = signal_for("selective_trend_pullback", c5, c1h, btc1h)
+    if signal and direction_is_aligned(signal[0], c1h, btc1h):
+        return signal[0], f"{signal[1]} + 6h/24h direction consensus", signal[2]
+    return None
+
+
+def consensus_sweep_signal(c5, c1h, btc1h):
+    signal = signal_for("liquidity_sweep", c5, c1h, btc1h)
+    if signal and direction_is_aligned(signal[0], c1h, btc1h):
+        return signal[0], f"{signal[1]} + 6h/24h direction consensus", signal[2]
+    return None
+
+
 CANDIDATE_SIGNALS = {
     "regime_retest": regime_retest_signal,
     "regime_breakout": regime_breakout_signal,
     "dual_momentum": dual_momentum_signal,
     "range_reversion": range_reversion_signal,
     "range_reversion_strict": range_reversion_strict_signal,
+    "consensus_pullback": consensus_pullback_signal,
+    "consensus_sweep": consensus_sweep_signal,
 }
 CANDIDATE_PROFILES = {
     "regime_retest": "trend_breakout",
@@ -333,12 +453,111 @@ CANDIDATE_PROFILES = {
     "dual_momentum": "trend_breakout",
     "range_reversion": "bollinger_reversion",
     "range_reversion_strict": "bollinger_reversion",
+    "consensus_pullback": "selective_trend_pullback",
+    "consensus_sweep": "liquidity_sweep",
+    "flow_sweep": "liquidity_sweep",
+    "flow_sweep_oi_build": "liquidity_sweep",
+    "flow_sweep_oi_unwind": "liquidity_sweep",
+    "flow_breakout_oi_build": "trend_breakout",
+    "flow_breakout_oi_unwind": "trend_breakout",
+}
+FLOW_SIGNALS = {
+    "flow_sweep",
+    "flow_sweep_oi_build",
+    "flow_sweep_oi_unwind",
+    "flow_breakout_oi_build",
+    "flow_breakout_oi_unwind",
 }
 
 
 def aligned_window(rows, timestamps, at, size):
     end = bisect_right(timestamps, at)
     return rows[max(0, end - size) : end]
+
+
+def entry_diagnostics(c5, c1h, btc1h):
+    features = market_features(c5, c1h, btc1h)
+    current = float(c5[-1][4])
+    coin_hour = [float(row[4]) for row in c1h]
+    btc_hour = [float(row[4]) for row in btc1h]
+    return {
+        "adx": features["adx"],
+        "rsi": features["rsi"],
+        "volume_ratio": features["volume_ratio"],
+        "extension_atr": abs(current - features["ema21_5m"]) / features["atr"],
+        "coin_6h_return_pct": 100 * (coin_hour[-1] / coin_hour[-7] - 1),
+        "btc_6h_return_pct": 100 * (btc_hour[-1] / btc_hour[-7] - 1),
+        "coin_24h_return_pct": 100 * (coin_hour[-1] / coin_hour[-25] - 1),
+    }
+
+
+def recovery_after_stop(trade, rows, indexes):
+    if trade["reason"] != "stop":
+        return None
+    start_index = indexes[trade["symbol"]].get(trade["closed_at"])
+    if start_index is None:
+        return None
+    future = rows[trade["symbol"]]["5m"][start_index + 1 : start_index + 145]
+    result = {}
+    for label, bars in (("1h", future[:12]), ("4h", future[:48]), ("12h", future)):
+        revisit_index = None
+        target_hit = False
+        for offset, row in enumerate(bars, 1):
+            high, low = float(row[2]), float(row[3])
+            if trade["side"] == "long":
+                revisited = high >= trade["entry"]
+                target_hit = target_hit or high >= trade["take"]
+            else:
+                revisited = low <= trade["entry"]
+                target_hit = target_hit or low <= trade["take"]
+            if revisited and revisit_index is None:
+                revisit_index = offset
+        result[label] = {
+            "revisited_entry": revisit_index is not None,
+            "minutes_to_revisit": revisit_index * 5 if revisit_index else None,
+            "eventual_target_hit": target_hit,
+        }
+    return result
+
+
+def compact_group_stats(trades, key):
+    groups = defaultdict(list)
+    for trade in trades:
+        groups[str(trade[key])].append(trade)
+    return {
+        label: {
+            "trades": len(subset),
+            "win_rate_pct": round(
+                100 * sum(trade["pnl"] > 0 for trade in subset) / len(subset), 2
+            ),
+            "net_pnl_usdt": round(sum(trade["pnl"] for trade in subset), 2),
+        }
+        for label, subset in sorted(groups.items())
+    }
+
+
+def feature_comparison(trades):
+    result = {}
+    for feature in (
+        "adx",
+        "rsi",
+        "volume_ratio",
+        "extension_atr",
+        "coin_6h_return_pct",
+        "btc_6h_return_pct",
+        "coin_24h_return_pct",
+    ):
+        result[feature] = {}
+        for label, subset in (
+            ("wins", [trade for trade in trades if trade["pnl"] > 0]),
+            ("losses", [trade for trade in trades if trade["pnl"] <= 0]),
+        ):
+            values = [trade["features"][feature] for trade in subset]
+            result[feature][label] = {
+                "mean": round(statistics.fmean(values), 4) if values else None,
+                "median": round(statistics.median(values), 4) if values else None,
+            }
+    return result
 
 
 def main() -> None:
@@ -350,18 +569,41 @@ def main() -> None:
         nargs="*",
         default=[*STRATEGIES, *CANDIDATE_SIGNALS],
     )
+    parser.add_argument(
+        "--target-roe-pct",
+        type=float,
+        help="Override every tested profile's fixed ROE target.",
+    )
+    parser.add_argument(
+        "--slippage-bps",
+        type=float,
+        default=0.0,
+        help="Adverse execution slippage applied on every entry and exit.",
+    )
     parser.add_argument("--output", default="/tmp/tyee-strategy-backtest.json")
     args = parser.parse_args()
+    if args.target_roe_pct is not None:
+        for profile in STRATEGY_PROFILES.values():
+            profile["take_profit_roe"] = args.target_roe_pct / 100
+    slippage = args.slippage_bps / 10_000
     end = math.floor(int(time.time() * 1000) / 3_600_000) * 3_600_000
     start = end - args.days * 86_400_000
 
     data = {}
+    needs_flow = any(name in FLOW_SIGNALS for name in args.strategies)
     for symbol in args.symbols:
         print(f"downloading {symbol}", flush=True)
         data[symbol] = {
             "5m": get_klines(symbol, "5m", start - 2 * 86_400_000, end),
             "1h": get_klines(symbol, "1h", start - 12 * 86_400_000, end),
         }
+        if needs_flow:
+            data[symbol]["taker5m"] = get_futures_series(
+                symbol, "taker5m", start, end
+            )
+            data[symbol]["oi5m"] = get_futures_series(
+                symbol, "oi5m", start, end
+            )
     btc1h = data["BTCUSDT"]["1h"]
     btc_ts = [int(row[0]) for row in btc1h]
     timeline = sorted(
@@ -378,6 +620,14 @@ def main() -> None:
     }
     hour_ts = {
         symbol: [int(row[0]) for row in data[symbol]["1h"]]
+        for symbol in args.symbols
+    }
+    taker_ts = {
+        symbol: [int(row["timestamp"]) for row in data[symbol].get("taker5m", [])]
+        for symbol in args.symbols
+    }
+    oi_ts = {
+        symbol: [int(row["timestamp"]) for row in data[symbol].get("oi5m", [])]
         for symbol in args.symbols
     }
     names = tuple(args.strategies)
@@ -417,7 +667,10 @@ def main() -> None:
             if not stop_hit and not take_hit:
                 continue
             reason = "stop" if stop_hit else "take"
-            exit_price = position[reason]
+            exit_level = position[reason]
+            exit_price = exit_level * (
+                1 - slippage if position["side"] == "long" else 1 + slippage
+            )
             gross = (
                 (exit_price - position["entry"]) * position["quantity"]
                 if position["side"] == "long"
@@ -433,8 +686,23 @@ def main() -> None:
                     "opened_at": position["opened_at"],
                     "closed_at": timestamp,
                     "reason": reason,
+                    "signal_reason": position["reason"],
+                    "entry": position["entry"],
+                    "stop": position["stop"],
+                    "take": position["take"],
+                    "margin": position["margin"],
+                    "gross_pnl": gross,
+                    "fees": position["entry_fee"] + exit_fee,
                     "pnl": pnl,
                     "roi_pct": 100 * pnl / position["margin"],
+                    "holding_minutes": (timestamp - position["opened_at"]) / 60_000,
+                    "stop_distance_pct": 100
+                    * abs(position["stop"] / position["entry"] - 1),
+                    "target_distance_pct": 100
+                    * abs(position["take"] / position["entry"] - 1),
+                    "reward_risk": abs(position["take"] - position["entry"])
+                    / abs(position["entry"] - position["stop"]),
+                    "features": position["features"],
                 }
             )
             state["position"] = None
@@ -460,19 +728,50 @@ def main() -> None:
                 # The slowest indicator is EMA55 and Bollinger needs 24
                 # aggregated 15m candles; 100 closed 5m bars are sufficient.
                 c5 = data[symbol]["5m"][max(0, index - 99) : index + 1]
+                # The 5m signal bar closes at timestamp + 5m. Therefore the
+                # newest knowable 1h bar opened 55 minutes earlier; using the
+                # current hour's row would leak its future close/high/low.
                 c1h = aligned_window(
-                    data[symbol]["1h"], hour_ts[symbol], timestamp, 300
+                    data[symbol]["1h"],
+                    hour_ts[symbol],
+                    timestamp - 55 * 60_000,
+                    300,
                 )
-                btc_window = aligned_window(btc1h, btc_ts, timestamp, 300)
-                signal = (
-                    CANDIDATE_SIGNALS[name](c5, c1h, btc_window)
-                    if name in CANDIDATE_SIGNALS
-                    else signal_for(name, c5, c1h, btc_window)
+                btc_window = aligned_window(
+                    btc1h,
+                    btc_ts,
+                    timestamp - 55 * 60_000,
+                    300,
                 )
+                if name in FLOW_SIGNALS:
+                    flow = {
+                        "taker": aligned_window(
+                            data[symbol]["taker5m"],
+                            taker_ts[symbol],
+                            timestamp,
+                            24,
+                        ),
+                        # OI timestamps mark the period end, so the row ending
+                        # with this signal candle is knowable at its close.
+                        "oi": aligned_window(
+                            data[symbol]["oi5m"],
+                            oi_ts[symbol],
+                            timestamp + 5 * 60_000,
+                            24,
+                        ),
+                    }
+                    signal = flow_candidate_signal(
+                        name, c5, c1h, btc_window, flow
+                    )
+                elif name in CANDIDATE_SIGNALS:
+                    signal = CANDIDATE_SIGNALS[name](c5, c1h, btc_window)
+                else:
+                    signal = signal_for(name, c5, c1h, btc_window)
                 if not signal:
                     continue
                 side, reason, atr_fraction = signal
-                entry = float(data[symbol]["5m"][next_index][1])
+                raw_entry = float(data[symbol]["5m"][next_index][1])
+                entry = raw_entry * (1 + slippage if side == "long" else 1 - slippage)
                 strategy_name = CANDIDATE_PROFILES.get(name, name)
                 stop, take = brackets(
                     strategy_name,
@@ -517,12 +816,17 @@ def main() -> None:
                     "entry_fee": entry_fee,
                     "opened_at": next_timestamp,
                     "reason": reason,
+                    "features": entry_diagnostics(c5, c1h, btc_window),
                 }
                 break
 
     results = {}
     for name, state in states.items():
         trades = state["trades"]
+        for trade in trades:
+            recovery = recovery_after_stop(trade, data, indexes)
+            if recovery:
+                trade["post_stop_recovery"] = recovery
         wins = [trade for trade in trades if trade["pnl"] > 0]
         losses = [trade for trade in trades if trade["pnl"] <= 0]
         gross_profit = sum(trade["pnl"] for trade in wins)
@@ -550,6 +854,46 @@ def main() -> None:
                     else None
                 ),
             }
+        stopped = [trade for trade in trades if trade["reason"] == "stop"]
+        recovery_summary = {}
+        for horizon in ("1h", "4h", "12h"):
+            available = [
+                trade
+                for trade in stopped
+                if trade.get("post_stop_recovery", {}).get(horizon)
+            ]
+            revisited = [
+                trade
+                for trade in available
+                if trade["post_stop_recovery"][horizon]["revisited_entry"]
+            ]
+            target_hit = [
+                trade
+                for trade in available
+                if trade["post_stop_recovery"][horizon]["eventual_target_hit"]
+            ]
+            recovery_summary[horizon] = {
+                "stops_observed": len(available),
+                "entry_revisit_pct": round(
+                    100 * len(revisited) / len(available), 2
+                )
+                if available
+                else 0.0,
+                "eventual_target_pct": round(
+                    100 * len(target_hit) / len(available), 2
+                )
+                if available
+                else 0.0,
+                "median_minutes_to_revisit": round(
+                    statistics.median(
+                        trade["post_stop_recovery"][horizon]["minutes_to_revisit"]
+                        for trade in revisited
+                    ),
+                    1,
+                )
+                if revisited
+                else None,
+            }
         results[name] = {
             "closed_trades": len(trades),
             "wins": len(wins),
@@ -569,16 +913,50 @@ def main() -> None:
             if trades
             else 0.0,
             "max_drawdown_pct": round(state["max_drawdown_pct"], 2),
+            "average_win_usdt": round(
+                statistics.fmean(trade["pnl"] for trade in wins), 2
+            )
+            if wins
+            else 0.0,
+            "average_loss_usdt": round(
+                statistics.fmean(trade["pnl"] for trade in losses), 2
+            )
+            if losses
+            else 0.0,
+            "median_holding_minutes": round(
+                statistics.median(trade["holding_minutes"] for trade in trades), 1
+            )
+            if trades
+            else 0.0,
+            "average_stop_distance_pct": round(
+                statistics.fmean(trade["stop_distance_pct"] for trade in trades), 3
+            )
+            if trades
+            else 0.0,
+            "average_reward_risk": round(
+                statistics.fmean(trade["reward_risk"] for trade in trades), 3
+            )
+            if trades
+            else 0.0,
+            "by_symbol": compact_group_stats(trades, "symbol"),
+            "by_side": compact_group_stats(trades, "side"),
+            "by_exit": compact_group_stats(trades, "reason"),
+            "winner_loser_features": feature_comparison(trades),
+            "post_stop_recovery": recovery_summary,
             "open_position": bool(state["position"]),
             "halves": halves,
+            "trades": trades,
         }
     payload = {
         "period_days": args.days,
+        "period_start": start,
+        "period_end": end,
         "symbols": args.symbols,
         "assumptions": {
             "leverage": LEVERAGE,
             "margin_fraction": MARGIN_FRACTION,
             "taker_fee_each_side": FEE,
+            "slippage_bps_each_fill": args.slippage_bps,
             "entry": "next_5m_open",
             "same_bar_stop_and_take": "stop_first",
         },

@@ -18,7 +18,7 @@ try:
 except ModuleNotFoundError:
     sys.modules["psycopg"] = types.ModuleType("psycopg")
 
-from avax_bot import Settings, Side, brackets, entry_signal
+from avax_bot import Bot, MarketContext, Settings, Side, brackets, entry_signal
 from avax_paper_tournament import brackets as strategy_brackets
 
 
@@ -51,6 +51,40 @@ class BotDecisionTest(unittest.TestCase):
             settings.take_profit_roe,
         )
         self.assertEqual(expected, brackets(20.0, Side.LONG, 0.01, settings))
+
+    def test_candidate_and_trade_outcome_become_training_rows(self) -> None:
+        bot = Bot.__new__(Bot)
+        bot.market_context = lambda _symbol: MarketContext(
+            timestamp=123,
+            open_interest_change_pct_1h=0.4,
+            taker_buy_sell_ratio_1h=1.1,
+            global_long_short_ratio=None,
+            top_position_long_short_ratio=None,
+            funding_rate=0.0001,
+        )
+        rows = bot.observation_rows_from_events(
+            [
+                {
+                    "event": "signal_candidate",
+                    "observation_id": "obs-1",
+                    "symbol": "AVAX/USDT:USDT",
+                    "accepted": True,
+                },
+                {
+                    "event": "close",
+                    "observation_id": "obs-1",
+                    "strategy": "liquidity_sweep",
+                    "symbol": "AVAX/USDT:USDT",
+                    "side": "long",
+                    "net_pnl": 12.5,
+                    "roi_pct": 1.1,
+                },
+            ]
+        )
+        self.assertEqual("signal_candidate", rows[0]["event"])
+        self.assertEqual(1.1, rows[0]["futures_context"]["taker_buy_sell_ratio_1h"])
+        self.assertEqual("trade_outcome", rows[1]["event"])
+        self.assertEqual("obs-1", rows[1]["observation_id"])
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ const runtimeFileNames = [
   "avax-paper-snapshots.json",
   "avax-paper-state.json",
   "avax-copy-state.json",
+  "avax-signal-observations.jsonl",
 ];
 const usersPath = path.join(runtimeDir, "users.json");
 const legacyUsersPath = path.join(__dirname, "users.json");
@@ -28,6 +29,11 @@ const reviewsPath = path.join(runtimeDir, "reviews.json");
 const avaxPaperSnapshotsPath = path.join(runtimeDir, "avax-paper-snapshots.json");
 const avaxPaperStatePath = path.join(runtimeDir, "avax-paper-state.json");
 const avaxCopyStatePath = path.join(runtimeDir, "avax-copy-state.json");
+const avaxSignalObservationsPath = path.join(runtimeDir, "avax-signal-observations.jsonl");
+const AVAX_OBSERVATION_MAX_BYTES = 8 * 1024 * 1024;
+const AVAX_OBSERVATION_KEEP_BYTES = 6 * 1024 * 1024;
+let avaxObservationStatsCache = null;
+let avaxObservationKeysCache = null;
 const runtimeBackupState = {
   initialized: false,
   isRestoring: false,
@@ -187,7 +193,13 @@ async function restoreRuntimeBackupFile(config, filePath) {
   const encrypted = await readRuntimeBackupContent(config, backupFile);
   if (!encrypted) return false;
   const decoded = decryptRuntimeBackup(encrypted, config);
-  JSON.parse(decoded);
+  if (filePath.endsWith(".jsonl")) {
+    for (const line of decoded.split("\n")) {
+      if (line.trim()) JSON.parse(line);
+    }
+  } else {
+    JSON.parse(decoded);
+  }
   ensureRuntimeDir();
   fs.writeFileSync(filePath, decoded.endsWith("\n") ? decoded : `${decoded}\n`);
   return true;
@@ -228,15 +240,16 @@ async function pushRuntimeBackupFile(filePath) {
   }
 }
 
-function queueRuntimeBackup(filePath) {
+function queueRuntimeBackup(filePath, delayMs = 1200) {
   const config = getRuntimeBackupConfig();
   if (!config || runtimeBackupState.isRestoring) return;
   const existingTimer = runtimeBackupState.timers.get(filePath);
+  if (existingTimer && delayMs > 1200) return;
   if (existingTimer) clearTimeout(existingTimer);
   const timer = setTimeout(() => {
     runtimeBackupState.timers.delete(filePath);
     pushRuntimeBackupFile(filePath);
-  }, 1200);
+  }, delayMs);
   runtimeBackupState.timers.set(filePath, timer);
 }
 
@@ -805,9 +818,92 @@ function saveAvaxCopyState(state) {
   writeJson(avaxCopyStatePath, state && typeof state === "object" ? state : null);
 }
 
+function compactJsonLines(filePath) {
+  const stats = fs.statSync(filePath);
+  if (stats.size <= AVAX_OBSERVATION_MAX_BYTES) return false;
+  const start = Math.max(0, stats.size - AVAX_OBSERVATION_KEEP_BYTES);
+  const handle = fs.openSync(filePath, "r");
+  const buffer = Buffer.alloc(stats.size - start);
+  try {
+    fs.readSync(handle, buffer, 0, buffer.length, start);
+  } finally {
+    fs.closeSync(handle);
+  }
+  const firstNewline = buffer.indexOf(10);
+  const retained = firstNewline >= 0 ? buffer.subarray(firstNewline + 1) : buffer;
+  const temporary = `${filePath}.tmp`;
+  fs.writeFileSync(temporary, retained);
+  fs.renameSync(temporary, filePath);
+  return true;
+}
+
+function loadAvaxObservationStats() {
+  if (avaxObservationStatsCache && avaxObservationKeysCache) {
+    return avaxObservationStatsCache;
+  }
+  ensureRuntimeDir();
+  if (!fs.existsSync(avaxSignalObservationsPath)) {
+    avaxObservationStatsCache = { bytes: 0, records: 0, latest: null };
+    avaxObservationKeysCache = new Set();
+    return avaxObservationStatsCache;
+  }
+  const content = fs.readFileSync(avaxSignalObservationsPath, "utf8");
+  const lines = content.split("\n").filter(Boolean);
+  const parsed = lines.map((line) => JSON.parse(line));
+  avaxObservationStatsCache = {
+    bytes: Buffer.byteLength(content),
+    records: lines.length,
+    latest: parsed.at(-1) || null,
+  };
+  avaxObservationKeysCache = new Set(
+    parsed.map((row) => `${row.event}|${row.observation_id}`),
+  );
+  return avaxObservationStatsCache;
+}
+
+function appendAvaxSignalObservations(observations) {
+  ensureRuntimeDir();
+  const currentStats = loadAvaxObservationStats();
+  const rows = Array.isArray(observations) ? observations.slice(0, 500) : [];
+  const newKeys = new Set();
+  const validRows = rows.filter((row) => {
+    if (!row || typeof row !== "object") return false;
+    const key = `${row.event}|${row.observation_id}`;
+    if (avaxObservationKeysCache.has(key) || newKeys.has(key)) return false;
+    newKeys.add(key);
+    return true;
+  });
+  if (!validRows.length) return { accepted: 0, bytes: currentStats.bytes };
+  const payload = validRows.map((row) => JSON.stringify(row)).join("\n");
+  fs.appendFileSync(avaxSignalObservationsPath, `${payload}\n`);
+  for (const key of newKeys) avaxObservationKeysCache.add(key);
+  const compacted = compactJsonLines(avaxSignalObservationsPath);
+  if (compacted) {
+    avaxObservationStatsCache = null;
+    avaxObservationKeysCache = null;
+    loadAvaxObservationStats();
+  } else {
+    avaxObservationStatsCache = {
+      bytes: fs.statSync(avaxSignalObservationsPath).size,
+      records: currentStats.records + validRows.length,
+      latest: validRows.at(-1),
+    };
+  }
+  queueRuntimeBackup(avaxSignalObservationsPath, 6 * 60 * 60 * 1000);
+  return {
+    accepted: validRows.length,
+    bytes: avaxObservationStatsCache.bytes,
+  };
+}
+
+function getAvaxSignalObservationSummary() {
+  return { ...loadAvaxObservationStats() };
+}
+
 module.exports = {
   addReview,
   addReservation,
+  appendAvaxSignalObservations,
   appendDevEmail,
   appendDevSms,
   deleteAdminAccessRule,
@@ -821,6 +917,7 @@ module.exports = {
   getAdminAccessRules,
   getAvaxPaperSnapshots,
   getAvaxPaperState,
+  getAvaxSignalObservationSummary,
   getAvaxCopyState,
   getDeletedVenueIds,
   getReservations,

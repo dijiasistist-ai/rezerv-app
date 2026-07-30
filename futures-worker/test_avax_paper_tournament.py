@@ -308,7 +308,20 @@ class TournamentTest(unittest.TestCase):
                 None,
             )
         opened = [event for event in events if event["event"] == "open"]
+        candidates = [
+            event for event in events if event["event"] == "signal_candidate"
+        ]
         self.assertEqual(len(STRATEGIES), len(opened))
+        self.assertEqual(len(STRATEGIES), len(candidates))
+        self.assertEqual(
+            len(STRATEGIES),
+            len({event["observation_id"] for event in candidates}),
+        )
+        self.assertTrue(all(event["accepted"] for event in candidates))
+        self.assertEqual(
+            {event["observation_id"] for event in candidates},
+            {event["observation_id"] for event in opened},
+        )
         self.assertTrue(all(event["initial_margin"] == 1200 for event in opened))
 
     def test_daily_loss_does_not_block_observation_entries(self) -> None:

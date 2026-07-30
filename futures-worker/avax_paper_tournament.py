@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import statistics
 import time
@@ -312,6 +313,55 @@ def market_features(c15: Sequence[Candle], c1h: Sequence[Candle], c4h: Sequence[
         "rsi": rsi(close15),
         "atr": current_atr,
         "volume_ratio": volumes[-1] / statistics.fmean(volumes[-21:-1]),
+    }
+
+
+def signal_observation(
+    strategy: str,
+    symbol: str,
+    side: str,
+    reason: str,
+    candle_ts: int,
+    c5: Sequence[Candle],
+    c1h: Sequence[Candle],
+    btc1h: Sequence[Candle],
+) -> dict:
+    features = market_features(c5, c1h, btc1h)
+    current = float(c5[-1][4])
+    coin_hour = [float(candle[4]) for candle in c1h]
+    btc_hour = [float(candle[4]) for candle in btc1h]
+    identity = "|".join(
+        (CURRENT_RULE_VERSION, strategy, symbol, side, str(candle_ts))
+    )
+    return {
+        "event": "signal_candidate",
+        "observation_id": hashlib.sha256(identity.encode("utf-8")).hexdigest()[:24],
+        "observed_at": int(time.time() * 1000),
+        "signal_candle": candle_ts,
+        "rule_version": CURRENT_RULE_VERSION,
+        "strategy": strategy,
+        "symbol": symbol,
+        "side": side,
+        "reason": reason,
+        "features": {
+            "price": current,
+            "atr_fraction": features["atr"] / current,
+            "adx_5m": features["adx"],
+            "rsi_5m": features["rsi"],
+            "volume_ratio_5m": features["volume_ratio"],
+            "extension_atr_5m": abs(current - features["ema21_5m"])
+            / features["atr"],
+            "ema21_above_ema55": features["ema21_5m"]
+            > features["ema55_5m"],
+            "ema21_slope_up": features["ema21_5m"]
+            > features["ema21_5m_prior"],
+            "coin_return_6h_pct": 100 * (coin_hour[-1] / coin_hour[-7] - 1),
+            "coin_return_24h_pct": 100
+            * (coin_hour[-1] / coin_hour[-25] - 1),
+            "btc_return_6h_pct": 100 * (btc_hour[-1] / btc_hour[-7] - 1),
+            "btc_return_24h_pct": 100
+            * (btc_hour[-1] / btc_hour[-25] - 1),
+        },
     }
 
 
@@ -738,6 +788,7 @@ class PaperTournament:
         self.max_daily_loss_pct = max_daily_loss_pct
         self.max_drawdown_limit_pct = max_drawdown_pct
         self.max_consecutive_losses = max_consecutive_losses
+        self.last_entry_rejection: str | None = None
         self.store = state_store or (
             PostgresStateStore(database_url, state_key)
             if database_url
@@ -949,9 +1000,11 @@ class PaperTournament:
         candles: Sequence[Candle],
         *,
         symbol: str = "AVAX/USDT:USDT",
+        observation_id: str | None = None,
         demo: bool = False,
         demo_close_at: int | None = None,
     ) -> dict | None:
+        self.last_entry_rejection = None
         side, reason, atr_fraction = found
         entry = self._entry_price(side, ticker)
         initial_margin = strategy["balance"] * self.wallet_fraction
@@ -971,6 +1024,7 @@ class PaperTournament:
         if "maximum_stop_fraction" in profile and (
             abs(stop / entry - 1) > profile["maximum_stop_fraction"]
         ):
+            self.last_entry_rejection = "stop_above_strategy_maximum"
             return None
         risk_distance = abs(entry - stop)
         reward_distance = abs(take - entry)
@@ -979,6 +1033,7 @@ class PaperTournament:
             risk_distance <= 0
             or reward_distance / risk_distance < minimum_reward_risk
         ):
+            self.last_entry_rejection = "reward_risk_below_minimum"
             return None
         decision_candles = (
             closed_15m_candles(candles)
@@ -1021,6 +1076,7 @@ class PaperTournament:
             "take_profit_roe": effective_take_profit_roe,
             "exit_model": profile["exit_model"],
             "rule_version": CURRENT_RULE_VERSION,
+            "observation_id": observation_id,
         }
         return {"event": "open", "strategy": name, **strategy["position"]}
 
@@ -1373,6 +1429,17 @@ class PaperTournament:
                     else signal_for(name, c15, c1h, c4h)
                 )
                 if found:
+                    side, signal_reason, _ = found
+                    observation = signal_observation(
+                        name,
+                        symbol,
+                        side,
+                        signal_reason,
+                        decision_candle,
+                        c15,
+                        c1h,
+                        c4h,
+                    )
                     opened = self._open(
                         name,
                         strategy,
@@ -1382,9 +1449,23 @@ class PaperTournament:
                         context,
                         c15,
                         symbol=symbol,
+                        observation_id=observation["observation_id"],
                         demo=demo_started_this_cycle,
                         demo_close_at=self.state.get("demo_close_at"),
                     )
+                    observation["accepted"] = bool(opened)
+                    observation["rejection_reason"] = (
+                        None if opened else self.last_entry_rejection or "entry_not_opened"
+                    )
+                    if opened:
+                        observation["entry_plan"] = {
+                            "entry": opened["entry"],
+                            "stop": opened["stop"],
+                            "take": opened["take"],
+                            "initial_margin": opened["initial_margin"],
+                            "quantity": opened["quantity"],
+                        }
+                    events.append(observation)
                     if opened:
                         events.append(opened)
 

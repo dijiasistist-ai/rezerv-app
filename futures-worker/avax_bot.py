@@ -195,9 +195,9 @@ class MarketContext:
     timestamp: int
     open_interest_change_pct_1h: float
     taker_buy_sell_ratio_1h: float
-    global_long_short_ratio: float
-    top_position_long_short_ratio: float
-    funding_rate: float
+    global_long_short_ratio: float | None
+    top_position_long_short_ratio: float | None
+    funding_rate: float | None
 
 
 def ema(values: Sequence[float], period: int) -> list[float]:
@@ -289,6 +289,11 @@ def microstructure_veto(side: Side, context: MarketContext) -> str | None:
     Thresholds initially run in shadow mode. They must earn their place from
     forward observations before AVAX_BOT_MICROSTRUCTURE_ENFORCE is enabled.
     """
+    if (
+        context.global_long_short_ratio is None
+        or context.top_position_long_short_ratio is None
+    ):
+        return None
     if side is Side.LONG:
         crowded = context.global_long_short_ratio >= 1.80
         flow_diverges = context.taker_buy_sell_ratio_1h <= 0.85
@@ -469,6 +474,7 @@ class Bot:
                 "FUTURES REALTIME EXIT %s",
                 json.dumps(event, separators=(",", ":"), sort_keys=True),
             )
+        self.publish_signal_observations(self.observation_rows_from_events(events))
         return events
 
     def position_supervisor_forever(self) -> None:
@@ -587,13 +593,28 @@ class Bot:
         params = {"symbol": market_id, "period": "15m", "limit": 5}
         oi_rows = self.client.fapiDataGetOpenInterestHist(params)
         taker_rows = self.client.fapiDataGetTakerlongshortRatio(params)
-        global_rows = self.client.fapiDataGetGlobalLongShortAccountRatio(
-            {"symbol": market_id, "period": "15m", "limit": 1}
-        )
-        top_rows = self.client.fapiDataGetTopLongShortPositionRatio(
-            {"symbol": market_id, "period": "15m", "limit": 1}
-        )
-        funding = self.client.fetch_funding_rate(symbol)
+        global_ratio = None
+        top_ratio = None
+        funding_rate = None
+        try:
+            global_rows = self.client.fapiDataGetGlobalLongShortAccountRatio(
+                {"symbol": market_id, "period": "15m", "limit": 1}
+            )
+            global_ratio = float(global_rows[-1]["longShortRatio"])
+        except Exception:
+            logger.info("Global long/short ratio unavailable symbol=%s", symbol)
+        try:
+            top_rows = self.client.fapiDataGetTopLongShortPositionRatio(
+                {"symbol": market_id, "period": "15m", "limit": 1}
+            )
+            top_ratio = float(top_rows[-1]["longShortRatio"])
+        except Exception:
+            logger.info("Top-position ratio unavailable symbol=%s", symbol)
+        try:
+            funding = self.client.fetch_funding_rate(symbol)
+            funding_rate = float(funding.get("fundingRate") or 0.0)
+        except Exception:
+            logger.info("Funding rate unavailable symbol=%s", symbol)
         first_oi = float(oi_rows[0]["sumOpenInterestValue"])
         last_oi = float(oi_rows[-1]["sumOpenInterestValue"])
         buy_volume = sum(float(row["buyVol"]) for row in taker_rows[-4:])
@@ -602,9 +623,9 @@ class Bot:
             timestamp=int(oi_rows[-1]["timestamp"]),
             open_interest_change_pct_1h=100 * (last_oi / first_oi - 1) if first_oi else 0.0,
             taker_buy_sell_ratio_1h=buy_volume / sell_volume if sell_volume else 99.0,
-            global_long_short_ratio=float(global_rows[-1]["longShortRatio"]),
-            top_position_long_short_ratio=float(top_rows[-1]["longShortRatio"]),
-            funding_rate=float(funding.get("fundingRate") or 0.0),
+            global_long_short_ratio=global_ratio,
+            top_position_long_short_ratio=top_ratio,
+            funding_rate=funding_rate,
         )
 
     def observe_market_context(self, symbol: str, candle_timestamp: int) -> None:
@@ -620,15 +641,20 @@ class Bot:
             return
         context = self.latest_context
         logger.info(
-            "FUTURES FLOW symbol=%s ts=%s oi_change_1h=%.3f%% taker_ratio_1h=%.3f "
-            "global_ls=%.3f top_position_ls=%.3f funding=%.6f",
-            symbol,
-            context.timestamp,
-            context.open_interest_change_pct_1h,
-            context.taker_buy_sell_ratio_1h,
-            context.global_long_short_ratio,
-            context.top_position_long_short_ratio,
-            context.funding_rate,
+            "FUTURES FLOW %s",
+            json.dumps(
+                {
+                    "symbol": symbol,
+                    "timestamp": context.timestamp,
+                    "open_interest_change_pct_1h": context.open_interest_change_pct_1h,
+                    "taker_buy_sell_ratio_1h": context.taker_buy_sell_ratio_1h,
+                    "global_long_short_ratio": context.global_long_short_ratio,
+                    "top_position_long_short_ratio": context.top_position_long_short_ratio,
+                    "funding_rate": context.funding_rate,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
         )
 
     def refresh_paper_universe(self) -> list[str]:
@@ -698,6 +724,88 @@ class Bot:
             )
         except (urllib.error.URLError, TimeoutError, RuntimeError):
             logger.exception("AVAX tournament dashboard publish failed")
+
+    @staticmethod
+    def context_payload(context: MarketContext | None) -> dict | None:
+        if not context:
+            return None
+        return {
+            "timestamp": context.timestamp,
+            "open_interest_change_pct_1h": context.open_interest_change_pct_1h,
+            "taker_buy_sell_ratio_1h": context.taker_buy_sell_ratio_1h,
+            "global_long_short_ratio": context.global_long_short_ratio,
+            "top_position_long_short_ratio": context.top_position_long_short_ratio,
+            "funding_rate": context.funding_rate,
+        }
+
+    def publish_signal_observations(self, observations: list[dict]) -> None:
+        if (
+            not observations
+            or not self.settings.dashboard_url
+            or not self.settings.dashboard_ingest_token
+        ):
+            return
+        body = json.dumps(
+            {"observations": observations}, separators=(",", ":")
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            self.settings.dashboard_url + "/api/observations",
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "X-AVAX-Ingest-Token": self.settings.dashboard_ingest_token,
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                if response.status not in {200, 202}:
+                    raise RuntimeError(
+                        f"observation endpoint returned HTTP {response.status}"
+                    )
+            logger.info("FUTURES observations published count=%s", len(observations))
+        except (urllib.error.URLError, TimeoutError, RuntimeError):
+            logger.exception("FUTURES observation publish failed")
+
+    def observation_rows_from_events(self, events: list[dict]) -> list[dict]:
+        rows = []
+        context_cache: dict[str, dict | None] = {}
+        for event in events:
+            if event.get("event") == "signal_candidate":
+                symbol = str(event.get("symbol") or "")
+                if symbol not in context_cache:
+                    try:
+                        context_cache[symbol] = self.context_payload(
+                            self.market_context(symbol)
+                        )
+                    except Exception:
+                        logger.exception(
+                            "FUTURES candidate context unavailable symbol=%s",
+                            symbol,
+                        )
+                        context_cache[symbol] = None
+                rows.append(
+                    {
+                        **event,
+                        "futures_context": context_cache[symbol],
+                    }
+                )
+            elif event.get("event") == "close" and event.get("observation_id"):
+                rows.append(
+                    {
+                        "event": "trade_outcome",
+                        "observation_id": event["observation_id"],
+                        "strategy": event.get("strategy"),
+                        "symbol": event.get("symbol"),
+                        "side": event.get("side"),
+                        "opened_at": event.get("opened_at"),
+                        "closed_at": event.get("closed_at"),
+                        "exit_reason": event.get("exit_reason"),
+                        "net_pnl": event.get("net_pnl"),
+                        "roi_pct": event.get("roi_pct"),
+                    }
+                )
+        return rows
 
     def live_position(self) -> dict | None:
         for raw in self.client.fetch_positions([self.settings.symbol]):
@@ -970,7 +1078,12 @@ class Bot:
                 if self.latest_context
                 else None
             )
-            for event in events:
+            self.publish_signal_observations(
+                self.observation_rows_from_events(events)
+            )
+            for event in (
+                event for event in events if event.get("event") != "signal_candidate"
+            ):
                 logger.warning(
                     "FUTURES TOURNAMENT EVENT %s",
                     json.dumps(event, separators=(",", ":"), sort_keys=True),
@@ -1008,6 +1121,14 @@ class Bot:
                 ),
                 "strategy_poll_seconds": self.settings.poll_seconds,
                 "heartbeat_at": now,
+                "signal_dataset": {
+                    "enabled": bool(
+                        self.settings.dashboard_url
+                        and self.settings.dashboard_ingest_token
+                    ),
+                    "mode": "offline_research",
+                    "minimum_labeled_examples": 300,
+                },
                 "position_supervisor": {
                     "connected": self.position_watch_connected,
                     "last_message_age_seconds": (

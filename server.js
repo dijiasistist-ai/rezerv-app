@@ -14,6 +14,7 @@ const {
 const {
   addReview,
   addReservation,
+  appendAvaxSignalObservations,
   deleteAdminAccessRule,
   deleteReviewsByVenueIds,
   deleteUserById,
@@ -26,6 +27,7 @@ const {
   getAvaxCopyState,
   getAvaxPaperSnapshots,
   getAvaxPaperState,
+  getAvaxSignalObservationSummary,
   getDeletedVenueIds,
   getReservations,
   getReviews,
@@ -6028,6 +6030,14 @@ app.get("/api/admin/avax-dashboard", requireAdmin, (_req, res) => {
     history,
     copy_history: copyHistory,
     closed_trades: closedTrades,
+    observation_dataset: getAvaxSignalObservationSummary(),
+  });
+});
+
+app.get("/api/admin/avax-observations", requireAdmin, (_req, res) => {
+  res.json({
+    generated_at: Date.now(),
+    ...getAvaxSignalObservationSummary(),
   });
 });
 
@@ -6111,6 +6121,37 @@ app.post("/api/snapshot", (req, res) => {
   }
   const history = saveAvaxPaperSnapshot(req.body);
   res.status(202).json({ accepted: true, history_points: history.length });
+});
+
+app.post("/api/observations", (req, res) => {
+  if (!hasValidAvaxIngestToken(req)) {
+    res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
+    return;
+  }
+  const observations = req.body && req.body.observations;
+  if (!Array.isArray(observations) || observations.length > 500) {
+    res.status(400).json({ error: "Geçersiz sinyal gözlem paketi." });
+    return;
+  }
+  const allowedEvents = new Set(["signal_candidate", "trade_outcome"]);
+  if (
+    observations.some(
+      (row) =>
+        !row ||
+        typeof row !== "object" ||
+        !allowedEvents.has(String(row.event || "")) ||
+        !/^[a-f0-9]{24}$/.test(String(row.observation_id || "")),
+    )
+  ) {
+    res.status(400).json({ error: "Desteklenmeyen sinyal gözlem kaydı." });
+    return;
+  }
+  if (Buffer.byteLength(JSON.stringify(observations)) > 1024 * 1024) {
+    res.status(413).json({ error: "Sinyal gözlem paketi çok büyük." });
+    return;
+  }
+  const result = appendAvaxSignalObservations(observations);
+  res.status(202).json(result);
 });
 
 app.get("/api/admin/search", requireAdmin, (req, res) => {

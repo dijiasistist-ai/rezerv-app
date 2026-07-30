@@ -26,10 +26,14 @@
     if(data.latest.mode==="hyperliquid_copy"){renderCopy();return}
     overview();activePositionsBoard();cards();trades(data.latest);periods(data.history||[]);renderCopyAddon(data.latest.copy_trading);
   }
+  function renderObservationRule(){
+    var summary=data&&data.observation_dataset||{},records=Number(summary.records||0),node=e("observationRule");
+    if(node)node.textContent=records.toLocaleString("tr-TR")+" kayıt";
+  }
   function shortWallet(v){v=String(v||"");return v.length>12?v.slice(0,6)+"…"+v.slice(-4):v}
   function renderCopy(){
     var q=data.latest,positions=Array.isArray(q.positions)?q.positions:[],wallets=q.wallets||{},age=Date.now()-Number((q.bot_status||{}).heartbeat_at||q.received_at||0),live=age<heartbeatWindow(q);
-    setBotHealth(q);e("status").classList.toggle("live",live);e("status").querySelector("span").textContent=live?"Cüzdan akışı izleniyor":"Veri gecikmiş olabilir";e("updated").textContent="Son güncelleme "+dt(q.received_at);
+    setBotHealth(q);renderObservationRule();e("status").classList.toggle("live",live);e("status").querySelector("span").textContent=live?"Cüzdan akışı izleniyor":"Veri gecikmiş olabilir";e("updated").textContent="Son güncelleme "+dt(q.received_at);
     syncChartSelection(q);renderSelectedMarket(q);e("universeRule").textContent=esc(q.universe_size||"—")+" piyasa";e("pollRule").textContent=esc((q.bot_status||{}).poll_seconds||5)+" saniye";
     e("countdown").textContent=n(q.equity_usdt,2)+" $";e("experimentText").textContent="6.000 $ kopya kasası · anlık özsermaye";e("progressBar").style.width=Math.max(0,Math.min(100,Number(q.equity_usdt||0)/60))+"%";e("activePositions").textContent=positions.length;e("totalTrades").textContent=q.closed_trades||0;
     e("marketFlow").innerHTML=[["İşlem teminatı",n(q.margin_per_position,0)+" $"],["Pozisyon büyüklüğü",n(q.notional_per_position,0)+" $"],["Kaldıraç",esc(q.leverage)+"x"],["Kapasite",esc(positions.length)+" / "+esc(q.max_positions)]].map(function(x){return'<div class="flowItem"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>'}).join("");
@@ -67,7 +71,7 @@
     e("copyTradeTable").innerHTML=rows.length?'<table><thead><tr><th>Kaynak</th><th>Coin</th><th>Yön</th><th>Pozisyon</th><th>Net K/Z</th><th>ROI</th><th>Kapanış</th><th>Zaman</th></tr></thead><tbody>'+rows.map(function(t){return'<tr><td>'+esc(shortWallet(t.source))+'</td><td>'+esc(sym(t.symbol))+'</td><td>'+esc(String(t.side||"").toUpperCase())+'</td><td>'+n(Number(t.entry)*Number(t.quantity),2)+' $</td><td class="'+cls(t.net_pnl)+'">'+(Number(t.net_pnl)>0?"+":"")+n(t.net_pnl,2)+' $</td><td class="'+cls(t.roi_pct)+'">'+p(t.roi_pct)+'</td><td>'+esc(t.exit_reason||"—")+'</td><td>'+dt(t.closed_at)+'</td></tr>'}).join("")+'</tbody></table>':'<div class="empty">Seçilen dönemde kapanan kopya işlem yok.</div>';
   }
   function overview(){
-    var q=data.latest,age=Date.now()-Number((q.bot_status||{}).heartbeat_at||q.received_at||0),live=age<heartbeatWindow(q),rows=q.strategies||{},keys=Object.keys(labels);setBotHealth(q);
+    var q=data.latest,age=Date.now()-Number((q.bot_status||{}).heartbeat_at||q.received_at||0),live=age<heartbeatWindow(q),rows=q.strategies||{},keys=Object.keys(labels);setBotHealth(q);renderObservationRule();
     e("status").classList.toggle("live",live);e("status").querySelector("span").textContent=q.continuous?(live?"Canlı veri akışı":"Veri gecikmiş olabilir"):(q.finalized_at?"Deney tamamlandı":live?"Canlı veri akışı":"Veri gecikmiş olabilir");
     e("updated").textContent="Son güncelleme "+dt(q.received_at);
     syncChartSelection(q);
