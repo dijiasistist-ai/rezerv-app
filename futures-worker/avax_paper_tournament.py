@@ -20,8 +20,13 @@ STRATEGIES = (
     "liquidity_sweep",
     "selective_trend_pullback",
     "bollinger_reversion",
+    "cross_sectional_momentum",
+    "dynamic_pair_reversion",
+    "funding_basis",
+    "btc_lead_lag",
+    "orderflow_open_interest",
 )
-STATE_VERSION = 10
+STATE_VERSION = 11
 
 
 class JsonStateStore:
@@ -180,6 +185,70 @@ STRATEGY_PROFILES = {
         "maximum_stop_fraction": 0.015,
         "minimum_reward_risk": 1.25,
     },
+    "cross_sectional_momentum": {
+        "decision_timeframe": "1h relative-strength rank",
+        "decision_source": "1h",
+        "take_profit_roe": 0.030,
+        "respect_minimum_tp": False,
+        "cooldown_ms": 60 * 60_000,
+        "exit_model": "relative-strength decay, fixed take profit or structure stop",
+        "minimum_stop_fraction": 0.006,
+        "minimum_stop_roe": 0.015,
+        "atr_stop_multiplier": 1.5,
+        "maximum_stop_fraction": 0.020,
+        "minimum_reward_risk": 1.0,
+    },
+    "dynamic_pair_reversion": {
+        "decision_timeframe": "1h BTC-relative spread",
+        "decision_source": "1h",
+        "take_profit_roe": 0.030,
+        "respect_minimum_tp": False,
+        "cooldown_ms": 60 * 60_000,
+        "exit_model": "spread mean reversion, fixed take profit or structure stop",
+        "minimum_stop_fraction": 0.0075,
+        "minimum_stop_roe": 0.015,
+        "atr_stop_multiplier": 1.7,
+        "maximum_stop_fraction": 0.025,
+        "minimum_reward_risk": 0.8,
+    },
+    "funding_basis": {
+        "decision_timeframe": "funding interval + 15m confirmation",
+        "decision_source": "15m",
+        "take_profit_roe": 0.030,
+        "respect_minimum_tp": False,
+        "cooldown_ms": 60 * 60_000,
+        "exit_model": "funding normalization, fixed take profit or structure stop",
+        "minimum_stop_fraction": 0.006,
+        "minimum_stop_roe": 0.015,
+        "atr_stop_multiplier": 1.5,
+        "maximum_stop_fraction": 0.020,
+        "minimum_reward_risk": 1.0,
+    },
+    "btc_lead_lag": {
+        "decision_timeframe": "5m BTC impulse + altcoin lag",
+        "take_profit_roe": 0.030,
+        "respect_minimum_tp": False,
+        "cooldown_ms": 30 * 60_000,
+        "exit_model": "lag closure, fixed take profit or structure stop",
+        "minimum_stop_fraction": 0.005,
+        "minimum_stop_roe": 0.015,
+        "atr_stop_multiplier": 1.3,
+        "maximum_stop_fraction": 0.015,
+        "minimum_reward_risk": 1.0,
+    },
+    "orderflow_open_interest": {
+        "decision_timeframe": "15m price + taker flow + open interest",
+        "decision_source": "15m",
+        "take_profit_roe": 0.030,
+        "respect_minimum_tp": False,
+        "cooldown_ms": 30 * 60_000,
+        "exit_model": "flow reversal, fixed take profit or structure stop",
+        "minimum_stop_fraction": 0.005,
+        "minimum_stop_roe": 0.015,
+        "atr_stop_multiplier": 1.4,
+        "maximum_stop_fraction": 0.018,
+        "minimum_reward_risk": 1.0,
+    },
 }
 
 ADAPTIVE_DEFAULTS = {
@@ -189,7 +258,7 @@ ADAPTIVE_DEFAULTS = {
     }
     for name, profile in STRATEGY_PROFILES.items()
 }
-CURRENT_RULE_VERSION = "R4"
+CURRENT_RULE_VERSION = "R5"
 CURRENT_STOP_RULE_VERSION = "R3-1.5roe-atr"
 
 
@@ -197,7 +266,14 @@ def stop_model_for(strategy: str) -> str:
     profile = STRATEGY_PROFILES[strategy]
     if "minimum_stop_roe" in profile:
         multiplier = profile["atr_stop_multiplier"]
-        timeframe = "15m" if strategy == "bollinger_reversion" else "5m"
+        timeframe = (
+            "1h"
+            if profile.get("decision_source") == "1h"
+            else "15m"
+            if profile.get("decision_source") == "15m"
+            or strategy == "bollinger_reversion"
+            else "5m"
+        )
         return (
             f"{timeframe} structure + max(1.5% ROE, "
             f"{multiplier:.1f} ATR) stop"
@@ -378,7 +454,11 @@ def regime(features: dict) -> tuple[bool, bool]:
 
 
 def signal_for(
-    strategy: str, c15: Sequence[Candle], c1h: Sequence[Candle], c4h: Sequence[Candle]
+    strategy: str,
+    c15: Sequence[Candle],
+    c1h: Sequence[Candle],
+    c4h: Sequence[Candle],
+    context: dict | None = None,
 ) -> tuple[str, str, float] | None:
     if len(c15) < 80:
         return None
@@ -620,6 +700,118 @@ def signal_for(
                 "buy-side sweep + next 5m candle confirmation",
                 f["atr"] / current,
             )
+
+    elif strategy == "cross_sectional_momentum":
+        context = context or {}
+        percentile = float(context.get("relative_strength_percentile") or 0.5)
+        momentum = float(context.get("relative_momentum_score") or 0.0)
+        if (
+            context.get("cross_sectional_selected") is True
+            and
+            percentile >= 0.85
+            and momentum >= 0.012
+            and f["ema21_5m"] > f["ema55_5m"]
+            and f["rsi"] <= 74
+        ):
+            return "long", "top-%15 göreceli momentum + yerel trend teyidi", f["atr"] / current
+        if (
+            context.get("cross_sectional_selected") is True
+            and
+            percentile <= 0.15
+            and momentum <= -0.012
+            and f["ema21_5m"] < f["ema55_5m"]
+            and f["rsi"] >= 26
+        ):
+            return "short", "alt-%15 göreceli momentum + yerel trend teyidi", f["atr"] / current
+
+    elif strategy == "dynamic_pair_reversion":
+        context = context or {}
+        spread_zscore = float(context.get("pair_spread_zscore") or 0.0)
+        pair_correlation = float(context.get("pair_correlation") or 0.0)
+        if (
+            context.get("pair_reversion_selected") is True
+            and pair_correlation >= 0.70
+            and spread_zscore <= -2.0
+            and f["rsi"] <= 48
+        ):
+            return "long", "BTC-relative spread -2σ altı · yakınsama beklentisi", f["atr"] / current
+        if (
+            context.get("pair_reversion_selected") is True
+            and pair_correlation >= 0.70
+            and spread_zscore >= 2.0
+            and f["rsi"] >= 52
+        ):
+            return "short", "BTC-relative spread +2σ üstü · yakınsama beklentisi", f["atr"] / current
+
+    elif strategy == "funding_basis":
+        context = context or {}
+        funding = context.get("funding_rate")
+        basis_pct = context.get("basis_pct")
+        if funding is None or basis_pct is None:
+            return None
+        funding = float(funding)
+        basis_pct = float(basis_pct)
+        if (
+            context.get("funding_basis_selected") is True
+            and funding >= 0.0003
+            and basis_pct >= 0.03
+            and current < current_open
+        ):
+            return "short", "yüksek pozitif funding + pozitif perpetual basis", f["atr"] / current
+        if (
+            context.get("funding_basis_selected") is True
+            and funding <= -0.0003
+            and basis_pct <= -0.03
+            and current > current_open
+        ):
+            return "long", "yüksek negatif funding + negatif perpetual basis", f["atr"] / current
+
+    elif strategy == "btc_lead_lag":
+        context = context or {}
+        btc_return = float(context.get("btc_return_5m_pct") or 0.0)
+        lag_gap = float(context.get("btc_coin_lag_gap_pct") or 0.0)
+        correlation = float(context.get("pair_correlation") or 0.0)
+        if (
+            context.get("btc_lead_lag_selected") is True
+            and correlation >= 0.55
+            and btc_return >= 0.35
+            and lag_gap >= 0.20
+        ):
+            return "long", "BTC yukarı impulsu · altcoin henüz fiyatlamadı", f["atr"] / current
+        if (
+            context.get("btc_lead_lag_selected") is True
+            and correlation >= 0.55
+            and btc_return <= -0.35
+            and lag_gap <= -0.20
+        ):
+            return "short", "BTC aşağı impulsu · altcoin henüz fiyatlamadı", f["atr"] / current
+
+    elif strategy == "orderflow_open_interest":
+        context = context or {}
+        oi_change = context.get("open_interest_change_pct_1h")
+        taker_ratio = context.get("taker_buy_sell_ratio_1h")
+        if oi_change is None or taker_ratio is None:
+            return None
+        oi_change = float(oi_change)
+        taker_ratio = float(taker_ratio)
+        if (
+            context.get("orderflow_selected") is True
+            and
+            oi_change >= 0.8
+            and taker_ratio >= 1.25
+            and f["ema21_5m"] > f["ema55_5m"]
+            and f["volume_ratio"] >= 0.75
+        ):
+            return "long", "artan açık pozisyon + agresif alıcı akışı", f["atr"] / current
+        if (
+            context.get("orderflow_selected") is True
+            and
+            oi_change >= 0.8
+            and taker_ratio <= 0.80
+            and f["ema21_5m"] < f["ema55_5m"]
+            and f["volume_ratio"] >= 0.75
+        ):
+            return "short", "artan açık pozisyon + agresif satıcı akışı", f["atr"] / current
     return None
 
 
@@ -646,6 +838,15 @@ def demo_signal_for(
         current_15m = closes_15m[-1]
         side = "long" if abs(current_15m - lower) <= abs(current_15m - upper) else "short"
         return side, "demo · en yakın 15m Bollinger dış bandı", atr(candles_15m) / current_15m
+    if strategy in {
+        "cross_sectional_momentum",
+        "dynamic_pair_reversion",
+        "funding_basis",
+        "btc_lead_lag",
+        "orderflow_open_interest",
+    }:
+        side = "long" if current >= f["ema21_15"][-1] else "short"
+        return side, "5 dk demo · yeni strateji veri hattı", atr_fraction
 
     current_open = float(c15[-1][1])
     candle_high, candle_low = float(c15[-1][2]), float(c15[-1][3])
@@ -755,6 +956,51 @@ def brackets(
     return stop, entry * (1 - target_fraction)
 
 
+def context_exit_reason(
+    strategy: str,
+    position: dict,
+    context: dict | None,
+) -> str | None:
+    """Exit research strategies when the measured edge has disappeared."""
+    if not context:
+        return None
+    side = position.get("side")
+    if strategy == "cross_sectional_momentum":
+        percentile = context.get("relative_strength_percentile")
+        if percentile is not None and (
+            (side == "long" and float(percentile) < 0.55)
+            or (side == "short" and float(percentile) > 0.45)
+        ):
+            return "relative_strength_decay"
+    elif strategy == "dynamic_pair_reversion":
+        zscore = context.get("pair_spread_zscore")
+        if zscore is not None and abs(float(zscore)) <= 0.35:
+            return "spread_mean_reversion"
+    elif strategy == "funding_basis":
+        funding = context.get("funding_rate")
+        basis = context.get("basis_pct")
+        if funding is not None and basis is not None and (
+            (side == "short" and (float(funding) <= 0.00005 or float(basis) <= 0))
+            or (side == "long" and (float(funding) >= -0.00005 or float(basis) >= 0))
+        ):
+            return "funding_basis_normalized"
+    elif strategy == "btc_lead_lag":
+        gap = context.get("btc_coin_lag_gap_pct")
+        if gap is not None and (
+            (side == "long" and float(gap) <= 0.03)
+            or (side == "short" and float(gap) >= -0.03)
+        ):
+            return "lead_lag_gap_closed"
+    elif strategy == "orderflow_open_interest":
+        ratio = context.get("taker_buy_sell_ratio_1h")
+        if ratio is not None and (
+            (side == "long" and float(ratio) < 0.90)
+            or (side == "short" and float(ratio) > 1.10)
+        ):
+            return "orderflow_reversal"
+    return None
+
+
 class PaperTournament:
     def __init__(
         self,
@@ -836,7 +1082,7 @@ class PaperTournament:
 
     def _upgrade_state(self, loaded: dict) -> dict | None:
         version = loaded.get("version")
-        if version not in {4, 5, 6, 7, 8, 9, STATE_VERSION}:
+        if version not in {4, 5, 6, 7, 8, 9, 10, STATE_VERSION}:
             return None
         strategies = loaded.get("strategies")
         if not isinstance(strategies, dict):
@@ -1320,6 +1566,9 @@ class PaperTournament:
             strategy_candles = (
                 closed_15m_candles(c15)
                 if name == "bollinger_reversion"
+                or profile.get("decision_source") == "15m"
+                else c1h
+                if profile.get("decision_source") == "1h"
                 else c15
             )
             decision_candle = int(strategy_candles[-1][0])
@@ -1405,11 +1654,20 @@ class PaperTournament:
                                 else 1 - target_fraction
                             )
                             position["take_profit_roe"] = expected_take_roe
+                    edge_exit = context_exit_reason(name, position, context)
                     mark = self._mark_price(position["side"], ticker)
                     stop_hit = mark <= position["stop"] if position["side"] == "long" else mark >= position["stop"]
                     take_hit = mark >= position["take"] if position["side"] == "long" else mark <= position["take"]
-                    should_close = experiment_over or stop_hit or take_hit
-                    reason = "experiment_end" if experiment_over else "stop" if stop_hit else "take"
+                    should_close = experiment_over or stop_hit or take_hit or bool(edge_exit)
+                    reason = (
+                        "experiment_end"
+                        if experiment_over
+                        else "stop"
+                        if stop_hit
+                        else "take"
+                        if take_hit
+                        else edge_exit
+                    )
                 if should_close:
                     events.append(self._close(name, strategy, ticker, reason))
                     closed_this_cycle = True
@@ -1426,7 +1684,7 @@ class PaperTournament:
                 found = (
                     demo_signal_for(name, c15, c1h, c4h)
                     if demo_started_this_cycle
-                    else signal_for(name, c15, c1h, c4h)
+                    else signal_for(name, c15, c1h, c4h, context)
                 )
                 if found:
                     side, signal_reason, _ = found
@@ -1447,7 +1705,11 @@ class PaperTournament:
                         ticker,
                         decision_candle,
                         context,
-                        c15,
+                        (
+                            c15
+                            if name == "bollinger_reversion"
+                            else strategy_candles
+                        ),
                         symbol=symbol,
                         observation_id=observation["observation_id"],
                         demo=demo_started_this_cycle,

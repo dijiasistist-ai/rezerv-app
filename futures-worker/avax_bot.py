@@ -11,6 +11,7 @@ import fcntl
 import hashlib
 import json
 import logging
+import math
 import os
 import statistics
 import threading
@@ -198,6 +199,7 @@ class MarketContext:
     global_long_short_ratio: float | None
     top_position_long_short_ratio: float | None
     funding_rate: float | None
+    basis_pct: float | None = None
 
 
 def ema(values: Sequence[float], period: int) -> list[float]:
@@ -356,6 +358,7 @@ class Bot:
         self.last_context_timestamp: int | None = None
         self.latest_context: MarketContext | None = None
         self.context_symbol: str | None = None
+        self.market_context_cache: dict[str, tuple[int, MarketContext]] = {}
         self.candle_cache: dict[tuple[str, str], list[list[float]]] = {}
         self.paper_universe: list[str] = []
         self.universe_refreshed_at = 0
@@ -589,6 +592,10 @@ class Bot:
         return refreshed
 
     def market_context(self, symbol: str) -> MarketContext:
+        now = int(time.time() * 1000)
+        cached = self.market_context_cache.get(symbol)
+        if cached and now - cached[0] < 300_000:
+            return cached[1]
         market_id = str(self.client.market(symbol)["id"])
         params = {"symbol": market_id, "period": "15m", "limit": 5}
         oi_rows = self.client.fapiDataGetOpenInterestHist(params)
@@ -596,6 +603,7 @@ class Bot:
         global_ratio = None
         top_ratio = None
         funding_rate = None
+        basis_pct = None
         try:
             global_rows = self.client.fapiDataGetGlobalLongShortAccountRatio(
                 {"symbol": market_id, "period": "15m", "limit": 1}
@@ -613,20 +621,35 @@ class Bot:
         try:
             funding = self.client.fetch_funding_rate(symbol)
             funding_rate = float(funding.get("fundingRate") or 0.0)
+            mark_price = float(
+                funding.get("markPrice")
+                or (funding.get("info") or {}).get("markPrice")
+                or 0
+            )
+            index_price = float(
+                funding.get("indexPrice")
+                or (funding.get("info") or {}).get("indexPrice")
+                or 0
+            )
+            if mark_price and index_price:
+                basis_pct = 100 * (mark_price / index_price - 1)
         except Exception:
             logger.info("Funding rate unavailable symbol=%s", symbol)
         first_oi = float(oi_rows[0]["sumOpenInterestValue"])
         last_oi = float(oi_rows[-1]["sumOpenInterestValue"])
         buy_volume = sum(float(row["buyVol"]) for row in taker_rows[-4:])
         sell_volume = sum(float(row["sellVol"]) for row in taker_rows[-4:])
-        return MarketContext(
+        context = MarketContext(
             timestamp=int(oi_rows[-1]["timestamp"]),
             open_interest_change_pct_1h=100 * (last_oi / first_oi - 1) if first_oi else 0.0,
             taker_buy_sell_ratio_1h=buy_volume / sell_volume if sell_volume else 99.0,
             global_long_short_ratio=global_ratio,
             top_position_long_short_ratio=top_ratio,
             funding_rate=funding_rate,
+            basis_pct=basis_pct,
         )
+        self.market_context_cache[symbol] = (now, context)
+        return context
 
     def observe_market_context(self, symbol: str, candle_timestamp: int) -> None:
         if symbol == self.context_symbol and candle_timestamp == self.last_context_timestamp:
@@ -651,6 +674,7 @@ class Bot:
                     "global_long_short_ratio": context.global_long_short_ratio,
                     "top_position_long_short_ratio": context.top_position_long_short_ratio,
                     "funding_rate": context.funding_rate,
+                    "basis_pct": context.basis_pct,
                 },
                 separators=(",", ":"),
                 sort_keys=True,
@@ -700,6 +724,181 @@ class Bot:
         self.scan_cursor = (self.scan_cursor + count) % len(universe)
         return batch
 
+    @staticmethod
+    def _return(values: Sequence[float], periods: int) -> float:
+        if len(values) <= periods or not float(values[-periods - 1]):
+            return 0.0
+        return float(values[-1]) / float(values[-periods - 1]) - 1
+
+    @staticmethod
+    def _correlation(left: Sequence[float], right: Sequence[float]) -> float:
+        count = min(len(left), len(right))
+        if count < 20:
+            return 0.0
+        a = [float(value) for value in left[-count:]]
+        b = [float(value) for value in right[-count:]]
+        mean_a = statistics.fmean(a)
+        mean_b = statistics.fmean(b)
+        covariance = sum(
+            (a[index] - mean_a) * (b[index] - mean_b)
+            for index in range(count)
+        )
+        variance_a = sum((value - mean_a) ** 2 for value in a)
+        variance_b = sum((value - mean_b) ** 2 for value in b)
+        denominator = math.sqrt(variance_a * variance_b)
+        return covariance / denominator if denominator else 0.0
+
+    def build_strategy_contexts(
+        self,
+        symbols: Sequence[str],
+        btc_1h: Sequence[Candle],
+        btc_5m: Sequence[Candle],
+    ) -> dict[str, dict]:
+        """Build one leakage-free context shared by the five research strategies."""
+        btc_hour = [float(candle[4]) for candle in btc_1h]
+        btc_five = [float(candle[4]) for candle in btc_5m]
+        btc_returns = [
+            btc_hour[index] / btc_hour[index - 1] - 1
+            for index in range(1, len(btc_hour))
+        ]
+        raw: dict[str, dict] = {}
+        for symbol in symbols:
+            coin_1h = self.candles("1h", symbol)
+            coin_5m = self.candles("5m", symbol)
+            coin_hour = [float(candle[4]) for candle in coin_1h]
+            coin_five = [float(candle[4]) for candle in coin_5m]
+            count = min(len(coin_hour), len(btc_hour), 120)
+            spreads = [
+                math.log(coin_hour[-count + index] / btc_hour[-count + index])
+                for index in range(count)
+                if coin_hour[-count + index] > 0 and btc_hour[-count + index] > 0
+            ]
+            spread_mean = statistics.fmean(spreads) if spreads else 0.0
+            spread_std = statistics.pstdev(spreads) if len(spreads) > 1 else 0.0
+            coin_returns = [
+                coin_hour[index] / coin_hour[index - 1] - 1
+                for index in range(1, len(coin_hour))
+            ]
+            score = (
+                0.60 * (self._return(coin_hour, 24) - self._return(btc_hour, 24))
+                + 0.40 * (self._return(coin_hour, 6) - self._return(btc_hour, 6))
+            )
+            context = {
+                "relative_momentum_score": score,
+                "absolute_return_1h": self._return(coin_hour, 1),
+                "pair_spread_zscore": (
+                    (spreads[-1] - spread_mean) / spread_std
+                    if spreads and spread_std
+                    else 0.0
+                ),
+                "pair_correlation": self._correlation(
+                    coin_returns[-120:], btc_returns[-120:]
+                ),
+                "btc_return_5m_pct": 100 * self._return(btc_five, 1),
+                "btc_coin_lag_gap_pct": 100
+                * (self._return(btc_five, 1) - self._return(coin_five, 1)),
+            }
+            raw[symbol] = context
+
+        ranked = sorted(
+            raw,
+            key=lambda symbol: float(raw[symbol]["relative_momentum_score"]),
+        )
+        denominator = max(1, len(ranked) - 1)
+        for index, symbol in enumerate(ranked):
+            raw[symbol]["relative_strength_percentile"] = index / denominator
+
+        # Binance exposes the complete premium-index/funding table in one
+        # request. Prefer that over one request per market so the 30-second
+        # scanner remains bounded on Render.
+        try:
+            funding_rows = self.client.fetch_funding_rates(list(symbols))
+            if isinstance(funding_rows, list):
+                funding_rows = {
+                    str(row.get("symbol")): row for row in funding_rows
+                }
+            for symbol in symbols:
+                funding = (funding_rows or {}).get(symbol) or {}
+                info = funding.get("info") or {}
+                rate = funding.get("fundingRate")
+                mark = funding.get("markPrice") or info.get("markPrice")
+                index = funding.get("indexPrice") or info.get("indexPrice")
+                raw[symbol]["funding_rate"] = (
+                    float(rate) if rate is not None else None
+                )
+                raw[symbol]["basis_pct"] = (
+                    100 * (float(mark) / float(index) - 1)
+                    if mark is not None and index is not None and float(index)
+                    else None
+                )
+        except Exception:
+            logger.exception("FUTURES bulk funding context unavailable")
+
+        # OI and taker-flow history need symbol-level calls. Query only the
+        # price-prefiltered tails/impulses; the order-flow strategy would
+        # reject every other symbol before using these fields anyway.
+        flow_candidates = [
+            symbol
+            for symbol, context in raw.items()
+            if float(context["relative_strength_percentile"]) <= 0.20
+            or float(context["relative_strength_percentile"]) >= 0.80
+            or abs(float(context["absolute_return_1h"])) >= 0.004
+        ]
+        for symbol in flow_candidates:
+            try:
+                flow = self.market_context(symbol)
+                flow_payload = self.context_payload(flow) or {}
+                for key, value in flow_payload.items():
+                    if value is not None or raw[symbol].get(key) is None:
+                        raw[symbol][key] = value
+            except Exception:
+                logger.exception(
+                    "FUTURES flow context unavailable symbol=%s",
+                    symbol,
+                )
+
+        def select_one(flag: str, score_key: str, eligible) -> None:
+            candidates = [
+                symbol for symbol, context in raw.items() if eligible(context)
+            ]
+            if not candidates:
+                return
+            selected = max(
+                candidates,
+                key=lambda symbol: abs(float(raw[symbol].get(score_key) or 0.0)),
+            )
+            raw[selected][flag] = True
+
+        select_one(
+            "cross_sectional_selected",
+            "relative_momentum_score",
+            lambda row: float(row["relative_strength_percentile"]) <= 0.15
+            or float(row["relative_strength_percentile"]) >= 0.85,
+        )
+        select_one(
+            "pair_reversion_selected",
+            "pair_spread_zscore",
+            lambda row: float(row["pair_correlation"]) >= 0.70,
+        )
+        select_one(
+            "funding_basis_selected",
+            "funding_rate",
+            lambda row: row.get("funding_rate") is not None
+            and row.get("basis_pct") is not None,
+        )
+        select_one(
+            "btc_lead_lag_selected",
+            "btc_coin_lag_gap_pct",
+            lambda row: float(row["pair_correlation"]) >= 0.55,
+        )
+        select_one(
+            "orderflow_selected",
+            "open_interest_change_pct_1h",
+            lambda row: row.get("open_interest_change_pct_1h") is not None
+            and row.get("taker_buy_sell_ratio_1h") is not None,
+        )
+        return raw
+
     def publish_tournament_summary(self, summary: dict) -> None:
         if not self.settings.dashboard_url or not self.settings.dashboard_ingest_token:
             return
@@ -736,6 +935,7 @@ class Bot:
             "global_long_short_ratio": context.global_long_short_ratio,
             "top_position_long_short_ratio": context.top_position_long_short_ratio,
             "funding_rate": context.funding_rate,
+            "basis_pct": context.basis_pct,
         }
 
     def publish_signal_observations(self, observations: list[dict]) -> None:
@@ -1023,6 +1223,12 @@ class Bot:
             reference_symbol = next(iter(active_symbols), scan_batch[0])
             reference_c15 = None
             btc_1h = self.candles("1h", "BTC/USDT:USDT")
+            btc_5m = self.candles("5m", "BTC/USDT:USDT")
+            strategy_contexts = self.build_strategy_contexts(
+                targets,
+                btc_1h,
+                btc_5m,
+            )
             for symbol in targets:
                 # The tournament's primary candle argument now contains
                 # closed 5m candles. The parameter name remains c15 for state
@@ -1037,18 +1243,7 @@ class Bot:
                 if symbol == reference_symbol:
                     reference_c15 = c15
                     self.observe_market_context(symbol, int(c15[-1][0]))
-                symbol_context = (
-                    {
-                        "timestamp": self.latest_context.timestamp,
-                        "open_interest_change_pct_1h": self.latest_context.open_interest_change_pct_1h,
-                        "taker_buy_sell_ratio_1h": self.latest_context.taker_buy_sell_ratio_1h,
-                        "global_long_short_ratio": self.latest_context.global_long_short_ratio,
-                        "top_position_long_short_ratio": self.latest_context.top_position_long_short_ratio,
-                        "funding_rate": self.latest_context.funding_rate,
-                    }
-                    if symbol == reference_symbol and self.latest_context
-                    else None
-                )
+                symbol_context = strategy_contexts.get(symbol)
                 with self.state_guard:
                     symbol_events, _ = self.tournament.cycle(
                         c15,
@@ -1074,6 +1269,7 @@ class Bot:
                     "global_long_short_ratio": self.latest_context.global_long_short_ratio,
                     "top_position_long_short_ratio": self.latest_context.top_position_long_short_ratio,
                     "funding_rate": self.latest_context.funding_rate,
+                    "basis_pct": self.latest_context.basis_pct,
                 }
                 if self.latest_context
                 else None

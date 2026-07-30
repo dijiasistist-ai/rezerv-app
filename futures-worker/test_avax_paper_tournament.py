@@ -466,7 +466,10 @@ class TournamentTest(unittest.TestCase):
                 for name in STRATEGIES
             }
             self.assertEqual(1, len({position["take"] for position in positions.values()}))
-            self.assertEqual(2, len({position["stop"] for position in positions.values()}))
+            self.assertGreaterEqual(
+                len({position["stop"] for position in positions.values()}),
+                2,
+            )
             self.assertTrue(
                 all(
                     position["stop_model"] == stop_model_for(name)
@@ -881,6 +884,77 @@ class TournamentTest(unittest.TestCase):
         self.assertIsNone(opened)
         self.assertIsNone(strategy["position"])
         self.assertEqual(6000, strategy["balance"])
+
+    def test_version_ten_state_adds_five_research_accounts_without_reset(self) -> None:
+        store = MemoryStateStore()
+        original = PaperTournament(
+            "/tmp/not-used.json",
+            initial_usdt=6000,
+            state_store=store,
+        )
+        original.state["version"] = 10
+        for name in (
+            "cross_sectional_momentum",
+            "dynamic_pair_reversion",
+            "funding_basis",
+            "btc_lead_lag",
+            "orderflow_open_interest",
+        ):
+            original.state["strategies"].pop(name)
+        original.state["strategies"]["trend_breakout"]["balance"] = 5988.0
+        original.save()
+
+        restored = PaperTournament(
+            "/tmp/not-used.json",
+            initial_usdt=6000,
+            state_store=store,
+        )
+
+        self.assertEqual(5988.0, restored.state["strategies"]["trend_breakout"]["balance"])
+        for name in STRATEGIES[5:]:
+            self.assertEqual(6000, restored.state["strategies"][name]["balance"])
+
+    def test_new_research_signals_require_their_distinct_context(self) -> None:
+        c5 = candles(100, 300_000)
+        c1h = candles(260, 3_600_000)
+        features = {
+            "close15": [20.0] * 100,
+            "ema9_15": [19.9] * 100,
+            "ema21_15": [19.8] * 100,
+            "ema21_5m": 20.1,
+            "ema21_5m_prior": 20.0,
+            "ema55_5m": 19.9,
+            "adx": 25.0,
+            "rsi": 60.0,
+            "atr": 0.1,
+            "volume_ratio": 1.2,
+        }
+        with patch("avax_paper_tournament.market_features", return_value=features):
+            momentum = signal_for(
+                "cross_sectional_momentum",
+                c5,
+                c1h,
+                c1h,
+                {
+                    "cross_sectional_selected": True,
+                    "relative_strength_percentile": 0.95,
+                    "relative_momentum_score": 0.03,
+                },
+            )
+            orderflow = signal_for(
+                "orderflow_open_interest",
+                c5,
+                c1h,
+                c1h,
+                {
+                    "orderflow_selected": True,
+                    "open_interest_change_pct_1h": 1.4,
+                    "taker_buy_sell_ratio_1h": 1.5,
+                },
+            )
+
+        self.assertEqual("long", momentum[0])
+        self.assertEqual("long", orderflow[0])
 
 
 if __name__ == "__main__":

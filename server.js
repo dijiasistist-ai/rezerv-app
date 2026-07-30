@@ -89,6 +89,11 @@ const AVAX_PAPER_STRATEGIES = new Set([
   "liquidity_sweep",
   "selective_trend_pullback",
   "bollinger_reversion",
+  "cross_sectional_momentum",
+  "dynamic_pair_reversion",
+  "funding_basis",
+  "btc_lead_lag",
+  "orderflow_open_interest",
 ]);
 let avaxResetInProgress = false;
 const CALENDAR_SLOT_TIMES = [
@@ -1487,7 +1492,7 @@ function validAvaxPaperState(value) {
       Array.isArray(value.trades)
     );
   }
-  if (![4, 5, 6, 7, 8, 9, 10].includes(Number(value.version))) return false;
+  if (![4, 5, 6, 7, 8, 9, 10, 11].includes(Number(value.version))) return false;
   if (!Number.isFinite(Number(value.started_at)) || !Number.isFinite(Number(value.ends_at))) {
     return false;
   }
