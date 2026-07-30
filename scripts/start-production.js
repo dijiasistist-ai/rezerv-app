@@ -8,10 +8,14 @@ let shuttingDown = false;
 let worker = null;
 let restartTimer = null;
 const internalPort = process.env.PORT || "10000";
+const sharedIngestToken =
+  process.env.AVAX_DASHBOARD_INGEST_TOKEN ||
+  process.env.AVAX_BOT_DASHBOARD_INGEST_TOKEN ||
+  randomBytes(32).toString("hex");
 const serviceEnv = {
   ...process.env,
-  AVAX_DASHBOARD_INGEST_TOKEN:
-    process.env.AVAX_DASHBOARD_INGEST_TOKEN || randomBytes(32).toString("hex"),
+  AVAX_DASHBOARD_INGEST_TOKEN: sharedIngestToken,
+  AVAX_BOT_DASHBOARD_INGEST_TOKEN: sharedIngestToken,
   AVAX_BOT_DASHBOARD_URL: `http://127.0.0.1:${internalPort}`,
 };
 
