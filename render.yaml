@@ -7,6 +7,34 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: AVAX_BOT_ENABLED
+        value: "true"
+      - key: AVAX_BOT_LIVE_TRADING
+        value: "false"
+      - key: AVAX_BOT_BINANCE_TESTNET
+        value: "false"
+      - key: AVAX_BOT_LEVERAGE
+        value: "2"
+      - key: AVAX_BOT_WALLET_FRACTION
+        value: "0.20"
+      - key: AVAX_BOT_PAPER_TOURNAMENT
+        value: "true"
+      - key: AVAX_BOT_PAPER_INITIAL_USDT
+        value: "6000"
+      - key: AVAX_BOT_PAPER_STATE_KEY
+        value: top50-three-strategy-v1
+      - key: AVAX_BOT_COPY_TRADING
+        value: "true"
+      - key: AVAX_BOT_COPY_WALLETS
+        value: 0xdc9bf10e6b88f0657d02179ca338e0ffe9ecc564,0x4721d4bcf69f585801362feac273e8389d1a45ec
+      - key: AVAX_BOT_COPY_INITIAL_USDT
+        value: "6000"
+      - key: AVAX_BOT_COPY_WALLET_FRACTION
+        value: "0.10"
+      - key: AVAX_BOT_COPY_STATE_KEY
+        value: hyperliquid-copy-two-wallets-v1
+      - key: AVAX_BOT_DASHBOARD_URL
+        value: https://tyee.app
   - type: worker
     name: tyee-futures-worker
     runtime: python
