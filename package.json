@@ -4,7 +4,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "postinstall": "python -m pip install --user -r futures-worker/requirements.txt",
+    "postinstall": "python -m venv .venv && .venv/bin/pip install -r futures-worker/requirements.txt",
     "start": "node scripts/start-production.js"
   },
   "dependencies": {

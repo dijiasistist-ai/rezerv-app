@@ -9,7 +9,7 @@ let restartTimer = null;
 function startWorker() {
   if (shuttingDown || process.env.AVAX_BOT_ENABLED !== "true") return;
 
-  worker = spawn("python", ["futures-worker/run.py"], {
+  worker = spawn(".venv/bin/python", ["futures-worker/run.py"], {
     env: process.env,
     stdio: "inherit",
   });
