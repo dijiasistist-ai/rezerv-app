@@ -873,8 +873,10 @@ class Bot:
                     "HYPERLIQUID COPY EVENT %s",
                     json.dumps(event, separators=(",", ":"), sort_keys=True),
                 )
+            # Copy positions must reach the dashboard immediately. Do not make
+            # their visibility wait for the independent top-50 strategy scan.
+            self.publish_tournament_summary(copy_summary)
             if not self.tournament:
-                self.publish_tournament_summary(copy_summary)
                 return
             tournament_due = (
                 self.latest_tournament_summary is None
