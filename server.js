@@ -5835,17 +5835,44 @@ app.get("/api/admin/avax-dashboard", requireAdmin, (_req, res) => {
       }
     : latestCopy;
   const state = getAvaxPaperState();
-  const closedTrades =
-    state && state.strategies
-      ? Object.fromEntries(
-          [...AVAX_PAPER_STRATEGIES].map((strategy) => [
-            strategy,
-            Array.isArray(state.strategies[strategy]?.trades)
-              ? state.strategies[strategy].trades
-              : [],
-          ]),
-        )
-      : {};
+  const closedTrades = Object.fromEntries(
+    [...AVAX_PAPER_STRATEGIES].map((strategy) => {
+      const ledger = new Map();
+      const addTrades = (trades) => {
+        if (!Array.isArray(trades)) return;
+        for (const trade of trades) {
+          const closedAt = Number(trade?.closed_at);
+          if (!trade || !Number.isFinite(closedAt) || closedAt <= 0) continue;
+          const key = String(
+            trade.id ||
+              [
+                closedAt,
+                trade.symbol,
+                trade.side,
+                trade.entry,
+                trade.exit,
+              ].join("|"),
+          );
+          ledger.set(key, trade);
+        }
+      };
+
+      // The live state is authoritative, while snapshots preserve trades that
+      // existed before a deploy or state migration. Merge both so the Today /
+      // Week / Month audit trail cannot disappear after a restart.
+      for (const snapshot of history) {
+        addTrades(snapshot?.strategies?.[strategy]?.recent_trades);
+      }
+      addTrades(state?.strategies?.[strategy]?.trades);
+
+      return [
+        strategy,
+        [...ledger.values()]
+          .sort((left, right) => Number(left.closed_at) - Number(right.closed_at))
+          .slice(-1000),
+      ];
+    }),
+  );
   res.json({
     generated_at: Date.now(),
     latest,
