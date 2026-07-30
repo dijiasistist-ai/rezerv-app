@@ -36,6 +36,7 @@ const {
   getDevOutbox,
   getVenueOverlay,
   hashPassword,
+  ensureAvaxRuntimeReset,
   initializeRuntimeStore,
   recoverVenueFromRuntimeBackup,
   recoverVenueFromRuntimeHistory,
@@ -6526,6 +6527,9 @@ app.use((req, res, next) => {
 
 async function startServer() {
   await initializeRuntimeStore();
+  if (await ensureAvaxRuntimeReset("clean-slate-2026-07-30-v1")) {
+    console.log("[avax-reset] clean-slate-2026-07-30-v1 applied");
+  }
   await recoverVenueFromRuntimeHistory({
     venueId: "inkline-tattoo",
     preferLargestGallery: true,

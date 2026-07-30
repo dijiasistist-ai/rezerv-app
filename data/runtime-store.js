@@ -16,6 +16,7 @@ const runtimeFileNames = [
   "avax-paper-state.json",
   "avax-copy-state.json",
   "avax-signal-observations.jsonl",
+  "avax-reset-marker.json",
 ];
 const usersPath = path.join(runtimeDir, "users.json");
 const legacyUsersPath = path.join(__dirname, "users.json");
@@ -30,6 +31,7 @@ const avaxPaperSnapshotsPath = path.join(runtimeDir, "avax-paper-snapshots.json"
 const avaxPaperStatePath = path.join(runtimeDir, "avax-paper-state.json");
 const avaxCopyStatePath = path.join(runtimeDir, "avax-copy-state.json");
 const avaxSignalObservationsPath = path.join(runtimeDir, "avax-signal-observations.jsonl");
+const avaxResetMarkerPath = path.join(runtimeDir, "avax-reset-marker.json");
 const AVAX_OBSERVATION_MAX_BYTES = 8 * 1024 * 1024;
 const AVAX_OBSERVATION_KEEP_BYTES = 6 * 1024 * 1024;
 let avaxObservationStatsCache = null;
@@ -941,6 +943,23 @@ async function resetAvaxRuntimeData() {
   };
 }
 
+async function ensureAvaxRuntimeReset(generation) {
+  const expectedGeneration = String(generation || "").trim();
+  if (!expectedGeneration) throw new Error("AVAX reset generation is required");
+  const marker = readJson(avaxResetMarkerPath, null);
+  if (marker?.generation === expectedGeneration) return false;
+  await resetAvaxRuntimeData();
+  fs.writeFileSync(
+    avaxResetMarkerPath,
+    `${JSON.stringify({
+      generation: expectedGeneration,
+      reset_at: Date.now(),
+    })}\n`,
+  );
+  await pushRuntimeBackupFile(avaxResetMarkerPath);
+  return true;
+}
+
 module.exports = {
   addReview,
   addReservation,
@@ -968,6 +987,7 @@ module.exports = {
   getDevOutbox,
   getVenueOverlay,
   hashPassword,
+  ensureAvaxRuntimeReset,
   initializeRuntimeStore,
   recoverVenueFromRuntimeBackup,
   recoverVenueFromRuntimeHistory,
