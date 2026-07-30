@@ -691,6 +691,11 @@ class Bot:
             with urllib.request.urlopen(request, timeout=10) as response:
                 if response.status not in {200, 202}:
                     raise RuntimeError(f"dashboard returned HTTP {response.status}")
+            logger.info(
+                "AVAX dashboard snapshot published mode=%s positions=%s",
+                summary.get("mode", "unknown"),
+                len(summary.get("positions") or []),
+            )
         except (urllib.error.URLError, TimeoutError, RuntimeError):
             logger.exception("AVAX tournament dashboard publish failed")
 

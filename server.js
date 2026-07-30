@@ -5822,6 +5822,15 @@ app.get("/api/admin/avax-dashboard", requireAdmin, (_req, res) => {
   const latest = latestTournament
     ? {
         ...latestTournament,
+        ...(latestCopy &&
+        Number(latestCopy.market_candle || 0) >
+          Number(latestTournament.market_candle || 0)
+          ? {
+              market_candle: latestCopy.market_candle,
+              received_at: latestCopy.received_at,
+              bot_status: latestCopy.bot_status,
+            }
+          : {}),
         ...(latestCopy ? { copy_trading: latestCopy } : {}),
       }
     : latestCopy;

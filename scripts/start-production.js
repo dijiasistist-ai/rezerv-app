@@ -2,6 +2,7 @@
 
 const { spawn } = require("node:child_process");
 const { randomBytes } = require("node:crypto");
+const http = require("node:http");
 
 let shuttingDown = false;
 let worker = null;
@@ -11,8 +12,7 @@ const serviceEnv = {
   ...process.env,
   AVAX_DASHBOARD_INGEST_TOKEN:
     process.env.AVAX_DASHBOARD_INGEST_TOKEN || randomBytes(32).toString("hex"),
-  AVAX_BOT_DASHBOARD_URL:
-    process.env.AVAX_BOT_DASHBOARD_URL || `http://127.0.0.1:${internalPort}`,
+  AVAX_BOT_DASHBOARD_URL: `http://127.0.0.1:${internalPort}`,
 };
 
 function startWorker() {
@@ -33,12 +33,32 @@ function startWorker() {
   });
 }
 
+function startWorkerWhenWebIsReady() {
+  if (shuttingDown || serviceEnv.AVAX_BOT_ENABLED !== "true") return;
+  const request = http.get(
+    {
+      host: "127.0.0.1",
+      port: internalPort,
+      path: "/",
+      timeout: 1_000,
+    },
+    (response) => {
+      response.resume();
+      startWorker();
+    },
+  );
+  request.on("timeout", () => request.destroy());
+  request.on("error", () => {
+    if (!shuttingDown) restartTimer = setTimeout(startWorkerWhenWebIsReady, 500);
+  });
+}
+
 const web = spawn(process.execPath, ["server.js"], {
   env: serviceEnv,
   stdio: "inherit",
 });
 
-restartTimer = setTimeout(startWorker, 1_000);
+restartTimer = setTimeout(startWorkerWhenWebIsReady, 250);
 
 function stop(signal) {
   if (shuttingDown) return;
