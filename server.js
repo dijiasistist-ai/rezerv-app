@@ -5802,7 +5802,29 @@ app.get("/api/admin/bootstrap", requireAdmin, (req, res) => {
 });
 
 app.get("/api/admin/avax-dashboard", requireAdmin, (_req, res) => {
-  const history = getAvaxPaperSnapshots();
+  const storedHistory = getAvaxPaperSnapshots();
+  const history = storedHistory.filter((snapshot) => snapshot?.mode !== "hyperliquid_copy");
+  const copyHistory = storedHistory
+    .flatMap((snapshot) => {
+      if (snapshot?.mode === "hyperliquid_copy") return [snapshot];
+      if (!snapshot?.copy_trading) return [];
+      return [
+        {
+          ...snapshot.copy_trading,
+          market_candle: snapshot.market_candle,
+          received_at: snapshot.received_at,
+        },
+      ];
+    })
+    .sort((left, right) => Number(left.market_candle) - Number(right.market_candle));
+  const latestTournament = history.at(-1) || null;
+  const latestCopy = copyHistory.at(-1) || null;
+  const latest = latestTournament
+    ? {
+        ...latestTournament,
+        ...(latestCopy ? { copy_trading: latestCopy } : {}),
+      }
+    : latestCopy;
   const state = getAvaxPaperState();
   const closedTrades =
     state && state.strategies
@@ -5817,8 +5839,9 @@ app.get("/api/admin/avax-dashboard", requireAdmin, (_req, res) => {
       : {};
   res.json({
     generated_at: Date.now(),
-    latest: history.at(-1) || null,
+    latest,
     history,
+    copy_history: copyHistory,
     closed_trades: closedTrades,
   });
 });
