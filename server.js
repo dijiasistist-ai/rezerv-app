@@ -1479,7 +1479,7 @@ function validAvaxPaperState(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   if (value.mode === "hyperliquid_copy") {
     return (
-      Number(value.version) === 1 &&
+      Number(value.version) === 2 &&
       Number.isFinite(Number(value.started_at)) &&
       Number.isFinite(Number(value.initial_usdt)) &&
       value.positions &&

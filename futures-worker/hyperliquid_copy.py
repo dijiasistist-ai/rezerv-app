@@ -22,7 +22,7 @@ logger = logging.getLogger("hyperliquid_copy")
 
 HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info"
 HYPERLIQUID_WS_URL = "wss://api.hyperliquid.xyz/ws"
-STATE_VERSION = 1
+STATE_VERSION = 2
 
 
 def _now_ms() -> int:
@@ -57,6 +57,10 @@ class CopySettings:
     @property
     def max_positions(self) -> int:
         return max(1, math.floor(1 / self.wallet_fraction))
+
+    @property
+    def total_max_positions(self) -> int:
+        return self.max_positions * len(self.wallets)
 
 
 class HyperliquidFillFeed:
@@ -167,10 +171,17 @@ class HyperliquidCopyEngine:
             "version": STATE_VERSION,
             "mode": "hyperliquid_copy",
             "started_at": now,
-            "initial_usdt": self.settings.initial_usdt,
-            "balance": self.settings.initial_usdt,
-            "peak_equity": self.settings.initial_usdt,
-            "max_drawdown_pct": 0.0,
+            "initial_usdt": self.settings.initial_usdt * len(self.settings.wallets),
+            "initial_usdt_per_wallet": self.settings.initial_usdt,
+            "wallet_accounts": {
+                source: {
+                    "initial_usdt": self.settings.initial_usdt,
+                    "balance": self.settings.initial_usdt,
+                    "peak_equity": self.settings.initial_usdt,
+                    "max_drawdown_pct": 0.0,
+                }
+                for source in self.settings.wallets
+            },
             "source_positions": {},
             "ignored_until_flat": [],
             "positions": {},
@@ -189,6 +200,7 @@ class HyperliquidCopyEngine:
             and value.get("mode") == "hyperliquid_copy"
             and int(value.get("version") or 0) == STATE_VERSION
             and isinstance(value.get("positions"), dict)
+            and isinstance(value.get("wallet_accounts"), dict)
         )
 
     def start(self) -> None:
@@ -286,8 +298,23 @@ class HyperliquidCopyEngine:
         preferred = ticker.get("bid") if side == "long" else ticker.get("ask")
         return float(preferred or ticker.get("last") or ticker.get("close"))
 
-    def _used_margin(self) -> float:
-        return sum(float(row["remaining_margin"]) for row in self.state["positions"].values())
+    def _account(self, source: str) -> dict:
+        return self.state["wallet_accounts"].setdefault(
+            source,
+            {
+                "initial_usdt": self.settings.initial_usdt,
+                "balance": self.settings.initial_usdt,
+                "peak_equity": self.settings.initial_usdt,
+                "max_drawdown_pct": 0.0,
+            },
+        )
+
+    def _used_margin(self, source: str | None = None) -> float:
+        return sum(
+            float(row["remaining_margin"])
+            for row in self.state["positions"].values()
+            if source is None or row["source"] == source
+        )
 
     def _record_skip(self, source: str, coin: str, reason: str) -> None:
         self.state["skipped"].append(
@@ -317,7 +344,8 @@ class HyperliquidCopyEngine:
             self._record_skip(source, coin, "binance_market_unavailable")
             return None
         margin = self.settings.margin_per_position
-        free_capital = self.settings.initial_usdt - self._used_margin()
+        account = self._account(source)
+        free_capital = float(account["initial_usdt"]) - self._used_margin(source)
         if free_capital + 1e-9 < margin:
             self._record_skip(source, coin, "insufficient_copy_capital")
             return None
@@ -341,7 +369,7 @@ class HyperliquidCopyEngine:
         notional = self.settings.notional_per_position
         quantity = notional / entry
         entry_fee = notional * self.settings.taker_fee
-        self.state["balance"] -= entry_fee
+        account["balance"] -= entry_fee
         position = {
             "id": key,
             "source": source,
@@ -396,7 +424,7 @@ class HyperliquidCopyEngine:
         )
         exit_fee = exit_price * quantity * self.settings.taker_fee
         net = gross - exit_fee - allocated_entry_fee
-        self.state["balance"] += gross - exit_fee
+        self._account(position["source"])["balance"] += gross - exit_fee
         trade = {
             **position,
             "quantity": quantity,
@@ -556,7 +584,10 @@ class HyperliquidCopyEngine:
     def summary(self, client) -> dict:
         positions = []
         unrealized = 0.0
-        unrealized_equity_component = 0.0
+        unrealized_by_source = {source: 0.0 for source in self.settings.wallets}
+        equity_component_by_source = {
+            source: 0.0 for source in self.settings.wallets
+        }
         for row in self.state["positions"].values():
             ticker = client.fetch_ticker(row["symbol"])
             mark = self._exit_price(ticker, row["side"])
@@ -568,10 +599,17 @@ class HyperliquidCopyEngine:
             estimated_exit_fee = mark * float(row["quantity"]) * self.settings.taker_fee
             pnl = raw - estimated_exit_fee - float(row["entry_fee_remaining"])
             unrealized += pnl
+            unrealized_by_source[row["source"]] = (
+                unrealized_by_source.get(row["source"], 0.0) + pnl
+            )
             # Entry fees were already debited from balance when the position
             # opened. Equity adds only the still-unrealized price move and
             # estimated exit fee so the entry fee is not counted twice.
-            unrealized_equity_component += raw - estimated_exit_fee
+            equity_component_by_source[row["source"]] = (
+                equity_component_by_source.get(row["source"], 0.0)
+                + raw
+                - estimated_exit_fee
+            )
             positions.append(
                 {
                     **row,
@@ -582,26 +620,51 @@ class HyperliquidCopyEngine:
                     ),
                 }
             )
-        equity = float(self.state["balance"]) + unrealized_equity_component
-        self.state["peak_equity"] = max(float(self.state["peak_equity"]), equity)
-        drawdown = (
-            100 * (float(self.state["peak_equity"]) - equity) / float(self.state["peak_equity"])
-            if self.state["peak_equity"]
-            else 0.0
-        )
-        self.state["max_drawdown_pct"] = max(
-            float(self.state["max_drawdown_pct"]), drawdown
-        )
         trades = self.state["trades"]
         wins = sum(1 for row in trades if float(row["net_pnl"]) > 0)
         closed = len(trades)
         by_source = {}
+        total_balance = 0.0
+        total_equity = 0.0
         for source in self.settings.wallets:
+            account = self._account(source)
             source_trades = [row for row in trades if row["source"] == source]
             source_positions = [row for row in positions if row["source"] == source]
             source_wins = sum(1 for row in source_trades if float(row["net_pnl"]) > 0)
+            source_equity = float(account["balance"]) + equity_component_by_source.get(
+                source, 0.0
+            )
+            account["peak_equity"] = max(
+                float(account["peak_equity"]), source_equity
+            )
+            source_drawdown = (
+                100
+                * (float(account["peak_equity"]) - source_equity)
+                / float(account["peak_equity"])
+                if account["peak_equity"]
+                else 0.0
+            )
+            account["max_drawdown_pct"] = max(
+                float(account["max_drawdown_pct"]), source_drawdown
+            )
+            total_balance += float(account["balance"])
+            total_equity += source_equity
             by_source[source] = {
                 "address": source,
+                "initial_usdt": round(float(account["initial_usdt"]), 4),
+                "balance_usdt": round(float(account["balance"]), 4),
+                "equity_usdt": round(source_equity, 4),
+                "wallet_roi_pct": round(
+                    100
+                    * (
+                        source_equity / float(account["initial_usdt"])
+                        - 1
+                    ),
+                    4,
+                ),
+                "max_drawdown_pct": round(
+                    float(account["max_drawdown_pct"]), 4
+                ),
                 "open_positions": len(source_positions),
                 "closed_trades": len(source_trades),
                 "wins": source_wins,
@@ -614,31 +677,43 @@ class HyperliquidCopyEngine:
                     sum(float(row["net_pnl"]) for row in source_trades), 4
                 ),
                 "unrealized_pnl_usdt": round(
-                    sum(float(row["position_pnl_usdt"]) for row in source_positions),
-                    4,
+                    unrealized_by_source.get(source, 0.0), 4
                 ),
             }
+        total_initial = self.settings.initial_usdt * len(self.settings.wallets)
         return {
             "mode": "hyperliquid_copy",
             "started_at": self.state["started_at"],
             "ends_at": self.state["started_at"] + 3650 * 86400 * 1000,
             "finalized_at": None,
-            "initial_usdt": self.settings.initial_usdt,
-            "balance_usdt": round(float(self.state["balance"]), 4),
-            "equity_usdt": round(equity, 4),
+            "initial_usdt": total_initial,
+            "initial_usdt_per_wallet": self.settings.initial_usdt,
+            "total_initial_usdt": total_initial,
+            "balance_usdt": round(total_balance, 4),
+            "equity_usdt": round(total_equity, 4),
             "wallet_roi_pct": round(
-                100 * (equity / self.settings.initial_usdt - 1), 4
+                100 * (total_equity / total_initial - 1), 4
             ),
             "realized_pnl_usdt": round(
                 sum(float(row["net_pnl"]) for row in trades), 4
             ),
             "unrealized_pnl_usdt": round(unrealized, 4),
-            "max_drawdown_pct": round(float(self.state["max_drawdown_pct"]), 4),
+            "max_drawdown_pct": round(
+                max(
+                    (
+                        float(account["max_drawdown_pct"])
+                        for account in self.state["wallet_accounts"].values()
+                    ),
+                    default=0.0,
+                ),
+                4,
+            ),
             "leverage": self.settings.leverage,
             "allocation_pct": 100 * self.settings.wallet_fraction,
             "margin_per_position": self.settings.margin_per_position,
             "notional_per_position": self.settings.notional_per_position,
-            "max_positions": self.settings.max_positions,
+            "max_positions": self.settings.total_max_positions,
+            "max_positions_per_wallet": self.settings.max_positions,
             "positions": sorted(positions, key=lambda row: row["opened_at"]),
             "wallets": by_source,
             "closed_trades": closed,

@@ -1,8 +1,9 @@
 # Futures paper laboratory
 
 The Tyee Render worker runs five independent virtual perpetual accounts against
-Binance's public futures prices. It also follows two Hyperliquid source wallets
-in a separate paper-copy account. Live order placement remains disabled.
+Binance's public futures prices. It also follows two Hyperliquid source wallets,
+each in its own independent 6,000 USDT paper-copy account. Live order placement
+remains disabled.
 
 ## Shared rules
 
@@ -17,6 +18,14 @@ in a separate paper-copy account. Live order placement remains disabled.
 - The five strategies scan the top 50 liquid USDT perpetual markets every 30 seconds
 - Open positions are managed by an independent real-time supervisor
 - Results accumulate continuously; there is no time-based forced exit
+
+## Copy accounts
+
+- Two source wallets, each with an independent 6,000 USDT virtual balance
+- 10% margin allocation per copied source position: 600 USDT
+- 2x leverage: 1,200 USDT notional per copied position
+- Up to 10 simultaneous positions per wallet (20 total)
+- Balance, equity, ROI, drawdown and trade results are isolated per source
 
 ## Strategies
 
@@ -43,7 +52,7 @@ fixed research gate still needs a separate forward paper test.
 ## Reported metrics
 
 - `position_roi_pct`: fee-adjusted PnL divided by the position's initial margin
-- `wallet_roi_pct`: marked-to-market strategy equity versus its initial 1,000 USDT
+- `wallet_roi_pct`: marked-to-market account equity versus its initial balance
 - realized balance, trade count, wins, win rate, max drawdown and profit factor
 
 The worker emits `FUTURES TOURNAMENT EVENT` for opens/closes and

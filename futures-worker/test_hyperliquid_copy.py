@@ -160,3 +160,52 @@ def test_ten_percent_allocation_allows_ten_positions_and_rejects_eleventh():
     assert len(engine.state["positions"]) == 10
     assert engine._used_margin() == 6000
     assert engine.state["skipped"][-1]["reason"] == "insufficient_copy_capital"
+
+
+def test_each_wallet_has_an_independent_six_thousand_dollar_account():
+    a_coins = [f"A{index}" for index in range(10)]
+    b_coins = [f"B{index}" for index in range(10)]
+    sources = {WALLET_A: clearinghouse(), WALLET_B: clearinghouse()}
+    engine = HyperliquidCopyEngine(
+        CopySettings((WALLET_A, WALLET_B), 6000, 0.10, 2),
+        MemoryStore(),
+        source_fetcher=lambda address: sources[address],
+    )
+    client = FakeClient([*a_coins, *b_coins])
+    engine.reconcile(client)
+
+    sources[WALLET_A] = clearinghouse(**{coin: 1 for coin in a_coins})
+    sources[WALLET_B] = clearinghouse(**{coin: -1 for coin in b_coins})
+    engine.reconcile(client)
+    summary = engine.summary(client)
+
+    assert len(engine.state["positions"]) == 20
+    assert engine._used_margin(WALLET_A) == 6000
+    assert engine._used_margin(WALLET_B) == 6000
+    assert summary["initial_usdt"] == 12000
+    assert summary["initial_usdt_per_wallet"] == 6000
+    assert summary["max_positions"] == 20
+    assert summary["max_positions_per_wallet"] == 10
+    assert summary["wallets"][WALLET_A]["initial_usdt"] == 6000
+    assert summary["wallets"][WALLET_B]["initial_usdt"] == 6000
+
+
+def test_closing_one_wallet_position_does_not_change_the_other_balance():
+    sources = {
+        WALLET_A: clearinghouse(BTC=1),
+        WALLET_B: clearinghouse(ETH=-1),
+    }
+    engine = HyperliquidCopyEngine(
+        CopySettings((WALLET_A, WALLET_B), 6000, 0.10, 2),
+        MemoryStore(),
+        source_fetcher=lambda address: sources[address],
+    )
+    client = FakeClient(["BTC", "ETH"])
+    engine.reconcile(client)
+    wallet_b_balance = engine._account(WALLET_B)["balance"]
+
+    sources[WALLET_A] = clearinghouse()
+    engine.reconcile(client)
+
+    assert engine._account(WALLET_B)["balance"] == wallet_b_balance
+    assert engine._account(WALLET_A)["balance"] != wallet_b_balance
