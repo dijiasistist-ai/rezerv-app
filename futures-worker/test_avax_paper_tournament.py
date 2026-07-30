@@ -51,7 +51,7 @@ class TournamentTest(unittest.TestCase):
             "demo": False,
         }
 
-    def test_strategy_self_review_changes_one_bounded_parameter_after_five_trades(
+    def test_strategy_self_review_is_frozen_after_small_sample(
         self,
     ) -> None:
         tournament = PaperTournament(
@@ -70,12 +70,12 @@ class TournamentTest(unittest.TestCase):
 
         review = tournament._maybe_adapt("pullback_reclaim", strategy)
 
-        self.assertIsNotNone(review)
-        self.assertEqual("atr_stop_multiplier", review["change"]["parameter"])
-        self.assertEqual(1.3, strategy["adaptation"]["parameters"]["atr_stop_multiplier"])
+        self.assertIsNone(review)
+        self.assertTrue(strategy["adaptation"]["frozen"])
+        self.assertEqual(1.2, strategy["adaptation"]["parameters"]["atr_stop_multiplier"])
         self.assertEqual(0.030, STRATEGY_PROFILES["pullback_reclaim"]["take_profit_roe"])
         self.assertEqual(0.015, STRATEGY_PROFILES["pullback_reclaim"]["minimum_stop_roe"])
-        self.assertEqual(1, strategy["adaptation"]["generation"])
+        self.assertEqual(0, strategy["adaptation"]["generation"])
 
     def test_self_review_waits_for_five_new_closed_trades(self) -> None:
         tournament = PaperTournament(
@@ -632,12 +632,10 @@ class TournamentTest(unittest.TestCase):
             [index * 900_000, close, close + 0.4, close - 0.4, close, 3000]
             for index, close in enumerate(closes)
         ]
-        c15[-2][1] = 98.02
-        c15[-2][2] = 98.15
-        c15[-2][3] = 97.90
-        c15[-2][4] = 98.10
-        c15[-1][1] = 98.12
-        c15[-1][4] = 98.18
+        c15[-1][1] = 98.02
+        c15[-1][2] = 98.15
+        c15[-1][3] = 97.90
+        c15[-1][4] = 98.10
         with patch(
             "avax_paper_tournament.market_features",
             return_value={"close15": [float(row[4]) for row in c5]},
@@ -654,7 +652,7 @@ class TournamentTest(unittest.TestCase):
         ):
             found = signal_for("bollinger_reversion", c5, c5, c5)
         self.assertEqual("long", found[0])
-        self.assertIn("next-candle confirmation", found[1])
+        self.assertIn("lower Bollinger rejection", found[1])
 
     def test_bollinger_short_requires_upper_band_reentry_on_closed_15m_candle(self) -> None:
         c5 = candles(80, 300_000)
@@ -663,12 +661,10 @@ class TournamentTest(unittest.TestCase):
             [index * 900_000, close, close + 0.4, close - 0.4, close, 3000]
             for index, close in enumerate(closes)
         ]
-        c15[-2][1] = 101.98
-        c15[-2][2] = 102.10
-        c15[-2][3] = 101.85
-        c15[-2][4] = 101.90
-        c15[-1][1] = 101.88
-        c15[-1][4] = 101.82
+        c15[-1][1] = 101.98
+        c15[-1][2] = 102.10
+        c15[-1][3] = 101.85
+        c15[-1][4] = 101.90
         with patch(
             "avax_paper_tournament.market_features",
             return_value={"close15": [float(row[4]) for row in c5]},
@@ -685,17 +681,15 @@ class TournamentTest(unittest.TestCase):
         ):
             found = signal_for("bollinger_reversion", c5, c5, c5)
         self.assertEqual("short", found[0])
-        self.assertIn("next-candle confirmation", found[1])
+        self.assertIn("upper Bollinger rejection", found[1])
 
-    def test_bollinger_does_not_chase_a_reentry_toward_the_middle_band(self) -> None:
+    def test_bollinger_rejects_a_close_beyond_the_middle_band(self) -> None:
         c5 = candles(80, 300_000)
         c15 = candles(24, 900_000)
-        c15[-2][1] = 98.02
-        c15[-2][2] = 98.15
-        c15[-2][3] = 97.90
-        c15[-2][4] = 98.10
         c15[-1][1] = 98.20
-        c15[-1][4] = 99.00
+        c15[-1][2] = 100.20
+        c15[-1][3] = 97.90
+        c15[-1][4] = 100.10
         with patch(
             "avax_paper_tournament.market_features",
             return_value={"close15": [float(row[4]) for row in c5]},

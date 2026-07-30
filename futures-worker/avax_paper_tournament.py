@@ -20,7 +20,7 @@ STRATEGIES = (
     "selective_trend_pullback",
     "bollinger_reversion",
 )
-STATE_VERSION = 9
+STATE_VERSION = 10
 
 
 class JsonStateStore:
@@ -171,7 +171,6 @@ STRATEGY_PROFILES = {
         "decision_timeframe": "15m Bollinger(20, 2)",
         "take_profit_roe": 0.030,
         "respect_minimum_tp": False,
-        "entry_band_zone_fraction": 0.20,
         "cooldown_ms": 15 * 60_000,
         "exit_model": "fixed take profit or volatility/structure stop",
         "minimum_stop_fraction": 0.008,
@@ -186,40 +185,10 @@ ADAPTIVE_DEFAULTS = {
     name: {
         "atr_stop_multiplier": float(profile["atr_stop_multiplier"]),
         "cooldown_ms": int(profile["cooldown_ms"]),
-        **(
-            {"entry_band_zone_fraction": float(profile["entry_band_zone_fraction"])}
-            if "entry_band_zone_fraction" in profile
-            else {}
-        ),
     }
     for name, profile in STRATEGY_PROFILES.items()
 }
-ADAPTIVE_BOUNDS = {
-    "trend_breakout": {
-        "atr_stop_multiplier": (1.0, 1.6),
-        "cooldown_ms": (15 * 60_000, 45 * 60_000),
-    },
-    "pullback_reclaim": {
-        "atr_stop_multiplier": (1.0, 1.6),
-        "cooldown_ms": (10 * 60_000, 35 * 60_000),
-    },
-    "liquidity_sweep": {
-        "atr_stop_multiplier": (1.0, 1.6),
-        "cooldown_ms": (10 * 60_000, 40 * 60_000),
-    },
-    "selective_trend_pullback": {
-        "atr_stop_multiplier": (1.0, 1.6),
-        "cooldown_ms": (15 * 60_000, 45 * 60_000),
-    },
-    "bollinger_reversion": {
-        "atr_stop_multiplier": (1.4, 2.2),
-        "cooldown_ms": (10 * 60_000, 35 * 60_000),
-        "entry_band_zone_fraction": (0.10, 0.28),
-    },
-}
-ADAPT_EVERY_TRADES = 5
-ADAPT_LOOKBACK_TRADES = 12
-CURRENT_RULE_VERSION = "R3"
+CURRENT_RULE_VERSION = "R4"
 CURRENT_STOP_RULE_VERSION = "R3-1.5roe-atr"
 
 
@@ -514,76 +483,47 @@ def signal_for(
             return None
         closes_15m = [float(candle[4]) for candle in candles_15m]
         lower, middle, upper = bollinger_bands(closes_15m[:-1])
-        prior_lower, prior_middle, prior_upper = bollinger_bands(closes_15m[:-4])
         band_width_pct = 100 * (upper - lower) / max(middle, 1e-12)
-        prior_band_width = prior_upper - prior_lower
         current_15m = closes_15m[-1]
         current_open_15m = float(candles_15m[-1][1])
-        signal_open, signal_high, signal_low, signal_close = (
-            float(candles_15m[-2][1]),
-            float(candles_15m[-2][2]),
-            float(candles_15m[-2][3]),
-            float(candles_15m[-2][4]),
-        )
-        volumes_15m = [float(candle[5]) for candle in candles_15m]
-        volume_ratio_15m = volumes_15m[-1] / statistics.fmean(volumes_15m[-21:-1])
+        current_high_15m = float(candles_15m[-1][2])
+        current_low_15m = float(candles_15m[-1][3])
         rsi_15m = rsi(closes_15m)
         atr_15m = atr(candles_15m)
         atr_fraction_15m = atr_15m / current_15m
-        entry_zone_fraction = STRATEGY_PROFILES[strategy][
-            "entry_band_zone_fraction"
-        ]
-        long_entry_ceiling = lower + entry_zone_fraction * (middle - lower)
-        short_entry_floor = upper - entry_zone_fraction * (upper - middle)
-        bullish_reentry = (
-            signal_low <= lower
-            and signal_close > lower
-            and signal_close > signal_open
-            and current_15m > signal_high
-            and current_15m > current_open_15m
-            and current_15m <= long_entry_ceiling
-        )
-        bearish_reentry = (
-            signal_high >= upper
-            and signal_close < upper
-            and signal_close < signal_open
-            and current_15m < signal_low
-            and current_15m < current_open_15m
-            and current_15m >= short_entry_floor
-        )
-        bands_not_expanding = (upper - lower) <= prior_band_width * 1.35
-        middle_slope_is_safe = abs(middle - prior_middle) <= atr_15m * 0.75
         stop_requirement_is_safe = max(
             STRATEGY_PROFILES[strategy]["minimum_stop_fraction"],
             STRATEGY_PROFILES[strategy]["atr_stop_multiplier"] * atr_fraction_15m,
         ) <= STRATEGY_PROFILES[strategy]["maximum_stop_fraction"]
         ranging_market = (
-            adx(candles_15m) <= 28
-            and 0.8 <= band_width_pct <= 12.0
-            and bands_not_expanding
-            and middle_slope_is_safe
+            adx(candles_15m) <= 20
+            and 1.0 <= band_width_pct <= 8.0
             and stop_requirement_is_safe
         )
         if (
             ranging_market
-            and bullish_reentry
-            and rsi_15m <= 44
-            and volume_ratio_15m >= 0.50
+            and current_low_15m <= lower
+            and current_15m > lower
+            and current_15m > current_open_15m
+            and current_15m < middle
+            and rsi_15m <= 43
         ):
             return (
                 "long",
-                "15m lower Bollinger re-entry + next-candle confirmation",
+                "15m low-ADX lower Bollinger rejection",
                 atr_fraction_15m,
             )
         if (
             ranging_market
-            and bearish_reentry
-            and rsi_15m >= 56
-            and volume_ratio_15m >= 0.50
+            and current_high_15m >= upper
+            and current_15m < upper
+            and current_15m < current_open_15m
+            and current_15m > middle
+            and rsi_15m >= 57
         ):
             return (
                 "short",
-                "15m upper Bollinger re-entry + next-candle confirmation",
+                "15m low-ADX upper Bollinger rejection",
                 atr_fraction_15m,
             )
 
@@ -845,7 +785,7 @@ class PaperTournament:
 
     def _upgrade_state(self, loaded: dict) -> dict | None:
         version = loaded.get("version")
-        if version not in {4, 5, 6, 7, 8, STATE_VERSION}:
+        if version not in {4, 5, 6, 7, 8, 9, STATE_VERSION}:
             return None
         strategies = loaded.get("strategies")
         if not isinstance(strategies, dict):
@@ -938,20 +878,18 @@ class PaperTournament:
 
     def _apply_adaptive_parameters(self, state: dict) -> None:
         for name in STRATEGIES:
-            parameters = (
-                state.get("strategies", {})
-                .get(name, {})
-                .get("adaptation", {})
-                .get("parameters", {})
+            adaptation = (
+                state.get("strategies", {}).get(name, {}).get("adaptation", {})
             )
+            parameters = adaptation.get("parameters", {})
             for parameter, default in ADAPTIVE_DEFAULTS[name].items():
-                lower, upper = ADAPTIVE_BOUNDS[name][parameter]
-                value = parameters.get(parameter, default)
-                value = min(upper, max(lower, float(value)))
-                if parameter == "cooldown_ms":
-                    value = int(value)
+                value = int(default) if parameter == "cooldown_ms" else float(default)
                 parameters[parameter] = value
                 STRATEGY_PROFILES[name][parameter] = value
+            adaptation["frozen"] = True
+            adaptation["diagnosis"] = (
+                "Kural sabit; küçük örneklemle otomatik parametre değişimi kapalı."
+            )
 
     def _save(self) -> None:
         self.store.save(self.state)
@@ -1086,142 +1024,16 @@ class PaperTournament:
         }
         return {"event": "open", "strategy": name, **strategy["position"]}
 
-    @staticmethod
-    def _eligible_adaptation_trades(strategy: dict) -> list[dict]:
-        return [
-            trade
-            for trade in strategy.get("trades", [])
-            if not trade.get("demo")
-            and trade.get("exit_reason") in {"stop", "take"}
-        ]
-
-    @staticmethod
-    def _trade_metrics(trades: Sequence[dict]) -> dict:
-        profits = [float(trade.get("net_pnl") or 0) for trade in trades]
-        wins = [profit for profit in profits if profit > 0]
-        losses = [abs(profit) for profit in profits if profit <= 0]
-        gross_profit = sum(wins)
-        gross_loss = sum(losses)
-        stop_count = sum(trade.get("exit_reason") == "stop" for trade in trades)
-        return {
-            "trades": len(trades),
-            "net_pnl": sum(profits),
-            "win_rate": len(wins) / len(trades) if trades else 0.0,
-            "stop_rate": stop_count / len(trades) if trades else 0.0,
-            "profit_factor": (
-                gross_profit / gross_loss
-                if gross_loss
-                else (99.0 if gross_profit else 0.0)
-            ),
-            "average_win": statistics.fmean(wins) if wins else 0.0,
-            "average_loss": statistics.fmean(losses) if losses else 0.0,
-        }
-
-    def _set_adaptive_parameter(
-        self,
-        name: str,
-        adaptation: dict,
-        parameter: str,
-        requested_value: float,
-    ) -> dict | None:
-        lower, upper = ADAPTIVE_BOUNDS[name][parameter]
-        previous = adaptation["parameters"][parameter]
-        value = min(upper, max(lower, requested_value))
-        if parameter == "cooldown_ms":
-            value = int(round(value / 60_000) * 60_000)
-        else:
-            value = round(float(value), 3)
-        if abs(float(value) - float(previous)) < 1e-12:
-            return None
-        adaptation["parameters"][parameter] = value
-        STRATEGY_PROFILES[name][parameter] = value
-        return {
-            "parameter": parameter,
-            "previous": previous,
-            "current": value,
-        }
-
     def _maybe_adapt(self, name: str, strategy: dict) -> dict | None:
         adaptation = strategy["adaptation"]
-        eligible = self._eligible_adaptation_trades(strategy)
-        last_count = int(adaptation.get("last_evaluated_trade_count") or 0)
-        if len(eligible) - last_count < ADAPT_EVERY_TRADES:
-            return None
-
-        window = eligible[-ADAPT_LOOKBACK_TRADES:]
-        metrics = self._trade_metrics(window)
-        change = None
-        diagnosis = "Performans dengeli; mevcut ayarlar korunuyor."
-        parameters = adaptation["parameters"]
-
-        # Change only one variable per generation so the next evaluation can
-        # attribute improvement or deterioration to a specific experiment.
-        if name == "bollinger_reversion" and metrics["stop_rate"] >= 0.60:
-            diagnosis = (
-                "Stop oranı yüksek; dış banda daha yakın ve seçici giriş deneniyor."
-            )
-            change = self._set_adaptive_parameter(
-                name,
-                adaptation,
-                "entry_band_zone_fraction",
-                float(parameters["entry_band_zone_fraction"]) - 0.02,
-            )
-        elif metrics["stop_rate"] >= 0.60:
-            diagnosis = (
-                "Stop oranı yüksek; piyasa gürültüsüne karşı ATR payı artırılıyor."
-            )
-            change = self._set_adaptive_parameter(
-                name,
-                adaptation,
-                "atr_stop_multiplier",
-                float(parameters["atr_stop_multiplier"]) + 0.1,
-            )
-        elif (
-            metrics["profit_factor"] < 0.90
-            and metrics["average_loss"] > metrics["average_win"]
-        ):
-            diagnosis = (
-                "Ortalama kayıp kazançtan büyük; zayıf tekrar girişleri azaltmak "
-                "için bekleme süresi uzatılıyor."
-            )
-            change = self._set_adaptive_parameter(
-                name,
-                adaptation,
-                "cooldown_ms",
-                float(parameters["cooldown_ms"]) + 5 * 60_000,
-            )
-        elif metrics["profit_factor"] >= 1.30 and metrics["win_rate"] >= 0.55:
-            diagnosis = (
-                "Kâr faktörü ve isabet oranı güçlü; başarılı modeli daha sık "
-                "kullanmak için bekleme süresi azaltılıyor."
-            )
-            change = self._set_adaptive_parameter(
-                name,
-                adaptation,
-                "cooldown_ms",
-                float(parameters["cooldown_ms"]) - 5 * 60_000,
-            )
-
-        adaptation["generation"] = int(adaptation.get("generation") or 0) + 1
-        adaptation["last_evaluated_trade_count"] = len(eligible)
-        adaptation["diagnosis"] = diagnosis
-        adaptation["last_change"] = change
-        record = {
-            "generation": adaptation["generation"],
-            "evaluated_at": int(time.time() * 1000),
-            "metrics": {
-                "trades": metrics["trades"],
-                "net_pnl": round(metrics["net_pnl"], 4),
-                "win_rate_pct": round(100 * metrics["win_rate"], 2),
-                "stop_rate_pct": round(100 * metrics["stop_rate"], 2),
-                "profit_factor": round(metrics["profit_factor"], 3),
-            },
-            "diagnosis": diagnosis,
-            "change": change,
-        }
-        adaptation["history"].append(record)
-        adaptation["history"] = adaptation["history"][-20:]
-        return record
+        # Five trades is far too little evidence for live parameter tuning and
+        # was changing the exact rules being compared. Keep the audit history,
+        # but freeze all production parameters until an out-of-sample review.
+        adaptation["frozen"] = True
+        adaptation["diagnosis"] = (
+            "Kural sabit; küçük örneklemle otomatik parametre değişimi kapalı."
+        )
+        return None
 
     def _close(self, name: str, strategy: dict, ticker: dict, reason: str) -> dict:
         position = strategy["position"]
@@ -1398,6 +1210,7 @@ class PaperTournament:
                     else None
                 ),
                 "adaptation": {
+                    "frozen": True,
                     "generation": int(
                         strategy.get("adaptation", {}).get("generation") or 0
                     ),
@@ -1408,19 +1221,7 @@ class PaperTournament:
                     "parameters": strategy.get("adaptation", {}).get(
                         "parameters", {}
                     ),
-                    "next_review_after_trades": max(
-                        0,
-                        ADAPT_EVERY_TRADES
-                        - (
-                            len(self._eligible_adaptation_trades(strategy))
-                            - int(
-                                strategy.get("adaptation", {}).get(
-                                    "last_evaluated_trade_count"
-                                )
-                                or 0
-                            )
-                        ),
-                    ),
+                    "next_review_after_trades": 0,
                 },
                 "recent_trades": strategy["trades"][-20:],
             }

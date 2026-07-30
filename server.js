@@ -74,7 +74,11 @@ const SIMLI_AUDIO_SAMPLE_RATE = 16000;
 const SIMLI_AUDIO_CHUNK_BYTES = 6000;
 const CALENDAR_BASE_DATE = new Date(2026, 4, 11, 12, 0, 0);
 const VENUE_GALLERY_LIMIT = 6;
-const AVAX_PAPER_MAX_POINTS = 96 * 35;
+// Keep one observation per hour for 35 days. The workers publish every
+// 30 seconds, but persisting every heartbeat repeats large position/universe
+// payloads and eventually makes the encrypted GitHub backup too large.
+const AVAX_PAPER_MAX_POINTS = 24 * 35 * 2;
+const AVAX_PAPER_SNAPSHOT_BUCKET_MS = 60 * 60 * 1000;
 const AVAX_PAPER_STRATEGIES = new Set([
   "trend_breakout",
   "pullback_reclaim",
@@ -1470,7 +1474,7 @@ function validAvaxPaperState(value) {
       Array.isArray(value.trades)
     );
   }
-  if (![4, 5, 6, 7, 8, 9].includes(Number(value.version))) return false;
+  if (![4, 5, 6, 7, 8, 9, 10].includes(Number(value.version))) return false;
   if (!Number.isFinite(Number(value.started_at)) || !Number.isFinite(Number(value.ends_at))) {
     return false;
   }
@@ -1482,15 +1486,160 @@ function validAvaxPaperState(value) {
   );
 }
 
+function avaxTradeKey(trade) {
+  return String(
+    trade?.id ||
+      [
+        Number(trade?.closed_at || 0),
+        trade?.symbol,
+        trade?.side,
+        trade?.entry,
+        trade?.exit,
+      ].join("|"),
+  );
+}
+
+function compactAvaxPaperSnapshot(snapshot, { latest = false } = {}) {
+  const marketCandle = Number(snapshot?.market_candle || Date.now());
+  const bucketStart =
+    Math.floor(marketCandle / AVAX_PAPER_SNAPSHOT_BUCKET_MS) *
+    AVAX_PAPER_SNAPSHOT_BUCKET_MS;
+  const recentTradesInBucket = (trades) =>
+    Array.isArray(trades)
+      ? trades.filter((trade) => Number(trade?.closed_at || 0) >= bucketStart)
+      : [];
+
+  if (snapshot?.mode === "hyperliquid_copy") {
+    const compact = {
+      mode: snapshot.mode,
+      market_candle: marketCandle,
+      received_at: snapshot.received_at,
+      equity_usdt: snapshot.equity_usdt,
+      wallet_roi_pct: snapshot.wallet_roi_pct,
+      realized_pnl_usdt: snapshot.realized_pnl_usdt,
+      unrealized_pnl_usdt: snapshot.unrealized_pnl_usdt,
+      closed_trades: snapshot.closed_trades,
+      wins: snapshot.wins,
+      win_rate_pct: snapshot.win_rate_pct,
+      recent_trades: recentTradesInBucket(snapshot.recent_trades),
+    };
+    if (latest) {
+      Object.assign(compact, snapshot);
+      // The 678-symbol selector is never used by the copy section. Keeping it
+      // in every snapshot was the main source of the oversized backup.
+      delete compact.universe;
+      delete compact.fill_cursors;
+      delete compact.skipped;
+      compact.recent_trades = Array.isArray(snapshot.recent_trades)
+        ? snapshot.recent_trades.slice(-100)
+        : [];
+    }
+    return compact;
+  }
+
+  const strategies = Object.fromEntries(
+    Object.entries(snapshot?.strategies || {}).map(([name, row]) => [
+      name,
+      latest
+        ? row
+        : {
+            wallet_roi_pct: row?.wallet_roi_pct,
+            mark_price: row?.mark_price,
+            max_drawdown_pct: row?.max_drawdown_pct,
+            trades: row?.trades,
+            wins: row?.wins,
+            recent_trades: recentTradesInBucket(row?.recent_trades),
+          },
+    ]),
+  );
+  const compact = {
+    started_at: snapshot?.started_at,
+    ends_at: snapshot?.ends_at,
+    continuous: snapshot?.continuous,
+    market_candle: marketCandle,
+    received_at: snapshot?.received_at,
+    market_symbol: snapshot?.market_symbol,
+    market_price: snapshot?.market_price,
+    strategies,
+  };
+  if (latest) {
+    Object.assign(compact, snapshot, { strategies });
+    delete compact.scan_batch;
+    if (compact.copy_trading) {
+      compact.copy_trading = compactAvaxPaperSnapshot(
+        { ...compact.copy_trading, mode: "hyperliquid_copy" },
+        { latest: true },
+      );
+    }
+  }
+  return compact;
+}
+
 function saveAvaxPaperSnapshot(snapshot) {
   const receivedAt = Date.now();
-  const stored = { ...snapshot, received_at: receivedAt };
+  const stored = compactAvaxPaperSnapshot(
+    { ...snapshot, received_at: receivedAt },
+    { latest: true },
+  );
   const marketCandle = Number(stored.market_candle);
-  const snapshots = getAvaxPaperSnapshots();
-  const existingIndex = snapshots.findIndex((item) => Number(item.market_candle) === marketCandle);
+  const mode = stored.mode === "hyperliquid_copy" ? "copy" : "tournament";
+  const bucket = Math.floor(marketCandle / AVAX_PAPER_SNAPSHOT_BUCKET_MS);
+  const rawSnapshots = getAvaxPaperSnapshots();
+  const latestIndexByMode = new Map();
+  rawSnapshots.forEach((item, index) => {
+    latestIndexByMode.set(
+      item?.mode === "hyperliquid_copy" ? "copy" : "tournament",
+      index,
+    );
+  });
+  const snapshots = rawSnapshots.map((item, index) => {
+    const itemMode = item?.mode === "hyperliquid_copy" ? "copy" : "tournament";
+    return compactAvaxPaperSnapshot(item, {
+      latest: latestIndexByMode.get(itemMode) === index,
+    });
+  });
+  const existingIndex = snapshots.findIndex((item) => {
+    const itemMode = item?.mode === "hyperliquid_copy" ? "copy" : "tournament";
+    return (
+      itemMode === mode &&
+      Math.floor(Number(item.market_candle) / AVAX_PAPER_SNAPSHOT_BUCKET_MS) ===
+        bucket
+    );
+  });
   if (existingIndex >= 0) {
+    const previous = snapshots[existingIndex];
+    if (mode === "copy") {
+      const trades = new Map(
+        [
+          ...(previous.recent_trades || []),
+          ...(stored.recent_trades || []),
+        ].map((trade) => [avaxTradeKey(trade), trade]),
+      );
+      stored.recent_trades = [...trades.values()];
+    } else {
+      for (const strategy of AVAX_PAPER_STRATEGIES) {
+        const trades = new Map(
+          [
+            ...(previous?.strategies?.[strategy]?.recent_trades || []),
+            ...(stored?.strategies?.[strategy]?.recent_trades || []),
+          ].map((trade) => [avaxTradeKey(trade), trade]),
+        );
+        if (stored?.strategies?.[strategy]) {
+          stored.strategies[strategy].recent_trades = [...trades.values()];
+        }
+      }
+    }
     snapshots[existingIndex] = stored;
   } else {
+    for (let index = 0; index < snapshots.length; index += 1) {
+      const itemMode =
+        snapshots[index]?.mode === "hyperliquid_copy"
+          ? "copy"
+          : "tournament";
+      if (itemMode === mode) {
+        snapshots[index] = compactAvaxPaperSnapshot(snapshots[index]);
+      }
+    }
     snapshots.push(stored);
   }
   snapshots.sort((left, right) => Number(left.market_candle) - Number(right.market_candle));

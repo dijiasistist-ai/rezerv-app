@@ -66,7 +66,7 @@ async function download(name) {
 }
 
 function validateState(state) {
-  if (!state || ![4, 5, 6, 7, 8, 9].includes(Number(state.version))) {
+  if (!state || ![4, 5, 6, 7, 8, 9, 10].includes(Number(state.version))) {
     throw new Error("Backup does not contain a tournament state");
   }
   if (!strategyKeys.every((key) => state.strategies?.[key])) {
