@@ -50,21 +50,19 @@ async function download(name) {
   const filePath = `${prefix}/${name}`;
   const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
   const response = await fetch(
-    `https://api.github.com/repos/${repo}/contents/${encodedPath}?ref=${commit}`,
+    `https://raw.githubusercontent.com/${repo}/${commit}/${encodedPath}`,
     {
       headers: {
-        Accept: "application/vnd.github+json",
+        Accept: "application/octet-stream",
         Authorization: `Bearer ${token}`,
         "User-Agent": "tyee-avax-recovery",
-        "X-GitHub-Api-Version": "2022-11-28",
       },
     },
   );
   if (!response.ok) {
     throw new Error(`Cannot download ${filePath} at ${commit}: HTTP ${response.status}`);
   }
-  const body = await response.json();
-  return JSON.parse(decryptBackup(Buffer.from(body.content, "base64").toString("utf8")));
+  return JSON.parse(decryptBackup(await response.text()));
 }
 
 function validateState(state) {
