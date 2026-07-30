@@ -219,8 +219,6 @@ ADAPTIVE_BOUNDS = {
 }
 ADAPT_EVERY_TRADES = 5
 ADAPT_LOOKBACK_TRADES = 12
-AWARD_INTERVAL_MS = 6 * 3_600_000
-
 CURRENT_RULE_VERSION = "R3"
 CURRENT_STOP_RULE_VERSION = "R3-1.5roe-atr"
 
@@ -831,7 +829,6 @@ class PaperTournament:
             "risk_pause_until": 0,
             "risk_halted_reason": None,
             "trades": [],
-            "reward_points": 0,
             "adaptation": {
                 "generation": 0,
                 "last_evaluated_trade_count": 0,
@@ -874,7 +871,7 @@ class PaperTournament:
         for name in STRATEGIES:
             strategies.setdefault(name, self._new_strategy(name))
             strategy = strategies[name]
-            strategy.setdefault("reward_points", 0)
+            strategy.pop("reward_points", None)
             strategy.setdefault(
                 "adaptation",
                 {
@@ -907,21 +904,11 @@ class PaperTournament:
                 strategy["risk_pause_until"] = 0
                 strategy["risk_halted_reason"] = None
         loaded["initial_usdt"] = max(previous_initial_usdt, self.initial_usdt)
-        # Paper competition is continuous. Preserve the historical ends_at
-        # value for old records, but it no longer finalizes accounts or blocks
-        # entries.
+        # Paper tracking is continuous. Preserve the historical ends_at value
+        # for old records, but it no longer finalizes accounts or blocks entries.
         loaded["continuous"] = True
         loaded["finalized_at"] = None
-        loaded.setdefault(
-            "competition",
-            {
-                "season": 0,
-                "next_award_at": int(time.time() * 1000) + AWARD_INTERVAL_MS,
-                "champion": None,
-                "last_award": None,
-                "history": [],
-            },
-        )
+        loaded.pop("competition", None)
         loaded["version"] = STATE_VERSION
         self._apply_adaptive_parameters(loaded)
         return loaded
@@ -945,13 +932,6 @@ class PaperTournament:
             "continuous": True,
             "initial_usdt": self.initial_usdt,
             "strategies": {name: self._new_strategy(name) for name in STRATEGIES},
-            "competition": {
-                "season": 0,
-                "next_award_at": now + AWARD_INTERVAL_MS,
-                "champion": None,
-                "last_award": None,
-                "history": [],
-            },
         }
         self._apply_adaptive_parameters(created)
         return created
@@ -1243,70 +1223,6 @@ class PaperTournament:
         adaptation["history"] = adaptation["history"][-20:]
         return record
 
-    @staticmethod
-    def _risk_adjusted_score(trades: Sequence[dict]) -> float:
-        cumulative = 0.0
-        peak = 0.0
-        max_drawdown = 0.0
-        for trade in trades:
-            cumulative += float(trade.get("net_pnl") or 0)
-            peak = max(peak, cumulative)
-            max_drawdown = max(max_drawdown, peak - cumulative)
-        # Profit remains the primary objective, but unstable paths pay a
-        # penalty so one lucky trade does not automatically win the season.
-        return cumulative - 0.35 * max_drawdown
-
-    def _competition_rows(self) -> list[dict]:
-        rows = []
-        for name, strategy in self.state["strategies"].items():
-            trades = self._eligible_adaptation_trades(strategy)[-20:]
-            if not trades:
-                continue
-            metrics = self._trade_metrics(trades)
-            rows.append(
-                {
-                    "strategy": name,
-                    "score": round(self._risk_adjusted_score(trades), 4),
-                    "net_pnl": round(metrics["net_pnl"], 4),
-                    "trades": metrics["trades"],
-                    "win_rate_pct": round(100 * metrics["win_rate"], 2),
-                    "profit_factor": round(metrics["profit_factor"], 3),
-                    "reward_points": int(strategy.get("reward_points") or 0),
-                }
-            )
-        return sorted(rows, key=lambda row: row["score"], reverse=True)
-
-    def _maybe_award_champion(self) -> dict | None:
-        now = int(time.time() * 1000)
-        competition = self.state["competition"]
-        leaderboard = self._competition_rows()
-        competition["champion"] = (
-            leaderboard[0]["strategy"] if leaderboard else None
-        )
-        if now < int(competition.get("next_award_at") or 0):
-            return None
-        eligible = [row for row in leaderboard if row["trades"] >= 3]
-        if len(eligible) < 2:
-            competition["next_award_at"] = now + 60 * 60_000
-            return None
-        winner = eligible[0]
-        strategy = self.state["strategies"][winner["strategy"]]
-        strategy["reward_points"] = int(strategy.get("reward_points") or 0) + 1
-        competition["season"] = int(competition.get("season") or 0) + 1
-        award = {
-            "season": competition["season"],
-            "awarded_at": now,
-            "winner": winner["strategy"],
-            "score": winner["score"],
-            "net_pnl": winner["net_pnl"],
-            "reward_points": strategy["reward_points"],
-        }
-        competition["last_award"] = award
-        competition["history"].append(award)
-        competition["history"] = competition["history"][-20:]
-        competition["next_award_at"] = now + AWARD_INTERVAL_MS
-        return award
-
     def _close(self, name: str, strategy: dict, ticker: dict, reason: str) -> dict:
         position = strategy["position"]
         exit_price = self._mark_price(position["side"], ticker)
@@ -1341,13 +1257,11 @@ class PaperTournament:
         strategy["position"] = None
         strategy["next_entry_at"] = trade["closed_at"] + STRATEGY_PROFILES[name]["cooldown_ms"]
         adaptation = self._maybe_adapt(name, strategy)
-        award = self._maybe_award_champion()
         return {
             "event": "close",
             "strategy": name,
             **trade,
             "adaptation": adaptation,
-            "competition_award": award,
         }
 
     def _position_ticker(self, position: dict | None, tickers: dict) -> dict:
@@ -1483,7 +1397,6 @@ class PaperTournament:
                     if strategy["gross_loss"]
                     else None
                 ),
-                "reward_points": int(strategy.get("reward_points") or 0),
                 "adaptation": {
                     "generation": int(
                         strategy.get("adaptation", {}).get("generation") or 0
@@ -1511,30 +1424,12 @@ class PaperTournament:
                 },
                 "recent_trades": strategy["trades"][-20:],
             }
-        leaderboard = self._competition_rows()
-        competition = self.state["competition"]
         return {
             "started_at": self.state["started_at"],
             "ends_at": self.state["ends_at"],
             "finalized_at": self.state["finalized_at"],
             "continuous": bool(self.state.get("continuous", True)),
             "strategies": rows,
-            "competition": {
-                "season": int(competition.get("season") or 0),
-                "champion": (
-                    leaderboard[0]["strategy"] if leaderboard else None
-                ),
-                "next_award_at": competition.get("next_award_at"),
-                "last_award": competition.get("last_award"),
-                "leaderboard": leaderboard,
-                "scoring": "net profit - 35% of maximum closed-trade drawdown",
-                "immutable_rules": {
-                    "take_profit_roe_pct": 3.0,
-                    "minimum_stop_roe_pct": 1.5,
-                    "leverage": self.leverage,
-                    "wallet_fraction_pct": round(100 * self.wallet_fraction, 2),
-                },
-            },
         }
 
     def cycle(

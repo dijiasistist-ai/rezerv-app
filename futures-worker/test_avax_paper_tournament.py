@@ -90,38 +90,19 @@ class TournamentTest(unittest.TestCase):
         self.assertIsNone(tournament._maybe_adapt("trend_breakout", strategy))
         self.assertEqual(0, strategy["adaptation"]["generation"])
 
-    def test_competition_awards_risk_adjusted_leader_without_adding_capital(
-        self,
-    ) -> None:
+    def test_summary_does_not_expose_strategy_competition(self) -> None:
         tournament = PaperTournament(
             "/tmp/not-used.json",
             initial_usdt=6000,
             state_store=MemoryStateStore(),
         )
-        winner = tournament.state["strategies"]["trend_breakout"]
-        runner_up = tournament.state["strategies"]["pullback_reclaim"]
-        winner["trades"] = [
+        strategy = tournament.state["strategies"]["trend_breakout"]
+        strategy["trades"] = [
             self.completed_trade(30, "take"),
             self.completed_trade(-5, "stop"),
             self.completed_trade(25, "take"),
         ]
-        runner_up["trades"] = [
-            self.completed_trade(12, "take"),
-            self.completed_trade(-8, "stop"),
-            self.completed_trade(10, "take"),
-        ]
-        tournament.state["competition"]["next_award_at"] = 0
-        original_balance = winner["balance"]
-
-        award = tournament._maybe_award_champion()
-
-        self.assertEqual("trend_breakout", award["winner"])
-        self.assertEqual(1, winner["reward_points"])
-        self.assertEqual(original_balance, winner["balance"])
-        self.assertEqual(
-            "trend_breakout",
-            tournament.summary({})["competition"]["champion"],
-        )
+        self.assertNotIn("competition", tournament.summary({}))
 
     def test_realtime_position_manager_closes_stop_without_running_scanner(self) -> None:
         tournament = PaperTournament(
