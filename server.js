@@ -39,6 +39,7 @@ const {
   initializeRuntimeStore,
   recoverVenueFromRuntimeBackup,
   recoverVenueFromRuntimeHistory,
+  resetAvaxRuntimeData,
   migrateLegacyUsers,
   normalizeEmail,
   saveAvaxCopyState,
@@ -88,6 +89,7 @@ const AVAX_PAPER_STRATEGIES = new Set([
   "selective_trend_pullback",
   "bollinger_reversion",
 ]);
+let avaxResetInProgress = false;
 const CALENDAR_SLOT_TIMES = [
   "08:00",
   "09:00",
@@ -1462,6 +1464,14 @@ function hasValidAvaxIngestToken(req) {
   const configuredToken = String(process.env.AVAX_DASHBOARD_INGEST_TOKEN || "").trim();
   const submittedToken = String(req.get("x-avax-ingest-token") || "").trim();
   return Boolean(configuredToken) && secureStringEqual(submittedToken, configuredToken);
+}
+
+function rejectWhileAvaxReset(_req, res, next) {
+  if (!avaxResetInProgress) {
+    next();
+    return;
+  }
+  res.status(503).json({ error: "Futures Lab sıfırlanıyor." });
 }
 
 function validAvaxPaperState(value) {
@@ -6041,7 +6051,32 @@ app.get("/api/admin/avax-observations", requireAdmin, (_req, res) => {
   });
 });
 
-app.get("/api/state", (req, res) => {
+app.post("/api/admin/avax-reset", requireAdmin, async (req, res) => {
+  if (String(req.body?.confirmation || "") !== "SIFIRDAN_BASLA") {
+    res.status(400).json({ error: "Sıfırlama onayı geçersiz." });
+    return;
+  }
+  if (avaxResetInProgress) {
+    res.status(409).json({ error: "Futures Lab zaten sıfırlanıyor." });
+    return;
+  }
+  avaxResetInProgress = true;
+  try {
+    const cleared = await resetAvaxRuntimeData();
+    res.json({
+      reset: true,
+      cleared,
+      message: "Paper verileri silindi; servis temiz kasalarla yeniden başlatılıyor.",
+    });
+    setTimeout(() => process.exit(0), 750);
+  } catch (error) {
+    avaxResetInProgress = false;
+    console.error("[avax-reset]", error);
+    res.status(500).json({ error: "Futures Lab sıfırlanamadı." });
+  }
+});
+
+app.get("/api/state", rejectWhileAvaxReset, (req, res) => {
   if (!hasValidAvaxIngestToken(req)) {
     res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
     return;
@@ -6054,7 +6089,7 @@ app.get("/api/state", (req, res) => {
   res.json({ state });
 });
 
-app.get("/api/state/:kind", (req, res) => {
+app.get("/api/state/:kind", rejectWhileAvaxReset, (req, res) => {
   if (!hasValidAvaxIngestToken(req)) {
     res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
     return;
@@ -6072,7 +6107,7 @@ app.get("/api/state/:kind", (req, res) => {
   res.json({ state });
 });
 
-app.put("/api/state", (req, res) => {
+app.put("/api/state", rejectWhileAvaxReset, (req, res) => {
   if (!hasValidAvaxIngestToken(req)) {
     res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
     return;
@@ -6086,7 +6121,7 @@ app.put("/api/state", (req, res) => {
   res.status(202).json({ accepted: true, version: Number(state.version) });
 });
 
-app.put("/api/state/:kind", (req, res) => {
+app.put("/api/state/:kind", rejectWhileAvaxReset, (req, res) => {
   if (!hasValidAvaxIngestToken(req)) {
     res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
     return;
@@ -6110,7 +6145,7 @@ app.put("/api/state/:kind", (req, res) => {
   res.status(202).json({ accepted: true, version: Number(state.version) });
 });
 
-app.post("/api/snapshot", (req, res) => {
+app.post("/api/snapshot", rejectWhileAvaxReset, (req, res) => {
   if (!hasValidAvaxIngestToken(req)) {
     res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
     return;
@@ -6123,7 +6158,7 @@ app.post("/api/snapshot", (req, res) => {
   res.status(202).json({ accepted: true, history_points: history.length });
 });
 
-app.post("/api/observations", (req, res) => {
+app.post("/api/observations", rejectWhileAvaxReset, (req, res) => {
   if (!hasValidAvaxIngestToken(req)) {
     res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
     return;

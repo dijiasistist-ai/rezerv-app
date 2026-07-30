@@ -39,6 +39,7 @@ const runtimeBackupState = {
   isRestoring: false,
   branchReady: false,
   timers: new Map(),
+  inFlight: new Map(),
   warnedMissingSecret: false,
 };
 
@@ -248,7 +249,13 @@ function queueRuntimeBackup(filePath, delayMs = 1200) {
   if (existingTimer) clearTimeout(existingTimer);
   const timer = setTimeout(() => {
     runtimeBackupState.timers.delete(filePath);
-    pushRuntimeBackupFile(filePath);
+    const backup = pushRuntimeBackupFile(filePath);
+    runtimeBackupState.inFlight.set(filePath, backup);
+    backup.finally(() => {
+      if (runtimeBackupState.inFlight.get(filePath) === backup) {
+        runtimeBackupState.inFlight.delete(filePath);
+      }
+    });
   }, delayMs);
   runtimeBackupState.timers.set(filePath, timer);
 }
@@ -900,6 +907,40 @@ function getAvaxSignalObservationSummary() {
   return { ...loadAvaxObservationStats() };
 }
 
+async function resetAvaxRuntimeData() {
+  ensureRuntimeDir();
+  const targets = [
+    [avaxPaperSnapshotsPath, "[]\n"],
+    [avaxPaperStatePath, "null\n"],
+    [avaxCopyStatePath, "null\n"],
+    [avaxSignalObservationsPath, ""],
+  ];
+  for (const [filePath] of targets) {
+    const timer = runtimeBackupState.timers.get(filePath);
+    if (timer) clearTimeout(timer);
+    runtimeBackupState.timers.delete(filePath);
+  }
+  await Promise.allSettled(
+    targets
+      .map(([filePath]) => runtimeBackupState.inFlight.get(filePath))
+      .filter(Boolean),
+  );
+  for (const [filePath, content] of targets) {
+    fs.writeFileSync(filePath, content);
+  }
+  avaxObservationStatsCache = { bytes: 0, records: 0, latest: null };
+  avaxObservationKeysCache = new Set();
+  await Promise.allSettled(
+    targets.map(([filePath]) => pushRuntimeBackupFile(filePath)),
+  );
+  return {
+    paper_snapshots: 0,
+    paper_state: null,
+    copy_state: null,
+    observations: 0,
+  };
+}
+
 module.exports = {
   addReview,
   addReservation,
@@ -930,6 +971,7 @@ module.exports = {
   initializeRuntimeStore,
   recoverVenueFromRuntimeBackup,
   recoverVenueFromRuntimeHistory,
+  resetAvaxRuntimeData,
   normalizeEmail,
   migrateLegacyUsers,
   saveVenueOverlay,
