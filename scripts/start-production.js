@@ -1,16 +1,25 @@
 "use strict";
 
 const { spawn } = require("node:child_process");
+const { randomBytes } = require("node:crypto");
 
 let shuttingDown = false;
 let worker = null;
 let restartTimer = null;
+const internalPort = process.env.PORT || "10000";
+const serviceEnv = {
+  ...process.env,
+  AVAX_DASHBOARD_INGEST_TOKEN:
+    process.env.AVAX_DASHBOARD_INGEST_TOKEN || randomBytes(32).toString("hex"),
+  AVAX_BOT_DASHBOARD_URL:
+    process.env.AVAX_BOT_DASHBOARD_URL || `http://127.0.0.1:${internalPort}`,
+};
 
 function startWorker() {
-  if (shuttingDown || process.env.AVAX_BOT_ENABLED !== "true") return;
+  if (shuttingDown || serviceEnv.AVAX_BOT_ENABLED !== "true") return;
 
   worker = spawn(".venv/bin/python", ["futures-worker/run.py"], {
-    env: process.env,
+    env: serviceEnv,
     stdio: "inherit",
   });
 
@@ -25,11 +34,11 @@ function startWorker() {
 }
 
 const web = spawn(process.execPath, ["server.js"], {
-  env: process.env,
+  env: serviceEnv,
   stdio: "inherit",
 });
 
-startWorker();
+restartTimer = setTimeout(startWorker, 1_000);
 
 function stop(signal) {
   if (shuttingDown) return;
