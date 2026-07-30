@@ -23,6 +23,7 @@ const {
   findUserByEmailVerificationToken,
   findUserById,
   getAdminAccessRules,
+  getAvaxCopyState,
   getAvaxPaperSnapshots,
   getAvaxPaperState,
   getDeletedVenueIds,
@@ -38,6 +39,7 @@ const {
   recoverVenueFromRuntimeHistory,
   migrateLegacyUsers,
   normalizeEmail,
+  saveAvaxCopyState,
   saveVenueOverlay,
   saveAvaxPaperSnapshots,
   saveAvaxPaperState,
@@ -5834,6 +5836,24 @@ app.get("/api/state", (req, res) => {
   res.json({ state });
 });
 
+app.get("/api/state/:kind", (req, res) => {
+  if (!hasValidAvaxIngestToken(req)) {
+    res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
+    return;
+  }
+  const kind = String(req.params.kind || "");
+  if (!["tournament", "copy"].includes(kind)) {
+    res.status(404).json({ error: "Bilinmeyen state deposu." });
+    return;
+  }
+  const state = kind === "copy" ? getAvaxCopyState() : getAvaxPaperState();
+  if (!state) {
+    res.status(404).json({ error: `${kind} state henüz oluşturulmadı.` });
+    return;
+  }
+  res.json({ state });
+});
+
 app.put("/api/state", (req, res) => {
   if (!hasValidAvaxIngestToken(req)) {
     res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
@@ -5845,6 +5865,30 @@ app.put("/api/state", (req, res) => {
     return;
   }
   saveAvaxPaperState(state);
+  res.status(202).json({ accepted: true, version: Number(state.version) });
+});
+
+app.put("/api/state/:kind", (req, res) => {
+  if (!hasValidAvaxIngestToken(req)) {
+    res.status(401).json({ error: "Geçersiz AVAX veri anahtarı." });
+    return;
+  }
+  const kind = String(req.params.kind || "");
+  if (!["tournament", "copy"].includes(kind)) {
+    res.status(404).json({ error: "Bilinmeyen state deposu." });
+    return;
+  }
+  const state = req.body && req.body.state;
+  const valid =
+    kind === "copy"
+      ? Boolean(state && state.mode === "hyperliquid_copy" && validAvaxPaperState(state))
+      : Boolean(state && state.mode !== "hyperliquid_copy" && validAvaxPaperState(state));
+  if (!valid) {
+    res.status(400).json({ error: `Geçersiz ${kind} state verisi.` });
+    return;
+  }
+  if (kind === "copy") saveAvaxCopyState(state);
+  else saveAvaxPaperState(state);
   res.status(202).json({ accepted: true, version: Number(state.version) });
 });
 
