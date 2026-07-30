@@ -26,6 +26,7 @@ class BotDecisionTest(unittest.TestCase):
     def test_production_cadence_scans_full_universe_every_30_seconds(self) -> None:
         settings = Settings()
         self.assertEqual(30, settings.poll_seconds)
+        self.assertEqual(30, settings.copy_poll_seconds)
         self.assertEqual(50, settings.scan_batch_size)
 
     def test_live_entry_uses_selected_paper_strategy_signal(self) -> None:

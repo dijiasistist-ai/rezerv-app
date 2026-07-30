@@ -99,7 +99,9 @@ class Settings:
     copy_state_key: str = os.getenv(
         "AVAX_BOT_COPY_STATE_KEY", "hyperliquid-copy-two-wallets-v1"
     )
-    copy_poll_seconds: int = 5
+    # Websocket fills wake the loop immediately. REST is only a reconciliation
+    # safety net, so keep it slow enough to avoid Hyperliquid shared-IP limits.
+    copy_poll_seconds: int = 30
     max_daily_loss_pct: float = float(os.getenv("AVAX_BOT_MAX_DAILY_LOSS_PCT", "2.0"))
     max_drawdown_pct: float = float(os.getenv("AVAX_BOT_MAX_DRAWDOWN_PCT", "5.0"))
     max_consecutive_losses: int = int(
