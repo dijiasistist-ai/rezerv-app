@@ -358,9 +358,20 @@ class HyperliquidCopyEngine:
     def reconcile(self, client) -> list[dict]:
         current_by_source = {}
         for source in self.settings.wallets:
-            current_by_source[source] = self._positions_from_state(
-                self.source_fetcher(source)
-            )
+            try:
+                current_by_source[source] = self._positions_from_state(
+                    self.source_fetcher(source)
+                )
+            except Exception as error:
+                # A transient Hyperliquid throttle must not stop the independent
+                # Binance strategy tournament. Preserve the last known copy
+                # state and retry on the next five-second reconciliation.
+                logger.warning(
+                    "Hyperliquid source temporarily unavailable source=%s error=%s",
+                    source,
+                    error,
+                )
+                return []
 
         if self._fresh_state:
             ignored = []
