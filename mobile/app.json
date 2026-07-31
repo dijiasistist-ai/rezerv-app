@@ -4,25 +4,28 @@
     "slug": "tyee-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icon-tyee.png",
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "app.tyee.mobile",
-      "supportsTablet": true,
+      "buildNumber": "1",
+      "supportsTablet": false,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "tyee, yakınındaki işletmeleri göstermek için konumunu kullanır.",
-        "NSPhotoLibraryUsageDescription": "tyee, işletme profil görsellerini seçebilmen için fotoğraf arşivine erişir."
+        "NSPhotoLibraryUsageDescription": "tyee, işletme profil görsellerini seçebilmen için fotoğraf arşivine erişir.",
+        "NSCameraUsageDescription": "tyee, işletme profil görseli ekleyebilmen için kameraya erişir."
       }
     },
     "android": {
       "package": "app.tyee.mobile",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "foregroundImage": "./assets/app-icon-tyee.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -31,15 +34,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-secure-store",
-      "expo-location",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "tyee, işletme profil görsellerini seçebilmen için fotoğraf arşivine erişir."
-        }
-      ]
-    ]
+    "plugins": []
   }
 }
