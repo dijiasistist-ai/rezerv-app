@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="/venue.css?v=20260711-tyee-assistant-polish" />
+    <link rel="stylesheet" href="/venue.css?v=20260731-mobile-sidebar" />
   </head>
   <body>
     <header class="venue-global-header">
@@ -85,8 +85,23 @@
       </div>
     </div>
 
+    <button
+      class="venue-mobile-menu-toggle"
+      id="venue-mobile-menu-toggle"
+      type="button"
+      aria-label="İşletme paneli menüsünü aç"
+      aria-controls="venue-sidebar"
+      aria-expanded="false"
+    >
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <strong>Menü</strong>
+    </button>
+    <button class="venue-sidebar-backdrop" id="venue-sidebar-backdrop" type="button" aria-label="Menüyü kapat"></button>
+
     <div class="venue-layout">
-      <aside class="venue-sidebar">
+      <aside class="venue-sidebar" id="venue-sidebar">
         <nav class="venue-nav" aria-label="İşletme paneli menüsü">
           <div class="venue-nav-group is-open">
             <button class="venue-nav-heading" type="button" aria-expanded="true">Dashboard</button>
@@ -664,6 +679,6 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/venue.js?v=20260725-independent-profile-cover"></script>
+  <script src="/venue.js?v=20260731-mobile-sidebar"></script>
   </body>
 </html>

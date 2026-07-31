@@ -6,6 +6,9 @@ const venueBranch = document.querySelector("#venue-branch");
 const venueGlobalAccount = document.querySelector("#venue-global-account");
 const venueGlobalAvatar = document.querySelector("#venue-global-avatar");
 const venueGlobalAccountLabel = document.querySelector("#venue-global-account-label");
+const venueMobileMenuToggle = document.querySelector("#venue-mobile-menu-toggle");
+const venueSidebarBackdrop = document.querySelector("#venue-sidebar-backdrop");
+const venueSidebar = document.querySelector("#venue-sidebar");
 const statGrid = document.querySelector("#stat-grid");
 const quickActions = document.querySelector("#quick-actions");
 const calendarBoardSecondary = document.querySelector("#calendar-board-secondary");
@@ -4816,6 +4819,17 @@ function showVenueToast(message, isError = false) {
   }, 2800);
 }
 
+function setMobileSidebarOpen(isOpen = false) {
+  const shouldOpen = Boolean(isOpen) && window.matchMedia("(max-width: 900px)").matches;
+  document.body.classList.toggle("venue-mobile-menu-open", shouldOpen);
+  venueMobileMenuToggle?.setAttribute("aria-expanded", String(shouldOpen));
+  venueMobileMenuToggle?.setAttribute(
+    "aria-label",
+    shouldOpen ? "İşletme paneli menüsünü kapat" : "İşletme paneli menüsünü aç",
+  );
+  venueSidebar?.setAttribute("aria-hidden", String(!shouldOpen && window.matchMedia("(max-width: 900px)").matches));
+}
+
 function syncFacilityFeatureSelection(input) {
   if (!input?.dataset?.facilityId || !venueState.dashboard) return;
   venueState.pendingFacilitySelections = {
@@ -5032,6 +5046,24 @@ async function loadVenueDashboard() {
 function bindVenueInteractions() {
   setView("overview");
 
+  venueMobileMenuToggle?.addEventListener("click", () => {
+    setMobileSidebarOpen(!document.body.classList.contains("venue-mobile-menu-open"));
+  });
+  venueSidebarBackdrop?.addEventListener("click", () => setMobileSidebarOpen(false));
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setMobileSidebarOpen(false);
+  });
+  window.addEventListener("resize", () => {
+    if (!window.matchMedia("(max-width: 900px)").matches) {
+      document.body.classList.remove("venue-mobile-menu-open");
+      venueMobileMenuToggle?.setAttribute("aria-expanded", "false");
+      venueSidebar?.removeAttribute("aria-hidden");
+    } else if (!document.body.classList.contains("venue-mobile-menu-open")) {
+      venueSidebar?.setAttribute("aria-hidden", "true");
+    }
+  });
+  setMobileSidebarOpen(false);
+
   adaLauncher?.addEventListener("click", toggleAdaPanel);
 
   adaClose?.addEventListener("click", closeAdaPanel);
@@ -5110,6 +5142,7 @@ function bindVenueInteractions() {
         const accordionGroup = item.closest("[data-nav-accordion]");
         setView(target);
         if (accordionGroup) setNavGroupExpanded(accordionGroup, false);
+        setMobileSidebarOpen(false);
       }
     });
   });

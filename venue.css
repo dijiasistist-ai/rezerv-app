@@ -3982,6 +3982,121 @@ a {
   }
 }
 
+/* Mobile venue navigation: keep the workspace visible and expose navigation as a drawer. */
+.venue-mobile-menu-toggle,
+.venue-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .venue-mobile-menu-toggle {
+    position: fixed;
+    z-index: 1202;
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+    display: grid;
+    grid-template-columns: 20px auto;
+    align-items: center;
+    gap: 0 9px;
+    min-height: 44px;
+    padding: 8px 13px;
+    border: 1px solid rgba(15, 45, 86, 0.12);
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.96);
+    color: #102a56;
+    box-shadow: 0 8px 28px rgba(15, 45, 86, 0.18);
+    backdrop-filter: blur(14px);
+  }
+
+  .venue-mobile-menu-toggle span {
+    grid-column: 1;
+    width: 20px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    transition: transform 180ms ease, opacity 180ms ease;
+  }
+
+  .venue-mobile-menu-toggle span + span {
+    margin-top: -11px;
+  }
+
+  .venue-mobile-menu-toggle span:nth-child(3) {
+    margin-top: -11px;
+  }
+
+  .venue-mobile-menu-toggle strong {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    font: 800 13px/1 Inter, sans-serif;
+  }
+
+  .venue-sidebar-backdrop {
+    position: fixed;
+    z-index: 1198;
+    inset: 0;
+    display: block;
+    border: 0;
+    background: rgba(9, 20, 40, 0.44);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+
+  .venue-layout {
+    display: block;
+    width: 100%;
+    min-height: 100vh;
+    margin: 0;
+    overflow: visible;
+    border-radius: 0;
+  }
+
+  .venue-sidebar {
+    position: fixed;
+    z-index: 1200;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(84vw, 320px);
+    height: 100dvh;
+    padding: calc(68px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 0;
+    border-radius: 0 20px 20px 0;
+    box-shadow: 18px 0 50px rgba(7, 22, 48, 0.24);
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform 220ms ease, visibility 220ms step-end;
+  }
+
+  .venue-mobile-menu-open {
+    overflow: hidden;
+  }
+
+  .venue-mobile-menu-open .venue-sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 220ms ease;
+  }
+
+  .venue-mobile-menu-open .venue-sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .venue-mobile-menu-open .venue-mobile-menu-toggle {
+    color: #0b67c2;
+  }
+
+  .venue-workspace,
+  .venue-main {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 @media (max-width: 760px) {
   .crm-summary-grid,
   .campaigns-kpi-grid,
@@ -11425,5 +11540,47 @@ body[data-venue-view]:not([data-venue-view="overview"]) .ada-assistant:not(.is-o
     right: 16px;
     left: auto;
     bottom: 18px;
+  }
+}
+
+/* Keep this override last: later dashboard themes must not turn the mobile drawer
+   back into a permanently visible rail. */
+@media (max-width: 900px) {
+  .venue-layout {
+    width: 100%;
+    min-height: 100dvh;
+    margin: 0;
+    padding-top: 0;
+    overflow: visible;
+    border-radius: 0;
+  }
+
+  .venue-workspace {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .venue-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1200;
+    width: min(84vw, 320px);
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding: calc(68px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    border: 0;
+    border-radius: 0 20px 20px 0 !important;
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform 220ms ease, visibility 220ms step-end;
+  }
+
+  .venue-mobile-menu-open .venue-sidebar {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 220ms ease;
   }
 }
