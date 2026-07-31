@@ -7044,3 +7044,35 @@ button {
     min-width: 0;
   }
 }
+
+/* Marketplace hero: preserve the same Bosphorus visual on mobile without
+   cropping it into an indistinct full-card background. */
+@media (max-width: 760px) {
+  .hero {
+    min-height: auto;
+    padding: 22px 16px clamp(196px, 57vw, 236px);
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.99) 0%,
+        rgba(255, 255, 255, 0.97) 54%,
+        rgba(255, 255, 255, 0.76) 68%,
+        rgba(255, 255, 255, 0.08) 84%,
+        rgba(255, 255, 255, 0) 100%
+      ),
+      url("/assets/hero-bosphorus.png") center bottom / 100% auto no-repeat,
+      #ffffff;
+  }
+
+  .hero::before {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero {
+    padding-right: 14px;
+    padding-bottom: clamp(184px, 58vw, 220px);
+    padding-left: 14px;
+  }
+}
