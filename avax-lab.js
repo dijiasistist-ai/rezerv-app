@@ -80,7 +80,7 @@
     e("universeRule").textContent=esc(q.universe_size||50)+" coin";
     e("pollRule").textContent=esc((q.bot_status||{}).strategy_poll_seconds||30)+" saniye";
     var remaining=Math.max(0,Number(q.ends_at)-Date.now()),hours=Math.floor(remaining/3600000),mins=Math.floor(remaining%3600000/60000);
-    e("countdown").textContent=q.continuous?"Sürekli aktif":q.finalized_at?"Tamamlandı":hours+"sa "+mins+"dk";
+    e("countdown").textContent=q.continuous?"Pozisyon Takibi":q.finalized_at?"Tamamlandı":hours+"sa "+mins+"dk";
     e("experimentText").textContent=q.continuous?"Saat sınırı yok · sonuçlar kesintisiz birikir":q.finalized_at?"Sonuçlar donduruldu.":"Deney bitimine kalan süre";
     var duration=Math.max(1,Number(q.ends_at)-Number(q.started_at)),progress=q.continuous?100:Math.max(0,Math.min(100,100*(Date.now()-Number(q.started_at))/duration));e("progressBar").style.width=progress+"%";
     var active=keys.filter(function(k){return rows[k]&&rows[k].position}).length,total=keys.reduce(function(s,k){return s+Number((rows[k]||{}).trades||0)},0);e("activePositions").textContent=active;e("totalTrades").textContent=total;
