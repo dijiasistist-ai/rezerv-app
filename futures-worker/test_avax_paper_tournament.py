@@ -139,6 +139,95 @@ class TournamentTest(unittest.TestCase):
         self.assertEqual("stop", events[0]["exit_reason"])
         self.assertIsNone(strategy["position"])
 
+    @staticmethod
+    def profitable_position() -> dict:
+        return {
+            "side": "long",
+            "symbol": "TEST/USDT:USDT",
+            "entry": 100.0,
+            "quantity": 24.0,
+            "initial_margin": 1200.0,
+            "entry_fee": 1.2,
+            "stop": 90.0,
+            "take": 110.0,
+            "opened_at": 1,
+            "reason": "test",
+            "profit_lock_armed_at": None,
+            "profit_hold_started_at": None,
+        }
+
+    def test_profit_is_realized_after_ten_continuous_minutes_above_15_usdt(
+        self,
+    ) -> None:
+        tournament = PaperTournament(
+            "/tmp/not-used.json",
+            initial_usdt=6000,
+            state_store=MemoryStateStore(),
+        )
+        strategy = tournament.state["strategies"]["trend_breakout"]
+        strategy["balance"] = 5998.8
+        strategy["position"] = self.profitable_position()
+        ticker = {"bid": 101.0, "ask": 101.01, "last": 101.005}
+
+        with patch("avax_paper_tournament.time.time", return_value=1000):
+            self.assertEqual([], tournament.manage_open_positions({"TEST/USDT:USDT": ticker}))
+        with patch("avax_paper_tournament.time.time", return_value=1599):
+            self.assertEqual([], tournament.manage_open_positions({"TEST/USDT:USDT": ticker}))
+        with patch("avax_paper_tournament.time.time", return_value=1600):
+            events = tournament.manage_open_positions({"TEST/USDT:USDT": ticker})
+
+        self.assertEqual(1, len(events))
+        self.assertEqual("profit_hold_10m", events[0]["exit_reason"])
+        self.assertGreater(events[0]["net_pnl"], 15)
+        self.assertIsNone(strategy["position"])
+
+    def test_profit_hold_clock_resets_when_pnl_dips_below_15_usdt(self) -> None:
+        tournament = PaperTournament(
+            "/tmp/not-used.json",
+            initial_usdt=6000,
+            state_store=MemoryStateStore(),
+        )
+        strategy = tournament.state["strategies"]["trend_breakout"]
+        strategy["balance"] = 5998.8
+        strategy["position"] = self.profitable_position()
+        above = {"bid": 101.0, "ask": 101.01, "last": 101.005}
+        between = {"bid": 100.6, "ask": 100.61, "last": 100.605}
+
+        with patch("avax_paper_tournament.time.time", return_value=1000):
+            tournament.manage_open_positions({"TEST/USDT:USDT": above})
+        with patch("avax_paper_tournament.time.time", return_value=1300):
+            self.assertEqual([], tournament.manage_open_positions({"TEST/USDT:USDT": between}))
+        self.assertIsNone(strategy["position"]["profit_hold_started_at"])
+        with patch("avax_paper_tournament.time.time", return_value=1600):
+            self.assertEqual([], tournament.manage_open_positions({"TEST/USDT:USDT": above}))
+        with patch("avax_paper_tournament.time.time", return_value=2199):
+            self.assertEqual([], tournament.manage_open_positions({"TEST/USDT:USDT": above}))
+        with patch("avax_paper_tournament.time.time", return_value=2200):
+            events = tournament.manage_open_positions({"TEST/USDT:USDT": above})
+
+        self.assertEqual("profit_hold_10m", events[0]["exit_reason"])
+
+    def test_armed_profit_closes_on_retrace_below_10_usdt(self) -> None:
+        tournament = PaperTournament(
+            "/tmp/not-used.json",
+            initial_usdt=6000,
+            state_store=MemoryStateStore(),
+        )
+        strategy = tournament.state["strategies"]["trend_breakout"]
+        strategy["balance"] = 5998.8
+        strategy["position"] = self.profitable_position()
+        above = {"bid": 101.0, "ask": 101.01, "last": 101.005}
+        below_floor = {"bid": 100.5, "ask": 100.51, "last": 100.505}
+
+        with patch("avax_paper_tournament.time.time", return_value=1000):
+            tournament.manage_open_positions({"TEST/USDT:USDT": above})
+        with patch("avax_paper_tournament.time.time", return_value=1001):
+            events = tournament.manage_open_positions({"TEST/USDT:USDT": below_floor})
+
+        self.assertEqual(1, len(events))
+        self.assertEqual("profit_lock_floor", events[0]["exit_reason"])
+        self.assertGreater(events[0]["net_pnl"], 0)
+
     def test_realtime_position_manager_never_opens_new_position(self) -> None:
         tournament = PaperTournament(
             "/tmp/not-used.json",

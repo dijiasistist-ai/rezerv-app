@@ -27,6 +27,9 @@ STRATEGIES = (
     "orderflow_open_interest",
 )
 STATE_VERSION = 11
+PROFIT_HOLD_THRESHOLD_USDT = 15.0
+PROFIT_LOCK_FLOOR_USDT = 10.0
+PROFIT_HOLD_SECONDS = 10 * 60
 
 
 class JsonStateStore:
@@ -1021,6 +1024,9 @@ class PaperTournament:
         max_daily_loss_pct: float = 2.0,
         max_drawdown_pct: float = 5.0,
         max_consecutive_losses: int = 3,
+        profit_hold_threshold_usdt: float = PROFIT_HOLD_THRESHOLD_USDT,
+        profit_lock_floor_usdt: float = PROFIT_LOCK_FLOOR_USDT,
+        profit_hold_seconds: int = PROFIT_HOLD_SECONDS,
     ) -> None:
         self.path = Path(state_path)
         self.initial_usdt = initial_usdt
@@ -1034,6 +1040,11 @@ class PaperTournament:
         self.max_daily_loss_pct = max_daily_loss_pct
         self.max_drawdown_limit_pct = max_drawdown_pct
         self.max_consecutive_losses = max_consecutive_losses
+        self.profit_hold_threshold_usdt = float(profit_hold_threshold_usdt)
+        self.profit_lock_floor_usdt = float(profit_lock_floor_usdt)
+        self.profit_hold_ms = max(1, int(profit_hold_seconds)) * 1000
+        if self.profit_lock_floor_usdt >= self.profit_hold_threshold_usdt:
+            raise ValueError("Profit-lock floor must stay below its hold threshold")
         self.last_entry_rejection: str | None = None
         self.store = state_store or (
             PostgresStateStore(database_url, state_key)
@@ -1232,6 +1243,34 @@ class PaperTournament:
         )
         return raw - mark * position["quantity"] * self.taker_fee
 
+    def _net_position_pnl(self, position: dict, ticker: dict) -> float:
+        """Return executable PnL after entry and estimated exit fees."""
+        return self._unrealized(position, ticker) - float(position["entry_fee"])
+
+    def _profit_protection_reason(
+        self, position: dict, ticker: dict, now: int
+    ) -> str | None:
+        """Hold 15 USDT for ten continuous minutes or protect it at 10 USDT."""
+        net_pnl = self._net_position_pnl(position, ticker)
+        armed_at = position.get("profit_lock_armed_at")
+        hold_started_at = position.get("profit_hold_started_at")
+
+        if net_pnl >= self.profit_hold_threshold_usdt:
+            if armed_at is None:
+                position["profit_lock_armed_at"] = now
+            if hold_started_at is None:
+                position["profit_hold_started_at"] = now
+                hold_started_at = now
+            if now - int(hold_started_at) >= self.profit_hold_ms:
+                return "profit_hold_10m"
+            return None
+
+        # The ten-minute clock is continuous. A dip below 15 USDT resets it.
+        position["profit_hold_started_at"] = None
+        if armed_at is not None and net_pnl < self.profit_lock_floor_usdt:
+            return "profit_lock_floor"
+        return None
+
     def _equity(self, strategy: dict, ticker: dict) -> float:
         return strategy["balance"] + self._unrealized(strategy["position"], ticker)
 
@@ -1323,6 +1362,8 @@ class PaperTournament:
             "exit_model": profile["exit_model"],
             "rule_version": CURRENT_RULE_VERSION,
             "observation_id": observation_id,
+            "profit_lock_armed_at": None,
+            "profit_hold_started_at": None,
         }
         return {"event": "open", "strategy": name, **strategy["position"]}
 
@@ -1426,13 +1467,18 @@ class PaperTournament:
                     if position["side"] == "long"
                     else mark <= position["take"]
                 )
-                should_close = experiment_over or stop_hit or take_hit
+                profit_exit = self._profit_protection_reason(position, ticker, now)
+                should_close = (
+                    experiment_over or stop_hit or take_hit or bool(profit_exit)
+                )
                 reason = (
                     "experiment_end"
                     if experiment_over
                     else "stop"
                     if stop_hit
                     else "take"
+                    if take_hit
+                    else profit_exit
                 )
             if should_close:
                 events.append(self._close(name, strategy, ticker, reason))
@@ -1450,7 +1496,7 @@ class PaperTournament:
             position_roi = None
             position_pnl = None
             if position:
-                position_pnl = self._unrealized(position, ticker) - position["entry_fee"]
+                position_pnl = self._net_position_pnl(position, ticker)
                 position_roi = 100 * position_pnl / position["initial_margin"]
             trades = strategy["wins"] + strategy["losses"]
             mark_price = self._mark_price(position["side"], ticker) if position else None
@@ -1468,6 +1514,15 @@ class PaperTournament:
                 "take": round(position["take"], 6) if position else None,
                 "opened_at": position["opened_at"] if position else None,
                 "reason": position["reason"] if position else None,
+                "profit_lock_armed": bool(
+                    position and position.get("profit_lock_armed_at") is not None
+                ),
+                "profit_hold_started_at": (
+                    position.get("profit_hold_started_at") if position else None
+                ),
+                "profit_hold_threshold_usdt": self.profit_hold_threshold_usdt,
+                "profit_lock_floor_usdt": self.profit_lock_floor_usdt,
+                "profit_hold_seconds": self.profit_hold_ms // 1000,
                 "rule_version": (
                     position.get("rule_version", "ESKİ") if position else None
                 ),
@@ -1658,7 +1713,14 @@ class PaperTournament:
                     mark = self._mark_price(position["side"], ticker)
                     stop_hit = mark <= position["stop"] if position["side"] == "long" else mark >= position["stop"]
                     take_hit = mark >= position["take"] if position["side"] == "long" else mark <= position["take"]
-                    should_close = experiment_over or stop_hit or take_hit or bool(edge_exit)
+                    profit_exit = self._profit_protection_reason(position, ticker, now)
+                    should_close = (
+                        experiment_over
+                        or stop_hit
+                        or take_hit
+                        or bool(profit_exit)
+                        or bool(edge_exit)
+                    )
                     reason = (
                         "experiment_end"
                         if experiment_over
@@ -1666,6 +1728,8 @@ class PaperTournament:
                         if stop_hit
                         else "take"
                         if take_hit
+                        else profit_exit
+                        if profit_exit
                         else edge_exit
                     )
                 if should_close:

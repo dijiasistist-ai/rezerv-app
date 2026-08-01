@@ -12,11 +12,16 @@ remains disabled.
 - Initial margin per trade: 20% of that strategy's available balance
 - One open position per strategy
 - Take profit: 3% position ROE
+- Profit realization: after net PnL reaches 15 USDT, close when it remains at
+  or above 15 USDT continuously for 10 minutes. Once armed, close on a retrace
+  below 10 USDT to reduce profit giveback before the position can turn negative.
 - Stop: strategy/ATR based, at least 1.5% position ROE
 - Fee model: 0.05% taker fee on entry and exit
 - Longs enter at ask and exit/mark at bid; shorts enter at bid and exit/mark at ask
 - The five strategies scan the top 50 liquid USDT perpetual markets every 30 seconds
 - Open positions are managed by an independent real-time supervisor
+- The profit-realization rule applies only to technical paper strategies;
+  Hyperliquid copy accounts continue to follow their source exits exactly.
 - Results accumulate continuously; there is no time-based forced exit
 
 ## Copy accounts
