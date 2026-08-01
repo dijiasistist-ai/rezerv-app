@@ -25,7 +25,7 @@
   function render(){
     if(!data||!data.latest){e("cards").innerHTML='<article class="panel empty" style="grid-column:1/-1">Bot verisi bekleniyor. Render bağlantısı kurulduğunda panel otomatik dolacak.</article>';return}
     if(data.latest.mode==="hyperliquid_copy"){renderCopy();return}
-    overview();activePositionsBoard();cards();trades(data.latest);periods(data.history||[]);renderCopyAddon(data.latest.copy_trading);
+    overview();activePositionsBoard();cards();tradeOutcomeCounts();trades(data.latest);periods(data.history||[]);renderCopyAddon(data.latest.copy_trading);
   }
   function renderObservationRule(){
     var summary=data&&data.observation_dataset||{},records=Number(summary.records||0),node=e("observationRule");
@@ -91,6 +91,17 @@
     var rows=data.latest.strategies||{},active=Object.keys(labels).filter(function(k){return rows[k]&&rows[k].position}),count=e("activePositionCount");count.textContent=active.length+" açık";count.classList.toggle("hasPositions",active.length>0);
     if(!active.length){e("activePositionBoard").innerHTML='<div class="activePositionsEmpty"><div><strong>Şu anda açık pozisyon yok</strong><span>On strateji, en likit 50 coinde birbirinden bağımsız giriş koşullarını bekliyor.</span></div><i class="scanPulse"></i></div>';return}
     e("activePositionBoard").innerHTML=active.map(function(k){var s=rows[k],side=String(s.position).toLowerCase(),pnl=s.position_pnl_usdt;if(pnl==null&&s.equity_usdt!=null&&s.realized_balance_usdt!=null)pnl=Number(s.equity_usdt)-Number(s.realized_balance_usdt);return'<article class="activePositionCard '+side+'"><div class="activePositionTop"><div><div class="activeCoin">'+esc(sym(s.symbol))+'</div><span class="activeStrategy">'+esc(labels[k])+' · Kural '+esc(s.rule_version||"ESKİ")+'</span></div><span class="directionBadge '+side+'">'+esc(side.toUpperCase())+'</span></div><div class="activeResult"><div><span class="label">Anlık net kâr / zarar</span><div class="activePnl '+cls(pnl)+'">'+(Number(pnl)>0?"+":"")+n(pnl,4)+' $</div></div><div class="activeRoi"><strong class="'+cls(s.position_roi_pct)+'">'+p(s.position_roi_pct)+'</strong><span>Açık ROI</span></div></div><div class="activePositionMetrics"><div><span>Giriş</span><strong>'+n(s.entry,4)+' $</strong></div><div><span>Güncel</span><strong>'+n(s.mark_price,4)+' $</strong></div><div><span>Stop</span><strong class="negative">'+n(s.stop,4)+' $</strong></div><div><span>Hedef</span><strong class="positive">'+n(s.take,4)+' $</strong></div></div><div class="activeOpened"><b>'+dt(s.opened_at)+'</b> açıldı · '+esc(s.reason||"Strateji koşulları oluştu")+'</div></article>'}).join("");
+  }
+  function tradeOutcomeCounts(){
+    var q=data.latest,keys=Object.keys(labels),nodes=e("cards").querySelectorAll(":scope > .card");
+    keys.forEach(function(k,index){
+      var s=(q.strategies||{})[k]||{},card=nodes[index];if(!card)return;
+      var metrics=card.querySelector(".metrics");if(!metrics)return;
+      var total=Number(s.trades||0),wins=Number(s.wins||0),losses=Math.max(0,total-wins),items=metrics.querySelectorAll(".metric"),tradeMetric=null;
+      items.forEach(function(item){var label=item.querySelector(".label");if(label&&label.textContent.trim()==="İşlem")tradeMetric=item});
+      if(!tradeMetric)return;
+      tradeMetric.insertAdjacentHTML("afterend",'<div class="metric"><span class="label">Başarılı</span><strong class="positive">'+esc(wins)+'</strong></div><div class="metric"><span class="label">Başarısız</span><strong class="negative">'+esc(losses)+'</strong></div>');
+    });
   }
   function adaptationHtml(s){
     var a=s.adaptation||{},params=a.parameters||{},parts=[];
