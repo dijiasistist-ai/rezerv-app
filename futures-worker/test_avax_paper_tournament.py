@@ -16,6 +16,9 @@ from avax_paper_tournament import (
     bollinger_bands,
     brackets,
     closed_15m_candles,
+    context_exit_reason,
+    entry_candidate_score,
+    market_regime_allows,
     signal_for,
     stop_model_for,
 )
@@ -1044,6 +1047,68 @@ class TournamentTest(unittest.TestCase):
 
         self.assertEqual("long", momentum[0])
         self.assertEqual("long", orderflow[0])
+
+    def test_market_regime_blocks_directional_countertrend_entries(self) -> None:
+        bullish = {"market_regime": "bullish"}
+        bearish = {"market_regime": "bearish"}
+
+        self.assertFalse(
+            market_regime_allows("trend_breakout", "short", bullish)
+        )
+        self.assertFalse(
+            market_regime_allows("pullback_reclaim", "long", bearish)
+        )
+        self.assertTrue(
+            market_regime_allows("trend_breakout", "long", bullish)
+        )
+        # Pair and Bollinger strategies are deliberately market-neutral.
+        self.assertTrue(
+            market_regime_allows("dynamic_pair_reversion", "short", bullish)
+        )
+
+    def test_market_regime_reversal_closes_directional_position(self) -> None:
+        reason = context_exit_reason(
+            "trend_breakout",
+            {"side": "short"},
+            {"market_regime": "bullish"},
+        )
+        self.assertEqual("market_regime_reversal", reason)
+
+    def test_candidate_score_prefers_stronger_relative_momentum(self) -> None:
+        c5 = candles(100, 300_000)
+        c1h = candles(260, 3_600_000)
+        features = {
+            "close15": [20.0 + index * 0.001 for index in range(100)],
+            "ema21_5m": 20.1,
+            "ema55_5m": 20.0,
+            "volume_ratio": 1.1,
+            "adx": 25.0,
+        }
+        with patch("avax_paper_tournament.market_features", return_value=features):
+            weaker = entry_candidate_score(
+                "cross_sectional_momentum",
+                "long",
+                c5,
+                c1h,
+                c1h,
+                {
+                    "relative_momentum_score": 0.02,
+                    "market_regime": "bullish",
+                },
+            )
+            stronger = entry_candidate_score(
+                "cross_sectional_momentum",
+                "long",
+                c5,
+                c1h,
+                c1h,
+                {
+                    "relative_momentum_score": 0.05,
+                    "market_regime": "bullish",
+                },
+            )
+
+        self.assertGreater(stronger, weaker)
 
 
 if __name__ == "__main__":

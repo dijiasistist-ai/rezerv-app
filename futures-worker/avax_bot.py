@@ -753,6 +753,7 @@ class Bot:
         symbols: Sequence[str],
         btc_1h: Sequence[Candle],
         btc_5m: Sequence[Candle],
+        candle_cache: dict[str, dict] | None = None,
     ) -> dict[str, dict]:
         """Build one leakage-free context shared by the five research strategies."""
         btc_hour = [float(candle[4]) for candle in btc_1h]
@@ -763,8 +764,9 @@ class Bot:
         ]
         raw: dict[str, dict] = {}
         for symbol in symbols:
-            coin_1h = self.candles("1h", symbol)
-            coin_5m = self.candles("5m", symbol)
+            cached = (candle_cache or {}).get(symbol) or {}
+            coin_1h = cached.get("c1h") or self.candles("1h", symbol)
+            coin_5m = cached.get("c5") or self.candles("5m", symbol)
             coin_hour = [float(candle[4]) for candle in coin_1h]
             coin_five = [float(candle[4]) for candle in coin_5m]
             count = min(len(coin_hour), len(btc_hour), 120)
@@ -786,6 +788,7 @@ class Bot:
             context = {
                 "relative_momentum_score": score,
                 "absolute_return_1h": self._return(coin_hour, 1),
+                "absolute_return_6h": self._return(coin_hour, 6),
                 "pair_spread_zscore": (
                     (spreads[-1] - spread_mean) / spread_std
                     if spreads and spread_std
@@ -807,6 +810,38 @@ class Bot:
         denominator = max(1, len(ranked) - 1)
         for index, symbol in enumerate(ranked):
             raw[symbol]["relative_strength_percentile"] = index / denominator
+
+        one_hour_returns = [
+            float(context["absolute_return_1h"]) for context in raw.values()
+        ]
+        positive_breadth = (
+            sum(value > 0 for value in one_hour_returns) / len(one_hour_returns)
+            if one_hour_returns
+            else 0.5
+        )
+        median_return = (
+            statistics.median(one_hour_returns) if one_hour_returns else 0.0
+        )
+        btc_return_1h_pct = 100 * self._return(btc_hour, 1)
+        if (
+            positive_breadth >= 0.62
+            and median_return > 0
+            and btc_return_1h_pct >= -0.15
+        ):
+            market_regime = "bullish"
+        elif (
+            positive_breadth <= 0.38
+            and median_return < 0
+            and btc_return_1h_pct <= 0.15
+        ):
+            market_regime = "bearish"
+        else:
+            market_regime = "neutral"
+        for context in raw.values():
+            context["market_regime"] = market_regime
+            context["market_breadth_positive_1h"] = positive_breadth
+            context["market_median_return_1h_pct"] = 100 * median_return
+            context["btc_return_1h_pct"] = btc_return_1h_pct
 
         # Binance exposes the complete premium-index/funding table in one
         # request. Prefer that over one request per market so the 30-second
@@ -857,46 +892,6 @@ class Bot:
                     symbol,
                 )
 
-        def select_one(flag: str, score_key: str, eligible) -> None:
-            candidates = [
-                symbol for symbol, context in raw.items() if eligible(context)
-            ]
-            if not candidates:
-                return
-            selected = max(
-                candidates,
-                key=lambda symbol: abs(float(raw[symbol].get(score_key) or 0.0)),
-            )
-            raw[selected][flag] = True
-
-        select_one(
-            "cross_sectional_selected",
-            "relative_momentum_score",
-            lambda row: float(row["relative_strength_percentile"]) <= 0.15
-            or float(row["relative_strength_percentile"]) >= 0.85,
-        )
-        select_one(
-            "pair_reversion_selected",
-            "pair_spread_zscore",
-            lambda row: float(row["pair_correlation"]) >= 0.70,
-        )
-        select_one(
-            "funding_basis_selected",
-            "funding_rate",
-            lambda row: row.get("funding_rate") is not None
-            and row.get("basis_pct") is not None,
-        )
-        select_one(
-            "btc_lead_lag_selected",
-            "btc_coin_lag_gap_pct",
-            lambda row: float(row["pair_correlation"]) >= 0.55,
-        )
-        select_one(
-            "orderflow_selected",
-            "open_interest_change_pct_1h",
-            lambda row: row.get("open_interest_change_pct_1h") is not None
-            and row.get("taker_buy_sell_ratio_1h") is not None,
-        )
         return raw
 
     def publish_tournament_summary(self, summary: dict) -> None:
@@ -1224,37 +1219,101 @@ class Bot:
             reference_c15 = None
             btc_1h = self.candles("1h", "BTC/USDT:USDT")
             btc_5m = self.candles("5m", "BTC/USDT:USDT")
+
+            # Fetch each market once. Previously these candles were fetched
+            # once for context building and a second time for execution,
+            # stretching a nominal 30-second cycle and comparing candidates
+            # observed at different moments.
+            market_rows: dict[str, dict] = {}
+            for symbol in targets:
+                c5 = self.candles("5m", symbol)
+                c1h = self.candles("1h", symbol)
+                ticker = self.client.fetch_ticker(symbol)
+                self.latest_tickers[symbol] = ticker
+                market_rows[symbol] = {
+                    "c5": c5,
+                    "c1h": c1h,
+                    "ticker": ticker,
+                }
+                if symbol == reference_symbol:
+                    reference_c15 = c5
+                    self.observe_market_context(symbol, int(c5[-1][0]))
+
             strategy_contexts = self.build_strategy_contexts(
                 targets,
                 btc_1h,
                 btc_5m,
+                candle_cache=market_rows,
             )
+
+            # Phase 1: supervise every open position before considering a new
+            # entry. This keeps exits independent from candidate ranking.
             for symbol in targets:
-                # The tournament's primary candle argument now contains
-                # closed 5m candles. The parameter name remains c15 for state
-                # compatibility with the existing tournament interface.
-                c15 = self.candles("5m", symbol)
-                # The selective trend strategy uses the coin's 1h regime and
-                # BTC's 1h market regime; the first three still decide on 5m.
-                c1h = self.candles("1h", symbol)
-                c4h = btc_1h
-                ticker = self.client.fetch_ticker(symbol)
-                self.latest_tickers[symbol] = ticker
-                if symbol == reference_symbol:
-                    reference_c15 = c15
-                    self.observe_market_context(symbol, int(c15[-1][0]))
+                row = market_rows[symbol]
                 symbol_context = strategy_contexts.get(symbol)
                 with self.state_guard:
                     symbol_events, _ = self.tournament.cycle(
-                        c15,
-                        c1h,
-                        c4h,
-                        ticker,
+                        row["c5"],
+                        row["c1h"],
+                        btc_1h,
+                        row["ticker"],
                         symbol_context,
                         symbol=symbol,
-                        allow_entries=symbol in scan_batch,
+                        allow_entries=False,
                     )
                 events.extend(symbol_events)
+
+            # Phase 2: each strategy evaluates every scanned symbol without
+            # mutating state, ranks valid candidates, and opens only the best
+            # one. A rejected risk/reward plan falls through to the next-best
+            # candidate instead of wasting the entire candle.
+            for strategy_name in self.tournament.state["strategies"]:
+                candidates = []
+                for symbol in scan_batch:
+                    row = market_rows[symbol]
+                    with self.state_guard:
+                        candidate = self.tournament.preview_entry_candidate(
+                            strategy_name,
+                            row["c5"],
+                            row["c1h"],
+                            btc_1h,
+                            strategy_contexts.get(symbol),
+                            symbol=symbol,
+                        )
+                    if candidate:
+                        candidates.append(candidate)
+                candidates.sort(
+                    key=lambda candidate: float(candidate["score"]),
+                    reverse=True,
+                )
+                for candidate in candidates:
+                    symbol = candidate["symbol"]
+                    row = market_rows[symbol]
+                    logger.info(
+                        "FUTURES BEST CANDIDATE strategy=%s symbol=%s side=%s score=%.4f",
+                        strategy_name,
+                        symbol,
+                        candidate["side"],
+                        candidate["score"],
+                    )
+                    with self.state_guard:
+                        candidate_events, _ = self.tournament.cycle(
+                            row["c5"],
+                            row["c1h"],
+                            btc_1h,
+                            row["ticker"],
+                            strategy_contexts.get(symbol),
+                            symbol=symbol,
+                            allow_entries=True,
+                            entry_strategy=strategy_name,
+                        )
+                    events.extend(candidate_events)
+                    if any(
+                        event.get("event") == "open"
+                        and event.get("strategy") == strategy_name
+                        for event in candidate_events
+                    ):
+                        break
 
             with self.state_guard:
                 self.tournament.save()
@@ -1273,6 +1332,20 @@ class Bot:
                 }
                 if self.latest_context
                 else None
+            )
+            regime_context = strategy_contexts.get(reference_symbol) or {}
+            context = context or {}
+            context.update(
+                {
+                    "market_regime": regime_context.get("market_regime"),
+                    "market_breadth_positive_1h": regime_context.get(
+                        "market_breadth_positive_1h"
+                    ),
+                    "market_median_return_1h_pct": regime_context.get(
+                        "market_median_return_1h_pct"
+                    ),
+                    "btc_return_1h_pct": regime_context.get("btc_return_1h_pct"),
+                }
             )
             self.publish_signal_observations(
                 self.observation_rows_from_events(events)

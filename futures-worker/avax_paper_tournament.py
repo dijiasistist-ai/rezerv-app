@@ -709,8 +709,6 @@ def signal_for(
         percentile = float(context.get("relative_strength_percentile") or 0.5)
         momentum = float(context.get("relative_momentum_score") or 0.0)
         if (
-            context.get("cross_sectional_selected") is True
-            and
             percentile >= 0.85
             and momentum >= 0.012
             and f["ema21_5m"] > f["ema55_5m"]
@@ -718,8 +716,6 @@ def signal_for(
         ):
             return "long", "top-%15 göreceli momentum + yerel trend teyidi", f["atr"] / current
         if (
-            context.get("cross_sectional_selected") is True
-            and
             percentile <= 0.15
             and momentum <= -0.012
             and f["ema21_5m"] < f["ema55_5m"]
@@ -732,15 +728,13 @@ def signal_for(
         spread_zscore = float(context.get("pair_spread_zscore") or 0.0)
         pair_correlation = float(context.get("pair_correlation") or 0.0)
         if (
-            context.get("pair_reversion_selected") is True
-            and pair_correlation >= 0.70
+            pair_correlation >= 0.70
             and spread_zscore <= -2.0
             and f["rsi"] <= 48
         ):
             return "long", "BTC-relative spread -2σ altı · yakınsama beklentisi", f["atr"] / current
         if (
-            context.get("pair_reversion_selected") is True
-            and pair_correlation >= 0.70
+            pair_correlation >= 0.70
             and spread_zscore >= 2.0
             and f["rsi"] >= 52
         ):
@@ -755,15 +749,13 @@ def signal_for(
         funding = float(funding)
         basis_pct = float(basis_pct)
         if (
-            context.get("funding_basis_selected") is True
-            and funding >= 0.0003
+            funding >= 0.0003
             and basis_pct >= 0.03
             and current < current_open
         ):
             return "short", "yüksek pozitif funding + pozitif perpetual basis", f["atr"] / current
         if (
-            context.get("funding_basis_selected") is True
-            and funding <= -0.0003
+            funding <= -0.0003
             and basis_pct <= -0.03
             and current > current_open
         ):
@@ -775,15 +767,13 @@ def signal_for(
         lag_gap = float(context.get("btc_coin_lag_gap_pct") or 0.0)
         correlation = float(context.get("pair_correlation") or 0.0)
         if (
-            context.get("btc_lead_lag_selected") is True
-            and correlation >= 0.55
+            correlation >= 0.55
             and btc_return >= 0.35
             and lag_gap >= 0.20
         ):
             return "long", "BTC yukarı impulsu · altcoin henüz fiyatlamadı", f["atr"] / current
         if (
-            context.get("btc_lead_lag_selected") is True
-            and correlation >= 0.55
+            correlation >= 0.55
             and btc_return <= -0.35
             and lag_gap <= -0.20
         ):
@@ -798,8 +788,6 @@ def signal_for(
         oi_change = float(oi_change)
         taker_ratio = float(taker_ratio)
         if (
-            context.get("orderflow_selected") is True
-            and
             oi_change >= 0.8
             and taker_ratio >= 1.25
             and f["ema21_5m"] > f["ema55_5m"]
@@ -807,8 +795,6 @@ def signal_for(
         ):
             return "long", "artan açık pozisyon + agresif alıcı akışı", f["atr"] / current
         if (
-            context.get("orderflow_selected") is True
-            and
             oi_change >= 0.8
             and taker_ratio <= 0.80
             and f["ema21_5m"] < f["ema55_5m"]
@@ -959,6 +945,72 @@ def brackets(
     return stop, entry * (1 - target_fraction)
 
 
+REGIME_DIRECTIONAL_STRATEGIES = {
+    "trend_breakout",
+    "pullback_reclaim",
+    "liquidity_sweep",
+    "selective_trend_pullback",
+    "cross_sectional_momentum",
+    "funding_basis",
+    "btc_lead_lag",
+    "orderflow_open_interest",
+}
+
+
+def market_regime_allows(
+    strategy: str, side: str, context: dict | None
+) -> bool:
+    """Prevent directional entries from fighting a broad market regime."""
+    if strategy not in REGIME_DIRECTIONAL_STRATEGIES or not context:
+        return True
+    market_regime = str(context.get("market_regime") or "neutral")
+    return not (
+        (market_regime == "bullish" and side == "short")
+        or (market_regime == "bearish" and side == "long")
+    )
+
+
+def entry_candidate_score(
+    strategy: str,
+    side: str,
+    c5: Sequence[Candle],
+    c1h: Sequence[Candle],
+    btc1h: Sequence[Candle],
+    context: dict | None,
+) -> float:
+    """Rank valid candidates after all symbols have passed their entry rules."""
+    features = market_features(c5, c1h, btc1h)
+    closes = features["close15"]
+    current = closes[-1]
+    recent_move = abs(current / closes[-4] - 1) if len(closes) >= 4 else 0.0
+    trend_gap = abs(features["ema21_5m"] / features["ema55_5m"] - 1)
+    score = (
+        recent_move * 100
+        + trend_gap * 100
+        + max(0.0, features["volume_ratio"] - 0.75) * 0.35
+        + max(0.0, features["adx"] - 15) * 0.01
+    )
+    context = context or {}
+    if strategy == "cross_sectional_momentum":
+        score += 100 * abs(float(context.get("relative_momentum_score") or 0.0))
+    elif strategy == "dynamic_pair_reversion":
+        score += abs(float(context.get("pair_spread_zscore") or 0.0))
+    elif strategy == "funding_basis":
+        score += 10_000 * abs(float(context.get("funding_rate") or 0.0))
+        score += abs(float(context.get("basis_pct") or 0.0))
+    elif strategy == "btc_lead_lag":
+        score += abs(float(context.get("btc_coin_lag_gap_pct") or 0.0))
+    elif strategy == "orderflow_open_interest":
+        score += max(0.0, float(context.get("open_interest_change_pct_1h") or 0.0))
+        score += abs(float(context.get("taker_buy_sell_ratio_1h") or 1.0) - 1.0)
+    if (
+        (context.get("market_regime") == "bullish" and side == "long")
+        or (context.get("market_regime") == "bearish" and side == "short")
+    ):
+        score += 1.0
+    return score
+
+
 def context_exit_reason(
     strategy: str,
     position: dict,
@@ -968,6 +1020,8 @@ def context_exit_reason(
     if not context:
         return None
     side = position.get("side")
+    if not market_regime_allows(strategy, side, context):
+        return "market_regime_reversal"
     if strategy == "cross_sectional_momentum":
         percentile = context.get("relative_strength_percentile")
         if percentile is not None and (
@@ -1590,6 +1644,58 @@ class PaperTournament:
             "strategies": rows,
         }
 
+    def preview_entry_candidate(
+        self,
+        name: str,
+        c5: Sequence[Candle],
+        c1h: Sequence[Candle],
+        btc1h: Sequence[Candle],
+        context: dict | None,
+        *,
+        symbol: str,
+    ) -> dict | None:
+        """Evaluate one symbol without mutating state so all candidates can rank."""
+        strategy = self.state["strategies"][name]
+        now = int(time.time() * 1000)
+        if (
+            strategy.get("position") is not None
+            or now < int(strategy.get("next_entry_at") or 0)
+            or self._risk_reason(strategy, now) is not None
+        ):
+            return None
+        profile = STRATEGY_PROFILES[name]
+        strategy_candles = (
+            closed_15m_candles(c5)
+            if name == "bollinger_reversion"
+            or profile.get("decision_source") == "15m"
+            else c1h
+            if profile.get("decision_source") == "1h"
+            else c5
+        )
+        decision_candle = int(strategy_candles[-1][0])
+        if (
+            strategy.get("last_signal_candles", {}).get(symbol)
+            == decision_candle
+        ):
+            return None
+        found = signal_for(name, c5, c1h, btc1h, context)
+        if not found:
+            return None
+        side, reason, atr_fraction = found
+        if not market_regime_allows(name, side, context):
+            return None
+        return {
+            "strategy": name,
+            "symbol": symbol,
+            "side": side,
+            "reason": reason,
+            "atr_fraction": atr_fraction,
+            "decision_candle": decision_candle,
+            "score": entry_candidate_score(
+                name, side, c5, c1h, btc1h, context
+            ),
+        }
+
     def cycle(
         self,
         c15: Sequence[Candle],
@@ -1600,6 +1706,7 @@ class PaperTournament:
         *,
         symbol: str = "AVAX/USDT:USDT",
         allow_entries: bool = True,
+        entry_strategy: str | None = None,
     ) -> tuple[list[dict], dict | None]:
         now = int(time.time() * 1000)
         if self.state.get("continuous", True):
@@ -1739,17 +1846,19 @@ class PaperTournament:
                 not experiment_over
                 and not closed_this_cycle
                 and allow_entries
+                and (entry_strategy is None or name == entry_strategy)
                 and strategy["position"] is None
                 and self._risk_reason(strategy, now) is None
                 and now >= int(strategy.get("next_entry_at") or 0)
                 and strategy.get("last_signal_candles", {}).get(symbol) != decision_candle
             ):
-                strategy.setdefault("last_signal_candles", {})[symbol] = decision_candle
                 found = (
                     demo_signal_for(name, c15, c1h, c4h)
                     if demo_started_this_cycle
                     else signal_for(name, c15, c1h, c4h, context)
                 )
+                if found and not market_regime_allows(name, found[0], context):
+                    found = None
                 if found:
                     side, signal_reason, _ = found
                     observation = signal_observation(
@@ -1784,6 +1893,9 @@ class PaperTournament:
                         None if opened else self.last_entry_rejection or "entry_not_opened"
                     )
                     if opened:
+                        strategy.setdefault("last_signal_candles", {})[
+                            symbol
+                        ] = decision_candle
                         observation["entry_plan"] = {
                             "entry": opened["entry"],
                             "stop": opened["stop"],
