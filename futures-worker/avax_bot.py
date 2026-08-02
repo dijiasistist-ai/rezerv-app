@@ -651,6 +651,30 @@ class Bot:
         self.market_context_cache[symbol] = (now, context)
         return context
 
+    def orderflow_context(self, symbol: str) -> dict:
+        """Fetch only the two datasets required by the order-flow strategy."""
+        now = int(time.time() * 1000)
+        cached = self.market_context_cache.get(symbol)
+        if cached and now - cached[0] < 300_000:
+            return self.context_payload(cached[1]) or {}
+        market_id = str(self.client.market(symbol)["id"])
+        params = {"symbol": market_id, "period": "15m", "limit": 5}
+        oi_rows = self.client.fapiDataGetOpenInterestHist(params)
+        taker_rows = self.client.fapiDataGetTakerlongshortRatio(params)
+        first_oi = float(oi_rows[0]["sumOpenInterestValue"])
+        last_oi = float(oi_rows[-1]["sumOpenInterestValue"])
+        buy_volume = sum(float(row["buyVol"]) for row in taker_rows[-4:])
+        sell_volume = sum(float(row["sellVol"]) for row in taker_rows[-4:])
+        return {
+            "timestamp": int(oi_rows[-1]["timestamp"]),
+            "open_interest_change_pct_1h": (
+                100 * (last_oi / first_oi - 1) if first_oi else 0.0
+            ),
+            "taker_buy_sell_ratio_1h": (
+                buy_volume / sell_volume if sell_volume else 99.0
+            ),
+        }
+
     def observe_market_context(self, symbol: str, candle_timestamp: int) -> None:
         if symbol == self.context_symbol and candle_timestamp == self.last_context_timestamp:
             return
@@ -872,17 +896,24 @@ class Bot:
         # OI and taker-flow history need symbol-level calls. Query only the
         # price-prefiltered tails/impulses; the order-flow strategy would
         # reject every other symbol before using these fields anyway.
-        flow_candidates = [
+        flow_prefilter = [
             symbol
             for symbol, context in raw.items()
             if float(context["relative_strength_percentile"]) <= 0.20
             or float(context["relative_strength_percentile"]) >= 0.80
             or abs(float(context["absolute_return_1h"])) >= 0.004
         ]
+        flow_candidates = sorted(
+            flow_prefilter,
+            key=lambda symbol: (
+                abs(float(raw[symbol]["relative_strength_percentile"]) - 0.5)
+                + 25 * abs(float(raw[symbol]["absolute_return_1h"]))
+            ),
+            reverse=True,
+        )[:10]
         for symbol in flow_candidates:
             try:
-                flow = self.market_context(symbol)
-                flow_payload = self.context_payload(flow) or {}
+                flow_payload = self.orderflow_context(symbol)
                 for key, value in flow_payload.items():
                     if value is not None or raw[symbol].get(key) is None:
                         raw[symbol][key] = value
@@ -1225,10 +1256,17 @@ class Bot:
             # stretching a nominal 30-second cycle and comparing candidates
             # observed at different moments.
             market_rows: dict[str, dict] = {}
+            try:
+                batch_tickers = self.client.fetch_tickers(targets)
+            except Exception:
+                logger.exception("FUTURES batch ticker fetch unavailable")
+                batch_tickers = {}
             for symbol in targets:
                 c5 = self.candles("5m", symbol)
                 c1h = self.candles("1h", symbol)
-                ticker = self.client.fetch_ticker(symbol)
+                ticker = batch_tickers.get(symbol)
+                if not ticker:
+                    ticker = self.client.fetch_ticker(symbol)
                 self.latest_tickers[symbol] = ticker
                 market_rows[symbol] = {
                     "c5": c5,
