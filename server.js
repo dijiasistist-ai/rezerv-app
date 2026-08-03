@@ -1493,7 +1493,7 @@ function validAvaxPaperState(value) {
       Array.isArray(value.trades)
     );
   }
-  if (![4, 5, 6, 7, 8, 9, 10, 11].includes(Number(value.version))) return false;
+  if (![4, 5, 6, 7, 8, 9, 10, 11, 12].includes(Number(value.version))) return false;
   if (!Number.isFinite(Number(value.started_at)) || !Number.isFinite(Number(value.ends_at))) {
     return false;
   }
