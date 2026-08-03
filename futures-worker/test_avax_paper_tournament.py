@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
+import random
 from pathlib import Path
 from urllib.error import HTTPError
 from unittest.mock import patch
@@ -18,6 +20,8 @@ from avax_paper_tournament import (
     closed_15m_candles,
     context_exit_reason,
     entry_candidate_score,
+    ema,
+    master_trader_signal,
     market_regime_allows,
     signal_for,
     stop_model_for,
@@ -46,6 +50,82 @@ class MemoryStateStore:
 
 
 class TournamentTest(unittest.TestCase):
+    def test_master_trader_accepts_confirmed_bullish_retest(self) -> None:
+        def trending_candles(
+            count: int,
+            step_ms: int,
+            seed: int,
+            drift: float,
+            noise: float,
+        ) -> list[list[float]]:
+            generator = random.Random(seed)
+            price = 20.0
+            result = []
+            for index in range(count):
+                opened = price
+                closed = opened * (
+                    1 + drift + generator.uniform(-noise, noise)
+                )
+                wick = noise * generator.uniform(0.3, 1.2)
+                result.append(
+                    [
+                        index * step_ms,
+                        opened,
+                        max(opened, closed) * (1 + wick),
+                        min(opened, closed) * (1 - wick),
+                        closed,
+                        1000 * generator.uniform(0.8, 1.2),
+                    ]
+                )
+                price = closed
+            return result
+
+        c5 = trending_candles(261, 300_000, 0, 0.0002, 0.0015)
+        c1h = trending_candles(100, 3_600_000, 50_000, 0.001, 0.006)
+        retest_level = ema([row[4] for row in c5[:-2]], 9)[-1]
+        prior_open = c5[-3][4]
+        prior_close = retest_level * 0.998
+        c5[-2] = [
+            c5[-2][0],
+            prior_open,
+            max(prior_open, prior_close) * 1.0005,
+            min(prior_open, prior_close) * 0.9995,
+            prior_close,
+            900,
+        ]
+        current_open = prior_close * 0.9995
+        current_close = max(retest_level * 1.002, c5[-2][2] * 1.001)
+        c5[-1] = [
+            c5[-1][0],
+            current_open,
+            current_close * 1.0005,
+            current_open * 0.9995,
+            current_close,
+            1500,
+        ]
+
+        signal = master_trader_signal(
+            c5,
+            c1h,
+            {
+                "market_regime": "bullish",
+                "relative_strength_percentile": 0.8,
+            },
+        )
+
+        self.assertIsNotNone(signal)
+        self.assertEqual("long", signal[0])
+        self.assertIsNone(
+            master_trader_signal(
+                c5,
+                c1h,
+                {
+                    "market_regime": "neutral",
+                    "relative_strength_percentile": 0.8,
+                },
+            )
+        )
+
     @staticmethod
     def completed_trade(net_pnl: float, reason: str) -> dict:
         return {
@@ -414,7 +494,22 @@ class TournamentTest(unittest.TestCase):
             {event["observation_id"] for event in candidates},
             {event["observation_id"] for event in opened},
         )
-        self.assertTrue(all(event["initial_margin"] == 1200 for event in opened))
+        legacy_opened = [
+            event for event in opened if event["strategy"] != "master_trader"
+        ]
+        self.assertTrue(
+            all(event["initial_margin"] == 1200 for event in legacy_opened)
+        )
+        master = next(
+            event for event in opened if event["strategy"] == "master_trader"
+        )
+        self.assertLessEqual(master["initial_margin"], 1200)
+        estimated_stop_loss = (
+            abs(master["entry"] - master["stop"]) * master["quantity"]
+            + master["entry_fee"]
+            + master["stop"] * master["quantity"] * tournament.taker_fee
+        )
+        self.assertLessEqual(estimated_stop_loss, 12.01)
 
     def test_daily_loss_does_not_block_observation_entries(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -557,7 +652,16 @@ class TournamentTest(unittest.TestCase):
                 name: tournament.state["strategies"][name]["position"]
                 for name in STRATEGIES
             }
-            self.assertEqual(1, len({position["take"] for position in positions.values()}))
+            legacy_takes = {
+                position["take"]
+                for name, position in positions.items()
+                if name != "master_trader"
+            }
+            self.assertEqual(1, len(legacy_takes))
+            master = positions["master_trader"]
+            master_risk = abs(master["entry"] - master["stop"])
+            master_reward = abs(master["take"] - master["entry"])
+            self.assertAlmostEqual(1.5, master_reward / master_risk)
             self.assertGreaterEqual(
                 len({position["stop"] for position in positions.values()}),
                 2,
@@ -591,11 +695,25 @@ class TournamentTest(unittest.TestCase):
             self.assertTrue(
                 all(
                     position["take_profit_roe"] == 0.03
-                    for position in positions.values()
+                    for name, position in positions.items()
+                    if name != "master_trader"
                 )
             )
+            self.assertAlmostEqual(
+                1.5,
+                positions["master_trader"]["take_profit_roe"]
+                / (
+                    abs(
+                        positions["master_trader"]["stop"]
+                        / positions["master_trader"]["entry"]
+                        - 1
+                    )
+                    * tournament.leverage
+                ),
+            )
 
-            # Every strategy now has the same 3% ROE target.
+            # Legacy strategies retain the common 3% ROE target; the master
+            # strategy exits at its independently calculated 1.5R target.
             events, _ = tournament.cycle(
                 c15, c1h, c4h, {"bid": 20.42, "ask": 20.43, "last": 20.425}, None
             )
@@ -1006,6 +1124,27 @@ class TournamentTest(unittest.TestCase):
         for name in STRATEGIES[5:]:
             self.assertEqual(6000, restored.state["strategies"][name]["balance"])
 
+    def test_version_eleven_state_adds_master_account_without_reset(self) -> None:
+        store = MemoryStateStore()
+        original = PaperTournament(
+            "/tmp/not-used.json",
+            initial_usdt=6000,
+            state_store=store,
+        )
+        original.state["version"] = 11
+        original.state["strategies"].pop("master_trader")
+        original.state["strategies"]["trend_breakout"]["balance"] = 5988.0
+        original.save()
+
+        restored = PaperTournament(
+            "/tmp/not-used.json",
+            initial_usdt=6000,
+            state_store=store,
+        )
+
+        self.assertEqual(5988.0, restored.state["strategies"]["trend_breakout"]["balance"])
+        self.assertEqual(6000, restored.state["strategies"]["master_trader"]["balance"])
+
     def test_new_research_signals_require_their_distinct_context(self) -> None:
         c5 = candles(100, 300_000)
         c1h = candles(260, 3_600_000)
@@ -1073,6 +1212,18 @@ class TournamentTest(unittest.TestCase):
             {"market_regime": "bullish"},
         )
         self.assertEqual("market_regime_reversal", reason)
+
+    def test_master_waits_for_confirmed_market_regime_reversal(self) -> None:
+        position = {"side": "short"}
+        context = {"market_regime": "bullish"}
+
+        self.assertIsNone(context_exit_reason("master_trader", position, context))
+        position["regime_mismatch_started_at"] = int(time.time() * 1000) - 120_001
+
+        self.assertEqual(
+            "confirmed_market_regime_reversal",
+            context_exit_reason("master_trader", position, context),
+        )
 
     def test_candidate_score_prefers_stronger_relative_momentum(self) -> None:
         c5 = candles(100, 300_000)

@@ -1,4 +1,4 @@
-"""Five-strategy futures paper-trading tournament using live Binance prices."""
+"""Multi-strategy futures paper-trading tournament using live Binance prices."""
 
 from __future__ import annotations
 
@@ -25,8 +25,9 @@ STRATEGIES = (
     "funding_basis",
     "btc_lead_lag",
     "orderflow_open_interest",
+    "master_trader",
 )
-STATE_VERSION = 11
+STATE_VERSION = 12
 PROFIT_HOLD_THRESHOLD_USDT = 15.0
 PROFIT_LOCK_FLOOR_USDT = 10.0
 PROFIT_HOLD_SECONDS = 10 * 60
@@ -252,6 +253,22 @@ STRATEGY_PROFILES = {
         "maximum_stop_fraction": 0.018,
         "minimum_reward_risk": 1.0,
     },
+    "master_trader": {
+        "decision_timeframe": "1h rejim + 15m yapı + 5m retest",
+        "decision_source": "15m",
+        "take_profit_roe": 0.0,
+        "respect_minimum_tp": False,
+        "cooldown_ms": 30 * 60_000,
+        "exit_model": "1,5R hedef, yapısal stop ve teyitli rejim dönüşü",
+        "minimum_stop_fraction": 0.004,
+        "minimum_stop_roe": 0.015,
+        "atr_stop_multiplier": 1.4,
+        "maximum_stop_fraction": 0.015,
+        "minimum_reward_risk": 1.45,
+        "target_r_multiple": 1.5,
+        "risk_budget_fraction": 0.002,
+        "maximum_margin_fraction": 0.20,
+    },
 }
 
 ADAPTIVE_DEFAULTS = {
@@ -456,6 +473,126 @@ def regime(features: dict) -> tuple[bool, bool]:
     return long_regime, short_regime
 
 
+def master_trader_signal(
+    c5: Sequence[Candle],
+    c1h: Sequence[Candle],
+    context: dict | None,
+) -> tuple[str, str, float] | None:
+    """High-selectivity trend/retest setup assembled from confirming evidence."""
+    context = context or {}
+    market_regime = str(context.get("market_regime") or "neutral")
+    if market_regime not in {"bullish", "bearish"} or len(c1h) < 60:
+        return None
+    c15 = closed_15m_candles(c5)
+    if len(c15) < 55:
+        return None
+
+    f = market_features(c5, c1h, c1h)
+    closes_5m = [float(candle[4]) for candle in c5]
+    closes_15m = [float(candle[4]) for candle in c15]
+    closes_1h = [float(candle[4]) for candle in c1h]
+    ema20_15m = ema(closes_15m, 20)
+    ema50_15m = ema(closes_15m, 50)
+    ema20_1h = ema(closes_1h, 20)
+    ema50_1h = ema(closes_1h, 50)
+    current = closes_5m[-1]
+    current_open = float(c5[-1][1])
+    extension_atr = abs(current - f["ema21_5m"]) / max(f["atr"], 1e-12)
+    adx_15m = adx(c15)
+    percentile = float(context.get("relative_strength_percentile") or 0.5)
+    funding = float(context.get("funding_rate") or 0.0)
+    basis = float(context.get("basis_pct") or 0.0)
+    oi_change = context.get("open_interest_change_pct_1h")
+    taker_ratio = context.get("taker_buy_sell_ratio_1h")
+    has_flow = oi_change is not None and taker_ratio is not None
+    oi_change = float(oi_change or 0.0)
+    taker_ratio = float(taker_ratio or 1.0)
+
+    touched_long = any(
+        float(c15[index][3]) <= ema20_15m[index] * 1.002
+        and float(c15[index][4]) >= ema20_15m[index] * 0.998
+        for index in range(len(c15) - 4, len(c15))
+    )
+    touched_short = any(
+        float(c15[index][2]) >= ema20_15m[index] * 0.998
+        and float(c15[index][4]) <= ema20_15m[index] * 1.002
+        for index in range(len(c15) - 4, len(c15))
+    )
+    long_structure = (
+        closes_1h[-1] > ema20_1h[-1] > ema50_1h[-1]
+        and ema20_1h[-1] > ema20_1h[-3]
+        and closes_15m[-1] > ema20_15m[-1] > ema50_15m[-1]
+        and ema20_15m[-1] > ema20_15m[-3]
+    )
+    short_structure = (
+        closes_1h[-1] < ema20_1h[-1] < ema50_1h[-1]
+        and ema20_1h[-1] < ema20_1h[-3]
+        and closes_15m[-1] < ema20_15m[-1] < ema50_15m[-1]
+        and ema20_15m[-1] < ema20_15m[-3]
+    )
+    long_trigger = (
+        current > f["ema9_15"][-1]
+        and closes_5m[-2] <= f["ema9_15"][-2]
+        and current > current_open
+        and current > float(c5[-2][2])
+    )
+    short_trigger = (
+        current < f["ema9_15"][-1]
+        and closes_5m[-2] >= f["ema9_15"][-2]
+        and current < current_open
+        and current < float(c5[-2][3])
+    )
+    common_quality = (
+        16 <= adx_15m <= 48
+        and f["volume_ratio"] >= 0.85
+        and extension_atr <= 0.80
+    )
+    long_flow = (
+        has_flow and oi_change >= 0.20 and taker_ratio >= 1.05
+    ) or (not has_flow and f["volume_ratio"] >= 1.15 and percentile >= 0.65)
+    short_flow = (
+        has_flow and oi_change >= 0.20 and taker_ratio <= 0.95
+    ) or (not has_flow and f["volume_ratio"] >= 1.15 and percentile <= 0.35)
+    crowded_long = funding >= 0.0005 and basis >= 0.05
+    crowded_short = funding <= -0.0005 and basis <= -0.05
+
+    if (
+        market_regime == "bullish"
+        and long_structure
+        and touched_long
+        and long_trigger
+        and common_quality
+        and long_flow
+        and not crowded_long
+        and percentile >= 0.55
+        and 48 <= f["rsi"] <= 68
+    ):
+        flow_label = "OI+taker" if has_flow else "hacim+göreceli güç"
+        return (
+            "long",
+            f"usta trend retest · 1h/15m long · {flow_label} teyidi",
+            f["atr"] / current,
+        )
+    if (
+        market_regime == "bearish"
+        and short_structure
+        and touched_short
+        and short_trigger
+        and common_quality
+        and short_flow
+        and not crowded_short
+        and percentile <= 0.45
+        and 32 <= f["rsi"] <= 52
+    ):
+        flow_label = "OI+taker" if has_flow else "hacim+göreceli güç"
+        return (
+            "short",
+            f"usta trend retest · 1h/15m short · {flow_label} teyidi",
+            f["atr"] / current,
+        )
+    return None
+
+
 def signal_for(
     strategy: str,
     c15: Sequence[Candle],
@@ -471,6 +608,9 @@ def signal_for(
     current_open = float(c15[-1][1])
     prior_high = max(float(c[2]) for c in c15[-13:-1])
     prior_low = min(float(c[3]) for c in c15[-13:-1])
+
+    if strategy == "master_trader":
+        return master_trader_signal(c15, c1h, context)
 
     if strategy == "trend_breakout":
         prior_high_5m = max(float(c[2]) for c in c15[-4:-1])
@@ -833,6 +973,7 @@ def demo_signal_for(
         "funding_basis",
         "btc_lead_lag",
         "orderflow_open_interest",
+        "master_trader",
     }:
         side = "long" if current >= f["ema21_15"][-1] else "short"
         return side, "5 dk demo · yeni strateji veri hattı", atr_fraction
@@ -889,7 +1030,7 @@ def brackets(
     profile = STRATEGY_PROFILES[strategy]
     decision_candles = (
         closed_15m_candles(candles)
-        if strategy == "bollinger_reversion" and candles
+        if strategy in {"bollinger_reversion", "master_trader"} and candles
         else candles
     )
     if decision_candles:
@@ -914,6 +1055,14 @@ def brackets(
         )
         stop = entry * (
             1 - stop_fraction if side == "long" else 1 + stop_fraction
+        )
+    if profile.get("target_r_multiple"):
+        target_distance = abs(entry - stop) * float(
+            profile["target_r_multiple"]
+        )
+        return (
+            stop,
+            entry + target_distance if side == "long" else entry - target_distance,
         )
     target_roe = (
         max(minimum_tp_roe, profile["take_profit_roe"])
@@ -954,6 +1103,7 @@ REGIME_DIRECTIONAL_STRATEGIES = {
     "funding_basis",
     "btc_lead_lag",
     "orderflow_open_interest",
+    "master_trader",
 }
 
 
@@ -1003,6 +1153,23 @@ def entry_candidate_score(
     elif strategy == "orderflow_open_interest":
         score += max(0.0, float(context.get("open_interest_change_pct_1h") or 0.0))
         score += abs(float(context.get("taker_buy_sell_ratio_1h") or 1.0) - 1.0)
+    elif strategy == "master_trader":
+        percentile = float(context.get("relative_strength_percentile") or 0.5)
+        oi_change = max(
+            0.0, float(context.get("open_interest_change_pct_1h") or 0.0)
+        )
+        taker_ratio = float(context.get("taker_buy_sell_ratio_1h") or 1.0)
+        directional_rank = percentile if side == "long" else 1.0 - percentile
+        directional_flow = (
+            max(0.0, taker_ratio - 1.0)
+            if side == "long"
+            else max(0.0, 1.0 - taker_ratio)
+        )
+        extension = abs(current - features["ema21_5m"]) / max(
+            features["atr"], 1e-12
+        )
+        score += 2.0 * directional_rank + oi_change + directional_flow
+        score -= 0.5 * extension
     if (
         (context.get("market_regime") == "bullish" and side == "long")
         or (context.get("market_regime") == "bearish" and side == "short")
@@ -1020,7 +1187,18 @@ def context_exit_reason(
     if not context:
         return None
     side = position.get("side")
-    if not market_regime_allows(strategy, side, context):
+    if strategy == "master_trader":
+        if not market_regime_allows(strategy, side, context):
+            now = int(time.time() * 1000)
+            started_at = position.get("regime_mismatch_started_at")
+            if started_at is None:
+                position["regime_mismatch_started_at"] = now
+                return None
+            if now - int(started_at) >= 2 * 60_000:
+                return "confirmed_market_regime_reversal"
+        else:
+            position.pop("regime_mismatch_started_at", None)
+    elif not market_regime_allows(strategy, side, context):
         return "market_regime_reversal"
     if strategy == "cross_sectional_momentum":
         percentile = context.get("relative_strength_percentile")
@@ -1147,7 +1325,7 @@ class PaperTournament:
 
     def _upgrade_state(self, loaded: dict) -> dict | None:
         version = loaded.get("version")
-        if version not in {4, 5, 6, 7, 8, 9, 10, STATE_VERSION}:
+        if version not in {4, 5, 6, 7, 8, 9, 10, 11, STATE_VERSION}:
             return None
         strategies = loaded.get("strategies")
         if not isinstance(strategies, dict):
@@ -1346,10 +1524,6 @@ class PaperTournament:
         self.last_entry_rejection = None
         side, reason, atr_fraction = found
         entry = self._entry_price(side, ticker)
-        initial_margin = strategy["balance"] * self.wallet_fraction
-        notional = initial_margin * self.leverage
-        quantity = notional / entry
-        entry_fee = notional * self.taker_fee
         stop, take = brackets(
             name,
             entry,
@@ -1374,9 +1548,32 @@ class PaperTournament:
         ):
             self.last_entry_rejection = "reward_risk_below_minimum"
             return None
+        if profile.get("risk_budget_fraction") and not demo:
+            risk_budget = strategy["balance"] * float(
+                profile["risk_budget_fraction"]
+            )
+            estimated_round_trip_fee_per_unit = (
+                entry + stop
+            ) * self.taker_fee
+            risk_per_unit = risk_distance + estimated_round_trip_fee_per_unit
+            maximum_margin = strategy["balance"] * float(
+                profile.get("maximum_margin_fraction") or self.wallet_fraction
+            )
+            maximum_notional = maximum_margin * self.leverage
+            quantity = min(
+                risk_budget / max(risk_per_unit, 1e-12),
+                maximum_notional / entry,
+            )
+            notional = quantity * entry
+            initial_margin = notional / self.leverage
+        else:
+            initial_margin = strategy["balance"] * self.wallet_fraction
+            notional = initial_margin * self.leverage
+            quantity = notional / entry
+        entry_fee = notional * self.taker_fee
         decision_candles = (
             closed_15m_candles(candles)
-            if name == "bollinger_reversion"
+            if name in {"bollinger_reversion", "master_trader"}
             else candles
         )
         _, swing_low, swing_high = fibonacci_structure_stop(
@@ -1384,7 +1581,7 @@ class PaperTournament:
         )
         effective_take_profit_roe = (
             abs(take / entry - 1) * self.leverage
-            if profile.get("dynamic_take")
+            if profile.get("dynamic_take") or profile.get("target_r_multiple")
             else (
                 max(self.take_profit_roe, profile["take_profit_roe"])
                 if profile.get("respect_minimum_tp", True)
@@ -1418,6 +1615,11 @@ class PaperTournament:
             "observation_id": observation_id,
             "profit_lock_armed_at": None,
             "profit_hold_started_at": None,
+            "risk_budget_usdt": (
+                strategy["balance"] * float(profile["risk_budget_fraction"])
+                if profile.get("risk_budget_fraction")
+                else None
+            ),
         }
         return {"event": "open", "strategy": name, **strategy["position"]}
 
@@ -1583,10 +1785,15 @@ class PaperTournament:
                 "decision_timeframe": profile["decision_timeframe"],
                 "take_profit_roe_pct": (
                     round(100 * position["take_profit_roe"], 2)
-                    if position and profile.get("dynamic_take")
+                    if position
+                    and (
+                        profile.get("dynamic_take")
+                        or profile.get("target_r_multiple")
+                    )
                     else (
                         None
                         if profile.get("dynamic_take")
+                        or profile.get("target_r_multiple")
                         else round(
                             100
                             * (
@@ -1666,7 +1873,7 @@ class PaperTournament:
         profile = STRATEGY_PROFILES[name]
         strategy_candles = (
             closed_15m_candles(c5)
-            if name == "bollinger_reversion"
+            if name in {"bollinger_reversion", "master_trader"}
             or profile.get("decision_source") == "15m"
             else c1h
             if profile.get("decision_source") == "1h"
@@ -1727,7 +1934,7 @@ class PaperTournament:
             profile = STRATEGY_PROFILES[name]
             strategy_candles = (
                 closed_15m_candles(c15)
-                if name == "bollinger_reversion"
+                if name in {"bollinger_reversion", "master_trader"}
                 or profile.get("decision_source") == "15m"
                 else c1h
                 if profile.get("decision_source") == "1h"
@@ -1799,7 +2006,9 @@ class PaperTournament:
                         position["stop_model"] = expected_stop_model
                         position["stop_swing_low"] = swing_low
                         position["stop_swing_high"] = swing_high
-                    if not profile.get("dynamic_take"):
+                    if not profile.get("dynamic_take") and not profile.get(
+                        "target_r_multiple"
+                    ):
                         expected_take_roe = (
                             max(self.take_profit_roe, profile["take_profit_roe"])
                             if profile.get("respect_minimum_tp", True)
@@ -1880,7 +2089,7 @@ class PaperTournament:
                         context,
                         (
                             c15
-                            if name == "bollinger_reversion"
+                            if name in {"bollinger_reversion", "master_trader"}
                             else strategy_candles
                         ),
                         symbol=symbol,

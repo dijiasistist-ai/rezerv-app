@@ -94,6 +94,7 @@ const AVAX_PAPER_STRATEGIES = new Set([
   "funding_basis",
   "btc_lead_lag",
   "orderflow_open_interest",
+  "master_trader",
 ]);
 let avaxResetInProgress = false;
 const CALENDAR_SLOT_TIMES = [

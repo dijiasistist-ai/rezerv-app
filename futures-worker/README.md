@@ -1,6 +1,6 @@
 # Futures paper laboratory
 
-The Tyee Render worker runs five independent virtual perpetual accounts against
+The Tyee Render worker runs eleven independent virtual perpetual accounts against
 Binance's public futures prices. It also follows two Hyperliquid source wallets,
 each in its own independent 6,000 USDT paper-copy account. Live order placement
 remains disabled.
@@ -9,16 +9,18 @@ remains disabled.
 
 - Initial virtual balance: 6,000 USDT per strategy
 - Isolated leverage model: 2x
-- Initial margin per trade: 20% of that strategy's available balance
+- Initial margin per trade: 20% of that strategy's available balance, except
+  `master_trader`, which risks 0.20% of account equity at its structural stop
+  and caps margin at 20%
 - One open position per strategy
-- Take profit: 3% position ROE
+- Take profit: 3% position ROE for legacy strategies; `master_trader` uses 1.5R
 - Profit realization: after net PnL reaches 15 USDT, close when it remains at
   or above 15 USDT continuously for 10 minutes. Once armed, close on a retrace
   below 10 USDT to reduce profit giveback before the position can turn negative.
 - Stop: strategy/ATR based, at least 1.5% position ROE
 - Fee model: 0.05% taker fee on entry and exit
 - Longs enter at ask and exit/mark at bid; shorts enter at bid and exit/mark at ask
-- The five strategies scan the top 50 liquid USDT perpetual markets every 30 seconds
+- The eleven strategies scan the top 50 liquid USDT perpetual markets every 30 seconds
 - Open positions are managed by an independent real-time supervisor
 - The profit-realization rule applies only to technical paper strategies;
   Hyperliquid copy accounts continue to follow their source exits exactly.
@@ -39,6 +41,12 @@ remains disabled.
 3. `liquidity_sweep`
 4. `selective_trend_pullback`
 5. `bollinger_reversion` (15-minute signal timeframe)
+6. `cross_sectional_momentum`
+7. `dynamic_pair_reversion`
+8. `funding_basis`
+9. `btc_lead_lag`
+10. `orderflow_open_interest`
+11. `master_trader` (1-hour regime, 15-minute structure, 5-minute retest)
 
 ## Signal observation and meta-filter research
 
