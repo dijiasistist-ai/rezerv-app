@@ -1209,7 +1209,7 @@ app.use(
   }),
 );
 
-// Render deployments can occasionally start with the repository asset directory
+// A deployment can occasionally start with the repository asset directory
 // unavailable (for example when a disk mount shadows it). Never let the SPA
 // fallback return index.html for an image request: use the tracked GitHub copy
 // for missing public assets instead. Locally available/uploaded files are still
