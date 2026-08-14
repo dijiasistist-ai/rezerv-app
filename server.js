@@ -1209,6 +1209,34 @@ app.use(
   }),
 );
 
+// Render deployments can occasionally start with the repository asset directory
+// unavailable (for example when a disk mount shadows it). Never let the SPA
+// fallback return index.html for an image request: use the tracked GitHub copy
+// for missing public assets instead. Locally available/uploaded files are still
+// served by express.static above.
+app.get("/assets/*", (req, res) => {
+  const requestedAsset = String(req.params[0] || "").replace(/^\/+/, "");
+  const isSafeAssetPath =
+    requestedAsset &&
+    !requestedAsset.includes("..") &&
+    /^[a-zA-Z0-9/_@.+-]+$/.test(requestedAsset);
+
+  if (!isSafeAssetPath) {
+    res.status(404).type("text").send("Asset not found");
+    return;
+  }
+
+  const encodedAssetPath = requestedAsset
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=86400");
+  res.redirect(
+    302,
+    `https://raw.githubusercontent.com/dijiasistist-ai/rezerv-app/main/assets/${encodedAssetPath}`,
+  );
+});
+
 function sendIndex(res) {
   const filePath = path.join(__dirname, "index.html");
   setStaticHeaders(res, filePath);
