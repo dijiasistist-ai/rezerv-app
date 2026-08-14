@@ -1205,6 +1205,7 @@ function setStaticHeaders(res, filePath) {
 app.use(
   "/assets",
   express.static(path.join(__dirname, "assets"), {
+    maxAge: "1d",
     setHeaders: setStaticHeaders,
   }),
 );
@@ -4146,12 +4147,15 @@ function createAdminReport({ venueId = "all", period = "Bu ay" } = {}) {
 
 app.get("/api/bootstrap", (_req, res) => {
   const payload = getBootstrapPayload();
-  const runtimeFeaturedListings = getRuntimeVenueListingsForSearch({ city: "istanbul" }).slice(0, 8);
+  const runtimeListings = mergeListingItems(
+    getRuntimeVenueListingsForSearch({ city: "istanbul" }),
+  );
+  const runtimeFeaturedListings = runtimeListings.slice(0, 8).map(compactListingMediaForBootstrap);
   res.json({
     ...payload,
     featuredListings: HIDE_PUBLIC_VENUES ? [] : runtimeFeaturedListings,
     hotSlots: [],
-    categories: withActiveVenueCategoryCounts(payload.categories || []),
+    categories: withActiveVenueCategoryCounts(payload.categories || [], runtimeListings),
     brand: {
       name: "tyee",
       tagline: "Rezervasyon marketplace",
@@ -4451,8 +4455,7 @@ function getRuntimeVenueMapItems(origin) {
     .filter(Boolean);
 }
 
-function getRuntimeVenueListingById(id) {
-  const item = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).find((venue) => venue.id === id);
+function formatRuntimeVenueListing(item) {
   if (!item) return null;
   const listingPrice = item.price || Number(String(item.priceLabel || "0").replace(/[^\d]/g, "")) || 1000;
   const reviewItems = getReviewsForVenue(item.id)
@@ -4504,13 +4507,18 @@ function getRuntimeVenueListingById(id) {
   };
 }
 
+function getRuntimeVenueListingById(id) {
+  const item = getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 }).find((venue) => venue.id === id);
+  return formatRuntimeVenueListing(item);
+}
+
 function getRuntimeVenueListingsForSearch({ category = "all", city = "all", query = "" } = {}) {
   const normalizedCategory = String(category || "all");
   const normalizedCity = String(city || "all");
   const queryTerms = normalizeSearchText(query).split(/\s+/).filter(Boolean);
 
   return getRuntimeVenueMapItems({ lat: 41.0351, lng: 29.0268 })
-    .map((item) => getRuntimeVenueListingById(item.id))
+    .map(formatRuntimeVenueListing)
     .filter(Boolean)
     .filter((listing) => {
       const matchesCategory = normalizedCategory === "all" || listing.category === normalizedCategory;
@@ -4537,6 +4545,16 @@ function mergeListingItems(...groups) {
     if (!byId.has(item.id)) byId.set(item.id, item);
   });
   return [...byId.values()];
+}
+
+function compactListingMediaForBootstrap(listing = {}) {
+  const gallery = Array.isArray(listing.gallery) ? listing.gallery : [];
+  return {
+    ...listing,
+    // The first gallery image is already the card cover. Sending the same
+    // base64 value again as mediaUrl can double the bootstrap payload.
+    mediaUrl: gallery.length ? "" : listing.mediaUrl || "",
+  };
 }
 
 function getRuntimeVenueServiceOptions(venueId) {
@@ -4620,7 +4638,7 @@ function isGenericServiceLabel(value = "") {
   return !normalized || normalized === "ana alan" || normalized === "ana hizmet" || normalized === "hizmet" || normalized === "hizmet alani";
 }
 
-function withActiveVenueCategoryCounts(categories = []) {
+function withActiveVenueCategoryCounts(categories = [], runtimeListings = null) {
   const formatter = new Intl.NumberFormat("tr-TR");
 
   if (HIDE_PUBLIC_VENUES) {
@@ -4634,7 +4652,9 @@ function withActiveVenueCategoryCounts(categories = []) {
   }
 
   const listings = mergeListingItems(
-    getRuntimeVenueListingsForSearch({ city: "istanbul" }),
+    Array.isArray(runtimeListings)
+      ? runtimeListings
+      : getRuntimeVenueListingsForSearch({ city: "istanbul" }),
   );
   const businessCounts = listings.reduce((totals, item) => {
     if (!item.category) return totals;

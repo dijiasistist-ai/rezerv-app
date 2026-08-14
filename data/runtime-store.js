@@ -36,6 +36,7 @@ const AVAX_OBSERVATION_MAX_BYTES = 8 * 1024 * 1024;
 const AVAX_OBSERVATION_KEEP_BYTES = 6 * 1024 * 1024;
 let avaxObservationStatsCache = null;
 let avaxObservationKeysCache = null;
+const jsonReadCache = new Map();
 const runtimeBackupState = {
   initialized: false,
   isRestoring: false,
@@ -434,11 +435,19 @@ function ensureRuntimeDir() {
 
 function readJson(filePath, fallback) {
   ensureRuntimeDir();
-  if (!fs.existsSync(filePath)) return fallback;
 
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const stats = fs.statSync(filePath);
+    const cached = jsonReadCache.get(filePath);
+    if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+      return cached.value;
+    }
+
+    const value = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    jsonReadCache.set(filePath, { mtimeMs: stats.mtimeMs, size: stats.size, value });
+    return value;
   } catch (_error) {
+    jsonReadCache.delete(filePath);
     return fallback;
   }
 }
@@ -446,6 +455,12 @@ function readJson(filePath, fallback) {
 function writeJson(filePath, value) {
   ensureRuntimeDir();
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+  try {
+    const stats = fs.statSync(filePath);
+    jsonReadCache.set(filePath, { mtimeMs: stats.mtimeMs, size: stats.size, value });
+  } catch (_error) {
+    jsonReadCache.delete(filePath);
+  }
   queueRuntimeBackup(filePath);
 }
 

@@ -5522,7 +5522,7 @@ button {
   overflow: visible;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.99) 0%, rgba(255, 255, 255, 0.95) 31%, rgba(255, 255, 255, 0.78) 47%, rgba(255, 255, 255, 0.18) 71%, rgba(255, 255, 255, 0.02) 100%),
-    url("/assets/hero-bosphorus.png") center right / cover no-repeat;
+    url("/assets/hero-bosphorus.jpg") center right / cover no-repeat;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.64),
     0 28px 72px rgba(16, 24, 40, 0.10);
@@ -6111,7 +6111,7 @@ button {
     border-radius: 22px;
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.88) 42%, rgba(255, 255, 255, 0.18) 100%),
-      url("/assets/hero-bosphorus.png") center / cover no-repeat;
+      url("/assets/hero-bosphorus.jpg") center / cover no-repeat;
   }
 
   .hero h1 {
@@ -7060,7 +7060,7 @@ button {
         rgba(255, 255, 255, 0.08) 84%,
         rgba(255, 255, 255, 0) 100%
       ),
-      url("/assets/hero-bosphorus.png") center bottom / 100% auto no-repeat,
+      url("/assets/hero-bosphorus.jpg") center bottom / 100% auto no-repeat,
       #ffffff;
   }
 
